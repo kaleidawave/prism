@@ -1,0 +1,9 @@
+node_modules
+private
+bin
+out
+.git
+.vscode
+prism.config.json
+*.tgz
+examples/temp

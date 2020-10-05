@@ -1,0 +1,12 @@
+<template>
+    <img $src="imageSrc" alt="">
+    <input type="text" placeholder="image source" @input="textChange">
+</template>
+
+<script>
+    class Example extends Component<{imageSrc: string}> {
+        textChange(ev) {
+            this.data.imageSrc = ev.target.value;
+        }
+    }
+</script>

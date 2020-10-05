@@ -1,0 +1,14 @@
+<template>
+    <h1>Component</h1>
+</template>
+
+<script>
+    class Lifecycle extends Component {
+        connected() {
+            alert("Added")
+        }
+        disconnected() {
+            alert("Removed")
+        }
+    }
+</script>

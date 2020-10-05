@@ -1,0 +1,49 @@
+<template>
+    <h2>This is page 3</h2>
+    <span>page3.data.list</span>:
+    <ul #for="const item of list">
+        <li>
+            {item}
+        </li>
+    </ul>
+    <form @submit="newItem">
+        <input type="text" placeholder="Item" name="item">
+        <input type="submit" value="Append new item">
+    </form>
+    <button @click="removeItem">Remove last item</button>
+</template>
+
+<script>
+    @Page("/page3")
+    @Default({list: ["Foo", "Bar", "Fiz"]})
+    class PageThree extends Component<{list: Array<string>}> {
+        connected() {
+            console.log("I am on page 3");
+        }
+
+        newItem(ev) {
+            ev.preventDefault();
+            const item = new FormData(ev.target).get("item");
+            this.data.list.push(item);
+            ev.target.reset()
+        }
+
+        removeItem() {
+            this.data.list.pop();
+        }
+    }
+</script>
+
+<style>
+    span {
+        background-color: #dbdbdb;
+        border-radius: 4px;
+        padding: 4px 6px;
+        font-family: consolas, "Liberation Mono", courier, monospace;
+        user-select: none;
+    }
+
+    :root {
+        font-family: sans-serif;
+    }
+</style>

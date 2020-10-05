@@ -1,0 +1,8 @@
+<template>
+    <h1>My page</h1>
+    <a href="/test/x" relative>Other page</a>
+</template>
+
+<script>
+    class PageWithLink extends Component {}
+</script>

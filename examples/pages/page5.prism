@@ -1,0 +1,24 @@
+<template>
+    <h1>Page 5</h1>
+    <ul #for="const x of list">
+        <li>
+            <h5>Title: {x.title}</h5>
+            <p>{x.description}</p>
+        </li>
+    </ul>
+</template>
+
+<script>
+    interface ListEntry {
+        title: string,
+        description: string
+    }
+
+    interface List {
+        list: Array<ListEntry>
+    }
+
+    @Page("/page5")
+    @Default({list: [1, 2, 3, 4].map(x => ({title: `Comment ${x}`, description: "Lorem Ipsum"}))})
+    class PageFive extends Component<List> {}
+</script>

@@ -1,0 +1,23 @@
+<template>
+    <h3>{username}:</h3>
+    <p>{comment}</p>
+</template>
+
+<script>
+    export interface IComment {
+        username: string,
+        comment: string
+    }
+
+    class Comment extends Component<IComment> {}
+</script>
+
+<style>
+    h3 {
+        font-weight: bold;
+    }
+
+    h3, p {
+        display: inline;
+    }
+</style>

@@ -1,0 +1,30 @@
+<template>
+    <h1 id="test">My list</h1>
+    <ul>
+        <li #for="const item of list">
+            {item}
+        </li> 
+    </ul>
+    <form @submit="newItem">
+        <input type="text" placeholder="Item" name="item">
+        <input type="submit" value="Append new item">
+    </form>
+    <button @click="removeItem">Remove last item</button>
+</template>
+
+<script>
+    @TagName("list-component-one")
+    @Default({list: ["Foo", "Bar", "Fiz"]})
+    class List extends Component<{list: Array<string>}> { 
+        newItem(ev) {
+            ev.preventDefault();
+            const item = new FormData(ev.target).get("item");
+            this.data.list.push(item);
+            ev.target.reset()
+        }
+
+        removeItem() {
+            this.data.list.pop();
+        }
+    }
+</script>

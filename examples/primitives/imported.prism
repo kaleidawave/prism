@@ -1,0 +1,16 @@
+<template>
+    <h1>Conditional Component:</h1>
+    <Conditional></Conditional>
+</template>
+
+<script>
+    import {Conditional} from "./conditional.prism";
+
+    class Imported extends Component {}
+</script>
+
+<style>
+    h1 {
+        text-decoration: underline solid blue;
+    }
+</style>

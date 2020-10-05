@@ -1,0 +1,12 @@
+<template>
+    <h1>Alert component</h1>
+    <button @click="doAlert">Show Alert</button>
+</template>
+
+<script>
+    export class AlertComponent extends Component {
+        doAlert() {
+            alert("Showing alert");
+        }
+    }
+</script>

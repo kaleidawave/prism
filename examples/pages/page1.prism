@@ -1,0 +1,9 @@
+<template>
+    <h1>Index page</h1>
+    <a href="/page2" relative>Goto page2</a>
+</template>
+
+<script>
+    @Page("/")
+    class PageOne extends Component {}
+</script>

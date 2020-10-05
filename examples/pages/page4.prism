@@ -1,0 +1,10 @@
+<template>
+    <AlertComponent> </AlertComponent>
+</template>
+
+<script>
+    import {AlertComponent} from "./component1.prism";
+
+    @Page("/page4")
+    class PageFour extends Component {}
+</script>

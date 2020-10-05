@@ -1,0 +1,28 @@
+<template>
+    <button @click="toggleText">
+        {showText ? "Click to hide text": "Click to show text"}
+    </button>
+    <p #if="showText">
+        Hello World
+        <button class="alertButton" @click="sendAlert">Press button to send alert</button>
+    </p>
+</template>
+
+<script>
+    @Default({showText: false})
+    class Conditional extends Component<{showText: boolean}> {
+        toggleText() {
+            this.data.showText = !this.data.showText;
+        }
+
+        sendAlert() {
+            alert("Hello World");
+        }
+    }
+</script>
+
+<style>
+    .alertButton {
+        background-color: red;
+    }
+</style>

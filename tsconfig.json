@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "lib": ["es2020"],
+        "target": "ES2019",
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "experimentalDecorators": true,
+        "types": [ "node", "jest" ],
+        "removeComments": true,
+        "outDir": "out",
+        "incremental": true,
+        "strictNullChecks": true,
+        "diagnostics": true,
+        "tsBuildInfoFile": "private/tsbuild.info.json",
+    },
+    "files": [
+        "src/index.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/node_modules/*",
+        "src/bundle/*",
+        "tests/*",
+        "private/*"
+    ]
+}

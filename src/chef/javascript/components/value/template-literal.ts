@@ -1,0 +1,64 @@
+import { IValue } from "./value";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IConstruct } from "../../../helpers";
+import { JSToken } from "../../javascript";
+import { Expression } from "./expression";
+
+export class TemplateLiteral implements IConstruct {
+
+    entries: Array<string | IValue> = []
+
+    constructor(
+        entries: Array<string | IValue> = [],
+        public tag: string | null = null // TODO tagging as IValue ???
+    ) {
+        this.entries = [];
+        entries.forEach(entry => this.addEntry(entry));
+    }
+
+    addEntry(...entries: Array<string | IValue>): void {
+        // Collapses strings 
+        for (const entry of entries) {
+            if (typeof entry === "string" && typeof this.entries[this.entries.length - 1] === "string") {
+                this.entries[this.entries.length - 1] += entry;
+            } else {
+                this.entries.push(entry);
+            }
+        }
+    }
+
+    render(settings: IRenderSettings = defaultRenderSettings): string {
+        let acc = `${this.tag || ""}\``;
+        for (const entry of this.entries) {
+            if (typeof entry === "string") {
+                acc += entry;
+            } else {
+                acc += "${" + entry.render(settings) + "}";
+            }
+        }
+        return acc + "`";
+    }
+
+    static fromTokens(reader: TokenReader<JSToken>): IValue {
+        let tag: string | null = null;
+        // If has tag
+        if (reader.current.type === JSToken.Identifier) {
+            tag = reader.current.value!;
+            reader.move();
+        }
+        reader.expectNext(JSToken.TemplateLiteralStart);
+        const entries: Array<string | IValue> = [];
+        while (reader.current.type !== JSToken.TemplateLiteralEnd) {
+            if (reader.current.type === JSToken.TemplateLiteralString) {
+                if (reader.current.value !== "") {
+                    entries.push(reader.current.value!);
+                }
+                reader.move();
+            } else {
+                entries.push(Expression.fromTokens(reader));
+            }
+        }
+        reader.move();
+        return new TemplateLiteral(entries, tag);
+    }
+
+}

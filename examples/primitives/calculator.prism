@@ -1,0 +1,22 @@
+<template>
+    <input type="number" placeholder="Value" @change="numberChange">
+    <p>Value: {value}</p>
+    <p>{value} * 2 = {value * 2}</p>
+</template>
+
+<script>
+    @Default({value: 4})
+    class Calculator extends Component<{value: number}> {
+        numberChange(ev: Event) {
+            this.data.value = (ev.target as HTMLInputElement).value;
+        }
+    }
+</script>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap');
+
+    &, input {
+        font-family: 'Roboto', sans-serif;
+    }
+</style>

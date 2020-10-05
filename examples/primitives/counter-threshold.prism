@@ -1,0 +1,39 @@
+<template>
+    <h1>Counter Component:</h1>
+    <button @click="increment">Increment</button>
+    <button @click="decrement">Decrement</button>
+    <p $title="counter">Counter: {counter}</p>
+    <p #if="counter > 10">
+        Counter is greater than 10
+    </p>
+    <p #if="counter === 15">
+        Counter is 15
+    </p>
+</template>
+
+<script>
+    @Default({counter: 5})
+    @TagName("counter-page")
+    class Counter extends Component<{counter: number}> {
+        increment() {
+            this.data.counter++;
+        }
+
+        decrement() {
+            this.data.counter--;
+        }
+    }
+</script>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans&display=swap');
+
+    & {
+        font-family: 'DM Sans', sans-serif;
+    }
+
+    button {
+        font-family: inherit;
+        margin: 4px;
+    }
+</style>

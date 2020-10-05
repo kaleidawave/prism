@@ -1,0 +1,19 @@
+<template>
+    <button @click="increment">Increment</button>
+    <button @click="decrement">Decrement</button>
+    <p>{counter}</p>
+</template>
+
+<script>
+    @TagName("counter-page")
+    @Default({counter: 0})
+    class Counter extends Component<{counter: number}> {
+        increment() {
+            this.data.counter++;
+        }
+
+        decrement() {
+            this.data.counter--;
+        }
+    }
+</script>

@@ -1,0 +1,16 @@
+<template>
+    <h1>{title}</h1>
+    <h1>Comments on post:</h1>
+    <p>View all {comments.length}</p>
+    <ul>
+        <li #for="const comment of comments">
+            <Comment $data="comment"></Comment>
+        </li>
+    </ul>
+</template>
+
+<script>
+    import {IComment, Comment} from "./comment.prism";
+
+    class CommentsPage extends Component<{comments: Array<IComment>>, title: string} {}
+</script>

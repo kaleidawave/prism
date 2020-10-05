@@ -1,0 +1,27 @@
+<template>
+    <!-- Classes used to differentiate between inputs -->
+    <input type="number" class="input1" @change="valueChange">
+    <input type="number" class="input2" @change="valueChange">
+    <p>{value1} * {value2} = {value1 * value2}</p>
+    <p #if="value1 * value2 > 100">Product is greater than 100</p>
+    <p #else>Product is less than 100</p>
+</template>
+
+<script>
+    interface IValues {
+        value1: number,
+        value2: number,
+    }
+
+    @Default({value1: 2, value2: 5})
+    class TwoVariables extends Component<IValues> {
+        valueChange(ev) {
+            const input: HTMLElement = ev.target;
+            if (input.classList.contains("input1")) {
+                this.data.value1 = input.value;
+            } else {
+                this.data.value2 = input.value;
+            }
+        }
+    }
+</script>

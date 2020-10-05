@@ -1,0 +1,16 @@
+<template>
+    <h1>Register:</h1>
+    <form @submit="register">
+        <input type="text" placeholder="name">
+        <input type="submit">
+    </form>
+</template>
+
+<script>
+    class IndexLoginPage extends Component {
+        async register(ev) {
+            ev.preventDefault();
+            await fetch("/register", {body: new FormData(ev.target), method: "POST"});
+        }
+    }
+</script>

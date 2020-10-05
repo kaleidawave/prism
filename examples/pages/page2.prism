@@ -1,0 +1,28 @@
+<template>
+    <h2>Counter page</h2>
+    <button @click="increment">Increment</button>
+    <button @click="decrement">Decrement</button>
+    <p>Count: {count}</p>
+    <a href="/page3" relative>Goto Page3</a>
+</template>
+
+<script>
+    import {Layout1} from "./layout1.prism"
+
+    @UseLayout(Layout1)
+    @Page("/page2")
+    @Default({count: 42})
+    class PageTwo extends Component<{count: number}> {
+        connected() {
+            console.log("I am on page 2");
+        }
+
+        increment() {
+            this.data.count++;
+        }
+
+        decrement() {
+            this.data.count--;
+        }
+    }
+</script>
