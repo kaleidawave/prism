@@ -3,15 +3,14 @@ import { join } from "path";
 
 export function printWarningBanner(): void {
     const message = `Warning: Prism is an experimental, expect unexpected behavior to not be caught, not for use in production`;
-    const middleOffset = process.stdout.columns - message.length;
-
-    console.log("\n" + " ".repeat(Math.floor(middleOffset / 2)) + message + "\n");
+    const leftOffset = Math.floor(Math.max(process.stdout.columns - message.length, 0) / 2);
+    console.log("\n" + " ".repeat(leftOffset) + message + "\n");
 }
 
 export function printInfoScreen(): void {
     const packageJSON = JSON.parse(readFileSync(join(__dirname, "../../package.json")).toString());
     const version = packageJSON.version;
-    const leftOffset = (process.stdout.columns - 76) / 2;
+    const leftOffset = Math.floor(Math.max(process.stdout.columns - 76, 0) / 2);
     console.log(
         `${" ".repeat(leftOffset)} ______   ______     __     ______     __    __    
 ${" ".repeat(leftOffset)}/\\  == \\ /\\  == \\   /\\ \\   /\\  ___\\   /\\ "-./  \\    Prism Compiler

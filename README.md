@@ -4,7 +4,7 @@
 [![Issues](https://img.shields.io/github/issues/kaleidawave/prism?style=flat-square)](https://github.com/kaleidawave/prism/issues) 
 [![Stars](https://img.shields.io/github/stars/kaleidawave/prism?style=flat-square)](https://github.com/kaleidawave/prism/stargazers)
 
-Prism is *experimental* a compiler that takes declarative component definitions and creates lightweight web apps. Prism is built from the ground up. All HTML, CSS and JS parsing and rendering is done under a internal library known as [chef](https://github.com/kaleidawave/prism/tree/canary/src/chef). 
+Prism is *experimental* a compiler that takes declarative component definitions and creates lightweight web apps. Prism is built from the ground up. All HTML, CSS and JS parsing and rendering is done under a internal library known as [chef](https://github.com/kaleidawave/prism/tree/main/src/chef). 
 
 Install with:
 
@@ -246,7 +246,7 @@ Prism attempts to move more information to build time so that the runtime is min
 | assetPath                        | projectPath + /assets          | The folder with assets to include              |
 | outputPath                       | ./out          | The folder to place a public folder for hosting public assets |
 | serverOutputPath                 | outputPath + /server         | The folder to write functions for rendering pages  |
-| templatePath                 | [template.html](https://github.com/kaleidawave/prism/blob/canary/src/bundle/template.html)         | The HTML to inject application into  |
+| templatePath                 | [template.html](https://github.com/kaleidawave/prism/blob/main/src/bundle/template.html)         | The HTML to inject application into  |
 | context                          | isomorphic          | Either `client` or `isomorphic`. Client applications will not have server functions and lack isomorphic functionality  |
 | buildTimings                     | false          | Whether to log the time it takes to build Prism sites             |
 | run                              | false          | Whether to run the output. Relies on [ws] being installed globally             |
