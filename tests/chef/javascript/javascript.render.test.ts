@@ -747,7 +747,7 @@ describe("Type signatures", () => {
         expect(ts.render(typescriptSettings)).toBe("Array<string>");
     });
 
-    test("Type union", () => {
+    test("Union type", () => {
         const ts = new TypeSignature({
             name: "Union", typeArguments: [
                 new TypeSignature("string"),
@@ -755,6 +755,24 @@ describe("Type signatures", () => {
         });
 
         expect(ts.render(typescriptSettings)).toBe("string | number");
+    });
+
+    test("Intersection type", () => {
+        const ts = new TypeSignature({
+            name: "Intersection", typeArguments: [
+                new TypeSignature("a"),
+                new TypeSignature("b")]
+        });
+
+        expect(ts.render(typescriptSettings)).toBe("a & b");
+    });
+
+    test("Literal type", () => {
+        const ts = new TypeSignature({
+            value: new Value("abc", Type.string)
+        });
+
+        expect(ts.render(typescriptSettings)).toBe(`"abc"`);
     });
 
     test("Tuple type", () => {
