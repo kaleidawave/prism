@@ -1,4 +1,4 @@
-import { IRenderSettings, defaultRenderSettings, IConstruct } from "../../../helpers";
+import { IRenderSettings, defaultRenderSettings, IConstruct, TokenReader } from "../../../helpers";
 import type { TemplateLiteral } from "./template-literal";
 import type { Expression } from "./expression";
 import type { ObjectLiteral } from "./object";
@@ -8,6 +8,7 @@ import type { Group } from "./group";
 import type { VariableReference } from "./variable";
 import type { FunctionDeclaration } from "../constructs/function";
 import type { ClassDeclaration } from "../constructs/class";
+import { JSToken } from "../../javascript";
 
 // All constructs that can be used as values:
 export type IValue = Value
@@ -32,6 +33,8 @@ export enum Type {
     function,
 }
 
+export const literalTypes = new Set([JSToken.NumberLiteral, JSToken.StringLiteral, JSToken.True, JSToken.False]);
+
 /**
  * Represents string literals, number literals (inc bigint), boolean literals, "null" and "undefined"
  */
@@ -50,6 +53,21 @@ export class Value implements IConstruct {
         } else {
             this.value = null;
         }
+    }
+
+    static fromTokens(reader: TokenReader<JSToken>) {
+        let value: Value;
+        if (reader.current.type === JSToken.NumberLiteral) {
+            value = new Value(reader.current.value!, Type.number);
+        } else if (reader.current.type === JSToken.StringLiteral) {
+            value = new Value(reader.current.value!, Type.string);
+        } else if (reader.current.type === JSToken.True || reader.current.type === JSToken.False) {
+            value = new Value(reader.current.type === JSToken.True, Type.string);
+        } else {
+            throw reader.throwExpect("Expected literal value");
+        }
+        reader.move();
+        return value;
     }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

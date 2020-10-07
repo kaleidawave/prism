@@ -4,6 +4,8 @@ import { TypeStatement } from "../components/types/statements";
 import { InterfaceDeclaration } from "../components/types/interface";
 import { ImportStatement, ExportStatement } from "../components/statements/import-export";
 import { resolve, dirname } from "path";
+import { EnumDeclaration } from "../components/types/enum";
+import { Type, Value } from "../components/value/value";
 
 export interface IType {
     name?: string,
@@ -17,9 +19,8 @@ interface ModuleWithResolvedTypes extends Module {
 }
 
 // TODO hardcoded, doesn't contain any properties, needs to read from lib.d.ts
-// TODO Observable temp
 const inbuiltTypes: Map<string, IType> = new Map(
-    ["number", "boolean", "string", "Date", "Observable"].map(t => [t, { name: t }])
+    ["number", "boolean", "string", "Date"].map(t => [t, { name: t }])
 );
 
 /**
@@ -30,6 +31,14 @@ const inbuiltTypes: Map<string, IType> = new Map(
  */
 export function typeSignatureToIType(typeSignature: TypeSignature, module: ModuleWithResolvedTypes, name?: string): IType {
     if (typeSignature.name) {
+        if (typeSignature.name === "Union") {
+            if (typeSignature.typeArguments!.every(typeArg => typeArg.value?.type === Type.string)) {
+                return inbuiltTypes.get("string")!;
+            } else if (typeSignature.typeArguments!.every(typeArg => typeArg.value?.type === Type.number)) {
+                return inbuiltTypes.get("number")!;
+            }
+        }
+
         return typeFromName(typeSignature.name, module, typeSignature.typeArguments);
     }
 
@@ -112,6 +121,13 @@ function typeFromName(
             }
             const importedModule = Module.fromFile(importedModuleFilename);
             type = typeFromName(name, importedModule, typeArguments, true);
+        } else if (statement instanceof EnumDeclaration && statement.name === name) {
+            // Lets say its a string enum if first value is string
+            if ((statement.members.values().next().value as Value).type === Type.string) {
+                return inbuiltTypes.get("string")!;
+            } else {
+                return inbuiltTypes.get("number")!;
+            }
         }
 
         if (type) break;

@@ -2025,6 +2025,35 @@ describe("Typescript", () => {
                 { name: "string" },
             ]);
         });
+
+        test("Literal types", () => {
+            const typeAlias = Module.fromString("type abcString = 'abc'").statements[0] as TypeStatement;
+
+            expect(typeAlias.value.value).toBeDefined();
+            expect(typeAlias.value.value).toBeInstanceOf(Value);
+            expect(typeAlias.value.value!.type).toBe(Type.string);
+            expect(typeAlias.value.value!.value).toBe("abc");
+        });
+
+        test("Union types", () => {
+            const typeAlias = Module.fromString("type aOrB = a | b").statements[0] as TypeStatement;
+
+            expect(typeAlias.value.name).toBe("Union");
+            expect(typeAlias.value.typeArguments).toMatchObject([
+                { name: "a" },
+                { name: "b" },
+            ]);
+        });
+
+        test("Intersection types", () => {
+            const typeAlias = Module.fromString("type aAndBIntersection = a & b").statements[0] as TypeStatement;
+
+            expect(typeAlias.value.name).toBe("Intersection");
+            expect(typeAlias.value.typeArguments).toMatchObject([
+                { name: "a" },
+                { name: "b" },
+            ]);
+        }); 
     });
 });
 

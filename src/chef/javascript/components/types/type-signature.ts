@@ -3,10 +3,11 @@ import { JSToken } from "../../javascript";
 import { tokenAsIdent } from "../value/variable";
 import { IStatement } from "../statements/statement";
 import { parseFunctionParams } from "../constructs/function";
-import { open } from "fs";
+import { literalTypes, Value } from "../value/value";
 
 interface TypeWithArgs {
-    name: string,
+    name?: string,
+    value?: Value
     typeArguments?: Array<TypeSignature>
 }
 
@@ -18,8 +19,9 @@ interface FunctionSignature {
 /**
  * Represents a type declaration. Used by class to parse generics
  */
-export class TypeSignature implements IStatement {
+export class TypeSignature implements IStatement, TypeWithArgs {
     name?: string;
+    value?: Value;
     typeArguments?: Array<TypeSignature>;
     functionParameters?: Map<string, TypeSignature>;
     functionReturnType?: TypeSignature;
@@ -30,14 +32,16 @@ export class TypeSignature implements IStatement {
     constructor(options: string | TypeWithArgs | FunctionSignature | Map<string, TypeSignature>) {
         if (typeof options === "string") {
             this.name = options;
+        } else if ("value" in options) {
+            this.value = options.value;
         } else if ("name" in options) {
             this.name = options.name;
             if (options.typeArguments) this.typeArguments = options.typeArguments;
         } else if (options instanceof Map) {
             this.mappedTypes = options;
         } else {
-            this.functionParameters = options.parameters;
-            this.functionReturnType = options.returnType;
+            this.functionParameters = (options as FunctionSignature).parameters;
+            this.functionReturnType = (options as FunctionSignature).returnType;
         }
     }
 
@@ -45,7 +49,9 @@ export class TypeSignature implements IStatement {
         if (settings.scriptLanguage !== ScriptLanguages.Typescript) {
             return "";
         }
-        if (this.functionParameters) {
+        if (this.value) {
+            return this.value.render(settings);
+        } else if (this.functionParameters) {
             let acc = "(";
             let part = 1;
             for (const [paramName, paramType] of this.functionParameters) {
@@ -86,6 +92,16 @@ export class TypeSignature implements IStatement {
                     acc += members[i].render(settings);
                     if (i + 1 < members.length) {
                         acc += " | "
+                    }
+                }
+                return acc;
+            } else if (this.name === "Intersection") {
+                let acc = "";
+                const members = this.typeArguments!;
+                for (let i = 0; i < members.length; i++) {
+                    acc += members[i].render(settings);
+                    if (i + 1 < members.length) {
+                        acc += " & "
                     }
                 }
                 return acc;
@@ -150,12 +166,15 @@ export class TypeSignature implements IStatement {
             reader.expectNext(JSToken.CloseCurly);
             typeSignature = new TypeSignature(members);
         }
-
+        // Value
+        else if (literalTypes.has(reader.current.type)) {
+            const value: Value = Value.fromTokens(reader);
+            typeSignature = new TypeSignature({ value });
+        }
         // Name
         else {
             let name: string;
             try {
-                // TODO typeSignature.value if its 0 or "thing" e.g.
                 name = reader.current.value || tokenAsIdent(reader.current.type);
             } catch {
                 reader.throwExpect("Expected value type signature name");
@@ -199,8 +218,15 @@ export class TypeSignature implements IStatement {
                 typeArguments.push(unionType);
             }
             typeSignature = new TypeSignature({ name: "Union", typeArguments });
+        } else if (reader.current.type as JSToken === JSToken.BitwiseAnd && !skipBar) {
+            const typeArguments = [typeSignature];
+            while (reader.current.type === JSToken.BitwiseAnd) {
+                reader.move();
+                const intersectionType = TypeSignature.fromTokens(reader, true);
+                typeArguments.push(intersectionType);
+            }
+            typeSignature = new TypeSignature({ name: "Intersection", typeArguments });
         }
-
         return typeSignature;
     }
 }

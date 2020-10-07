@@ -19,6 +19,7 @@ import { TypeSignature } from "../../../src/chef/javascript/components/types/typ
 import { TryBlock, CatchBlock } from "../../../src/chef/javascript/components/statements/try-catch";
 import { SwitchStatement } from "../../../src/chef/javascript/components/statements/switch";
 import { InterfaceDeclaration } from "../../../src/chef/javascript/components/types/interface";
+import { EnumDeclaration } from "../../../src/chef/javascript/components/types/enum";
 
 const minificationSettings = getSettings({ minify: true });
 const typescriptSettings = getSettings({ scriptLanguage: ScriptLanguages.Typescript, minify: true });
@@ -734,6 +735,26 @@ describe("Interfaces", () => {
     test.todo("Function type");
 });
 
+describe("Enums", () => {
+    test("Enum", () => {
+        const enum_ = new EnumDeclaration("X", new Map([
+            ["A", new Value("0", Type.number)],
+            ["B", new Value("1", Type.number)],
+        ]));
+
+        expect(enum_.render(typescriptSettings)).toBe("enum X {\n    A,\n    B\n}\n");
+    });
+    
+    test("Render enum to JS object", () => {
+        const enum_ = new EnumDeclaration("X", new Map([
+            ["A", new Value("0", Type.number)],
+            ["B", new Value("1", Type.number)],
+        ]));
+    
+        expect(enum_.render(minificationSettings)).toBe("const X=Object.freeze({A:0,B:1})");
+    });
+});
+
 describe("Type signatures", () => {
     test("Simple type", () => {
         const ts = new TypeSignature("number");
@@ -747,7 +768,7 @@ describe("Type signatures", () => {
         expect(ts.render(typescriptSettings)).toBe("Array<string>");
     });
 
-    test("Type union", () => {
+    test("Union type", () => {
         const ts = new TypeSignature({
             name: "Union", typeArguments: [
                 new TypeSignature("string"),
@@ -755,6 +776,24 @@ describe("Type signatures", () => {
         });
 
         expect(ts.render(typescriptSettings)).toBe("string | number");
+    });
+
+    test("Intersection type", () => {
+        const ts = new TypeSignature({
+            name: "Intersection", typeArguments: [
+                new TypeSignature("a"),
+                new TypeSignature("b")]
+        });
+
+        expect(ts.render(typescriptSettings)).toBe("a & b");
+    });
+
+    test("Literal type", () => {
+        const ts = new TypeSignature({
+            value: new Value("abc", Type.string)
+        });
+
+        expect(ts.render(typescriptSettings)).toBe(`"abc"`);
     });
 
     test("Tuple type", () => {

@@ -1,9 +1,7 @@
 import { VariableReference } from "../../../src/chef/javascript/components/value/variable";
 import { Group } from "../../../src/chef/javascript/components/value/group";
 import { Module } from "../../../src/chef/javascript/components/module";
-import { join } from "path";
-import { getVariablesInClass, aliasVariables, findVariables, replaceVariables } from "../../../src/chef/javascript/utils/variables";
-import { ClassDeclaration } from "../../../src/chef/javascript/components/constructs/class";
+import { aliasVariables, findVariables, replaceVariables } from "../../../src/chef/javascript/utils/variables";
 import { Expression, Operation } from "../../../src/chef/javascript/components/value/expression";
 import { FunctionDeclaration, ArgumentList } from "../../../src/chef/javascript/components/constructs/function";
 import { compileIIFE, reverseValue } from "../../../src/chef/javascript/utils/reverse";
@@ -12,6 +10,7 @@ import { ReturnStatement } from "../../../src/chef/javascript/components/stateme
 import { TemplateLiteral } from "../../../src/chef/javascript/components/value/template-literal";
 import { VariableDeclaration } from "../../../src/chef/javascript/components/statements/variable";
 import { typeSignatureToIType } from "../../../src/chef/javascript/utils/types";
+import { TypeSignature } from "../../../src/chef/javascript/components/types/type-signature";
 
 describe("Variables", () => {
     test("fromChain", () => {
@@ -158,13 +157,32 @@ test("Compile IIFE", () => {
 
 describe("Types", () => {
     test("Properties from interface", () => {
-        const modStr = `interface A {foo: string}; let x: A;`;
-        const mod = Module.fromString(modStr);
+        const mod = Module.fromString(`interface A {foo: string}`);
 
-        const xDeclaration = mod.statements[1] as VariableDeclaration;
-        const typeMap = typeSignatureToIType(xDeclaration.typeSignature!, mod);
+        const typeMap = typeSignatureToIType(new TypeSignature("A"), mod);
         expect(typeMap.name).toBe("A");
         expect(typeMap.properties?.has("foo")).toBeTruthy();
         expect(typeMap.properties!.get("foo")).toMatchObject({ name: "string" });
+    });
+
+    test("Resolves enum", () => {
+        const mod = Module.fromString(`enum X { A, B }`);
+
+        const type_ = typeSignatureToIType(new TypeSignature("X"), mod);
+        expect(type_).toMatchObject({name: "number"});
+    });
+
+    test("Resolves string enum", () => {
+        const mod = Module.fromString(`enum Y { A = "a", B = "b" }`);
+
+        const type_ = typeSignatureToIType(new TypeSignature("Y"), mod);
+        expect(type_).toMatchObject({name: "string"});
+    });
+
+    test("Resolves string union", () => {
+        const mod = Module.fromString(`type Z = "a" | "b" | "c"`);
+
+        const type_ = typeSignatureToIType(new TypeSignature("Z"), mod);
+        expect(type_).toMatchObject({name: "string"});
     });
 });
