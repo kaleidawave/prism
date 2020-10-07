@@ -1,35 +1,39 @@
 import { IStatement } from "../statements/statement";
 import { TokenReader, IRenderSettings, defaultRenderSettings, ScriptLanguages } from "../../../helpers";
 import { JSToken } from "../../javascript";
-import { tokenAsIdent } from "../value/variable";
-import { IValue, Value, Type } from "../value/value";
-import { Expression } from "../value/expression";
+import { tokenAsIdent, VariableReference } from "../value/variable";
+import { Value, Type } from "../value/value";
+import { VariableDeclaration } from "../statements/variable";
+import { ObjectLiteral } from "../value/object";
+import { Expression, Operation } from "../value/expression";
 
 export class EnumDeclaration implements IStatement {
 
     constructor(
         public name: string,
-        public members: Map<string, IValue>
+        public members: Map<string, Value>
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
         if (settings.scriptLanguage === ScriptLanguages.Typescript) {
             let acc = "enum ";
             acc += this.name;
-            acc += "{";
+            acc += " {";
+            acc += "\n";
             let cur = 0;
             for (const [key, value] of this.members) {
                 acc += " ".repeat(settings.indent) + key;
                 if (!(value instanceof Value) || (cur++).toString() !== value.value) {
                     acc += " = " + value.render(settings);
                 }
-                acc += ",\n";
+                if (cur < this.members.size) acc += ",";
+                acc += "\n";
             }
             acc += "}";
             return acc;
         } else {
-            // TODO render javascript as object literal possibly?
-            throw new Error("Method not implemented.");
+            const enumAsObject = enumToFrozenObject(this);
+            return enumAsObject.render(settings);
         }
     }
 
@@ -38,16 +42,17 @@ export class EnumDeclaration implements IStatement {
         const name = reader.current.value || tokenAsIdent(reader.current.type);
         reader.move();
         reader.expectNext(JSToken.OpenCurly);
-        const members = new Map<string, IValue>();
+        const members = new Map<string, Value>();
         let counter = 0;
         while (reader.current.type !== JSToken.CloseCurly) {
-            let value: IValue;
+            let value: Value;
             const member = reader.current.value || tokenAsIdent(reader.current.type);
             reader.move();
             if (reader.current.type === JSToken.Assign) {
-                value = Expression.fromTokens(reader);
+                reader.move();
+                value = Value.fromTokens(reader);
             } else {
-                value = new Value(counter++, Type.number);  
+                value = new Value(counter++, Type.number);
             }
             members.set(member, value);
 
@@ -58,4 +63,19 @@ export class EnumDeclaration implements IStatement {
         reader.move();
         return new EnumDeclaration(name, members);
     }
+}
+
+/**
+ * De-sugars ts enum declarations
+ * Frozen to prevent mutation during runtime
+ * @example `enum X {Y, Z}` -> const X = Object.freeze({Y: 0, Z: 1})
+ */
+function enumToFrozenObject(enum_: EnumDeclaration): VariableDeclaration {
+    const obj = new ObjectLiteral(enum_.members);
+    const frozenObj = new Expression({
+        lhs: VariableReference.fromChain("Object", "freeze"),
+        operation: Operation.Call,
+        rhs: obj
+    })
+    return new VariableDeclaration(enum_.name, { value: frozenObj });
 }
