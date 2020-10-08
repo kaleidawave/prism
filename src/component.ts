@@ -40,7 +40,7 @@ export class Component {
     title: IValue | null = null; // If page the document title
 
     isPage: boolean = false;
-    route: DynamicUrl | null = null; // The url to match the page on
+    routes: Set<DynamicUrl> | null = null; // The url to match the page on
 
     isLayout: boolean = false;
 
@@ -213,12 +213,11 @@ export class Component {
                         }
                         break;
                     case "Page":
-                        const correctPageDecoratorFormat =
-                            decorator.args.length === 1 &&
-                            (decorator.args[0] as Value).type === Type.string;
+                        const correctPageDecoratorFormat = decorator.args
+                            .every(arg => arg instanceof Value && arg.type === Type.string);
 
                         if (!correctPageDecoratorFormat) {
-                            throw Error(`"${this.filename}" - Page decorator must have one argument of type string`);
+                            throw Error(`"${this.filename}" - Page decorator arguments must be of type string`);
                         }
 
                         // TODO slots have not been calculated yet
@@ -226,14 +225,19 @@ export class Component {
                             throw Error(`"${this.filename}": Cannot have a page with slots`);
                         }
 
-                        if ((decorator.args[0] as Value).value === "*") {
-                            setNotFoundRoute(this);
-                        } else {
-                            const routePattern = (decorator.args[0] as Value).value!;
-                            this.route = stringToDynamicUrl(routePattern);
-                            addRoute(this.route, this);
-                        }
                         this.isPage = true;
+
+                        for (const arg of decorator.args) {
+                            if ((arg as Value).value === "*") {
+                                setNotFoundRoute(this);
+                            } else {
+                                if (!this.routes) this.routes = new Set();
+                                const routePattern = (arg as Value).value!;
+                                const dynURL = stringToDynamicUrl(routePattern);
+                                addRoute(dynURL, this);
+                                this.routes.add(dynURL);
+                            }
+                        }
                         break;
                     case "Layout":
                         this.isLayout = true;

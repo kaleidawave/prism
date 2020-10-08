@@ -58,7 +58,7 @@ export function dynamicUrlToRegexPattern(url: DynamicUrl): RegExpLiteral {
             regexPattern += part; // TODO escape characters like .
         } else {
             // Add a name capture group
-            regexPattern += `(?<${part.name}>(.+?))`;
+            regexPattern += `(?<${part.name}>([^\/]+?))`;
         }
     }
     regexPattern += "$";
