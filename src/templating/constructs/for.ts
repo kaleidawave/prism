@@ -1,6 +1,6 @@
 import { PrismHTMLElement, IDependency, IEvent, ValueAspect, PrismNode, Locals, VariableReferenceArray, PartialDependency } from "../template";
 import { ForStatement, ForStatementExpression } from "../../chef/javascript/components/statements/for";
-import { addIdentifierToElement, addDependency } from "../helpers";
+import { addIdentifierToElement, addDependency, thisDataVariable } from "../helpers";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { parsePrismNode } from "../template";
 import { HTMLComment } from "../../chef/html/html";
@@ -30,7 +30,7 @@ export function parseForNode(
     }
 
     const clientAliasedExpression = cloneAST(expression);
-    aliasVariables(clientAliasedExpression, VariableReference.fromChain("this", "data"), globals);
+    aliasVariables(clientAliasedExpression, thisDataVariable, globals);
 
     const subjectReference = (expression.subject as VariableReference).toChain();
 

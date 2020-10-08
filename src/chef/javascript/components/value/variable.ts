@@ -1,6 +1,7 @@
 import { JSToken, stringToTokens } from "../../javascript";
-import { IValue } from "./value";
+import { IValue, Type, Value } from "./value";
 import { IRenderSettings, TokenReader, IConstruct, defaultRenderSettings } from "../../../helpers";
+import { Expression, Operation } from "./expression";
 
 // TODO use the reverse tokens map from the tokenizer and complete list
 export function tokenAsIdent(token: JSToken) {
@@ -122,12 +123,32 @@ export class VariableReference implements IConstruct {
      * @param items 
      * @example ["this", "data", "member"] -> {name: "member", parent: {name: "data", parent: {...}}}
      */
-    static fromChain(...items: string[]): VariableReference {
-        items.reverse();
-        let head = new VariableReference(items[items.length - 1]);
+    static fromChain(...items: Array<string | number | IValue>): IValue {
+        let head: IValue;
+        if (typeof items[0] === "number") { 
+            throw Error("First arg to VariableReference.FromChain must be string");
+        } else if (typeof items[0] === "string") {
+            head = new VariableReference(items[0] as string);
+        } else {
+            head = items[0];
+        }
         // Iterator through items appending forming linked list
-        for (let i = items.length - 1; i > 0; i--) {
-            head = new VariableReference(items[i - 1], head);
+        for (let i = 1; i < items.length; i++) {
+            const currentProp = items[i];
+            if (typeof currentProp === "number") { 
+                head = new Expression({
+                    lhs: head,
+                    operation: Operation.Index,
+                    rhs: new Value(currentProp, Type.number)
+                });
+            } else if (typeof currentProp === "string") {
+                head = new VariableReference(currentProp, head);
+            } else if (currentProp instanceof VariableReference && currentProp.tail instanceof VariableReference) {
+                currentProp.tail.parent = head;
+                head = currentProp;
+            } else {
+                throw Error("Cannot use prop in fromChain");
+            }
         }
         return head;
     }

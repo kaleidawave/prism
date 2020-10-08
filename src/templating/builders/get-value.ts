@@ -9,7 +9,7 @@ import { ForIteratorExpression } from "../../chef/javascript/components/statemen
 import { IType } from "../../chef/javascript/utils/types";
 import { settings } from "../../settings";
 import { HTMLElement } from "../../chef/html/html";
-import { newOptionalVariableReference } from "../../chef/javascript/utils/variables";
+import { newOptionalVariableReference, newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
 
 export function makeGetFromDependency(
     dependency: IDependency,
@@ -23,11 +23,21 @@ export function makeGetFromDependency(
     let getSource: IValue;
     switch (dependency.aspect) {
         case ValueAspect.InnerText:
-            getSource = new VariableReference("data", new Expression({
-                lhs: new VariableReference("childNodes", elementStatement),
-                operation: Operation.Index,
-                rhs: new Value(dependency.fragmentIndex!, Type.number)
-            }));
+            if (dependency.element.nullable) {
+                getSource = newOptionalVariableReferenceFromChain(
+                    elementStatement,
+                    "childNode",
+                    dependency.fragmentIndex!,
+                    "data"
+                );
+            } else {
+                getSource = VariableReference.fromChain(
+                    elementStatement,
+                    "childNode",
+                    dependency.fragmentIndex!,
+                    "data"
+                );
+            }
             break;
         case ValueAspect.Attribute:
             const attribute = dependency.attribute!;
@@ -87,7 +97,7 @@ export function makeGetFromDependency(
     } else if (dataType.name === "string" && !settings.minify) {
         value = new Expression({
             lhs: new VariableReference("trim", getSource),
-            operation: Operation.Call
+            operation: dependency.element.nullable ? Operation.OptionalCall : Operation.Call
         });
     } else {
         value = getSource;

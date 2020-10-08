@@ -35,3 +35,7 @@ export function isArrayHoley<T>(array: Array<T>): boolean {
     }
     return false;
 }
+
+export function tryAssignToTextNode(textNode: CharacterData | null, value: string) {
+    if (textNode) textNode.data = value;
+}

@@ -2,7 +2,7 @@ import { ClassDeclaration } from "../components/constructs/class";
 import { IStatement, ReturnStatement } from "../components/statements/statement";
 import { Expression, Operation } from "../components/value/expression";
 import { IfStatement, ElseStatement } from "../components/statements/if";
-import { IValue, Value } from "../components/value/value";
+import { IValue, Type, Value } from "../components/value/value";
 import { ArgumentList, FunctionDeclaration } from "../components/constructs/function";
 import { IConstruct } from "../../helpers";
 import { TemplateLiteral } from "../components/value/template-literal";
@@ -78,7 +78,7 @@ export function* variableReferenceWalker(statement: IStatement): Generator<Varia
 }
 
 /**
- * Mimic constructor signature of VariableReference but uses optional chain
+ * Mimic constructor signature of `VariableReference` but uses optional chain
  */
 export function newOptionalVariableReference(name: string, parent: IValue) {
     return new Expression({
@@ -86,6 +86,47 @@ export function newOptionalVariableReference(name: string, parent: IValue) {
         operation: Operation.OptionalChain,
         rhs: new VariableReference(name)
     });
+}
+
+/**
+ * Mimics `VariableReference.fromChain` but uses optional chain and optional index
+ */
+export function newOptionalVariableReferenceFromChain(...items: Array<string | number | IValue>): IValue {
+    let head: IValue;
+    if (typeof items[0] === "number") { 
+        throw Error("First arg to newOptionalVariableReferenceFromChain must be string");
+    } else if (typeof items[0] === "string") {
+        head = new VariableReference(items[0] as string);
+    } else {
+        head = items[0];
+    }
+    // Iterator through items appending forming linked list
+    for (let i = 1; i < items.length; i++) {
+        const currentProp = items[i];
+        if (typeof currentProp === "number") { 
+            head = new Expression({
+                lhs: head,
+                operation: Operation.OptionalIndex,
+                rhs: new Value(currentProp, Type.number)
+            });
+        } else if (typeof currentProp === "string") {
+            head = new Expression({
+                lhs: head,
+                operation: Operation.OptionalChain,
+                rhs: new VariableReference(currentProp)
+            });
+        } else if (currentProp instanceof VariableReference) {
+            head = new Expression({
+                lhs: head,
+                operation: Operation.OptionalChain,
+                rhs: currentProp
+            });
+        } else {
+            throw Error("Cannot use prop in fromChain");
+        }
+    }
+    return head;
+
 }
 
 /**

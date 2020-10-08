@@ -21,7 +21,7 @@ import { TemplateLiteral } from "./chef/javascript/components/value/template-lit
 import { buildMetaTags } from "./metatags";
 import { Stylesheet } from "./chef/css/stylesheet";
 import { prefixSelector, ISelector } from "./chef/css/selectors";
-import { randomPrismId, getElem } from "./templating/helpers";
+import { randomPrismId, getElem, thisDataVariable } from "./templating/helpers";
 import { ImportStatement, ExportStatement } from "./chef/javascript/components/statements/import-export";
 import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings } from "./chef/helpers";
@@ -372,7 +372,7 @@ export class Component {
 
             // Will set title on component being connected
             const aliasedTitleTL = cloneAST(this.title);
-            aliasVariables(aliasedTitleTL, VariableReference.fromChain("this", "data"));
+            aliasVariables(aliasedTitleTL, thisDataVariable);
             const titleSetter = new Expression({
                 lhs: VariableReference.fromChain("document", "title"),
                 operation: Operation.Assign,

@@ -1,7 +1,7 @@
 import { PrismHTMLElement, IDependency, IEvent, PrismNode, ValueAspect, Locals, PartialDependency } from "../template";
 import { Component } from "../../component";
 import { Expression } from "../../chef/javascript/components/value/expression";
-import { addIdentifierToElement, addDependency, createNullElseElement } from "../helpers";
+import { addIdentifierToElement, addDependency, createNullElseElement, thisDataVariable } from "../helpers";
 import { parsePrismNode } from "../template";
 import { HTMLElement } from "../../chef/html/html";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
@@ -84,7 +84,7 @@ export function parseIfNode(
     element.elseElement = elseElement;
 
     const clientAliasedExpression = cloneAST(expression);
-    aliasVariables(clientAliasedExpression, VariableReference.fromChain("this", "data"), globals);
+    aliasVariables(clientAliasedExpression, thisDataVariable, globals);
 
     element.clientExpression = clientAliasedExpression;
     if (ssr) {

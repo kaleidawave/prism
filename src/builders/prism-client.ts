@@ -14,7 +14,7 @@ const clientLibraries = [
 
 export const clientExports: Map<string, Array<string>> = new Map([
     ["component.ts", ["Component"]],
-    ["helpers.ts", ["conditionalSwap", "setLength"]],
+    ["helpers.ts", ["conditionalSwap", "setLength", "tryAssignToTextNode"]],
     ["render.ts", ["h", "createComment"]],
     ["router.ts", ["Router"]],
 ]);

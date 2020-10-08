@@ -9,7 +9,7 @@ import { findLastIndex } from "../helpers";
 import { IType } from "../chef/javascript/utils/types";
 import { ForIteratorExpression } from "../chef/javascript/components/statements/for";
 
-export const thisDataVariable = VariableReference.fromChain("this", "data");
+export const thisDataVariable = VariableReference.fromChain("this", "data") as VariableReference;
 
 const usedIds = new Set();
 

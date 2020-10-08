@@ -3,7 +3,7 @@ import { Expression, Operation } from "../../chef/javascript/components/value/ex
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
-import { replaceVariables, cloneAST, newOptionalVariableReference } from "../../chef/javascript/utils/variables";
+import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
 import { getSlice, getChildrenStatement, thisDataVariable } from "../helpers";
 import { ValueAspect, IDependency, PrismHTMLElement, VariableReferenceArray } from "../template";
 import { VariableDeclaration } from "../../chef/javascript/components/statements/variable";
@@ -18,7 +18,7 @@ export function makeSetFromDependency(
     const isElementNullable = dependency.element.nullable ?? false;
 
     // getSlice will return the trailing portion from the for iterator statement thing
-    const variableReference = VariableReference.fromChain(...getSlice(variable) as Array<string>);
+    const variableReference = VariableReference.fromChain(...getSlice(variable) as Array<string>) as VariableReference;
     // If exists under the main data
     if (!variable.some(part => typeof part === "object")) {
         (variableReference.tail as VariableReference).parent = thisDataVariable;
@@ -35,15 +35,31 @@ export function makeSetFromDependency(
         case ValueAspect.InnerText:
             // Gets the index of the fragment and alters the data property of the 
             // fragment (which exists on CharacterData) to the string value
-            statements.push(new Expression({
-                lhs: new VariableReference("data", new Expression({
-                    lhs: new VariableReference("childNodes", elementStatement),
-                    operation: Operation.Index,
-                    rhs: new Value(dependency.fragmentIndex!, Type.number)
-                })),
-                operation: Operation.Assign,
-                rhs: newValue!
-            }));
+            if (dependency.element.nullable) {
+                statements.push(new Expression({
+                    lhs: new VariableReference("tryAssignToTextNode"),
+                    operation: Operation.Call,
+                    rhs: new ArgumentList([
+                        newOptionalVariableReferenceFromChain(
+                            elementStatement,
+                            "childNodes",
+                            dependency.fragmentIndex!,
+                        ),
+                        newValue!
+                    ])
+                }));
+            } else {
+                statements.push(new Expression({
+                    lhs: VariableReference.fromChain(
+                        elementStatement,
+                        "childNodes",
+                        dependency.fragmentIndex!,
+                        "data"
+                    ),
+                    operation: Operation.Assign,
+                    rhs: newValue!
+                }));
+            }
             break;
         case ValueAspect.Conditional:
             const callConditionalSwapFunction = new Expression({

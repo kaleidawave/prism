@@ -199,8 +199,12 @@ export class Expression implements IStatement, IConstruct {
         this.lhs = lhs;
         this.operation = operation;
         this.rhs = rhs;
-        
-        if (operation === Operation.Call || operation === Operation.Initialize) {
+
+        if (
+            operation === Operation.Call
+            || operation === Operation.Initialize
+            || operation === Operation.OptionalCall
+        ) {
             if (!rhs) {
                 this.rhs = new ArgumentList();
             } else if (!(rhs instanceof ArgumentList)) {
@@ -278,7 +282,7 @@ export class Expression implements IStatement, IConstruct {
 
     static fromTokens(reader: TokenReader<JSToken>, precedence = 0): IValue {
         //@ts-ignore TODO expression requires parameters
-        const expression = new Expression({lhs: null, operation: null});
+        const expression = new Expression({ lhs: null, operation: null });
         switch (reader.current.type) {
             // Value types:
             case JSToken.NumberLiteral:
@@ -324,7 +328,7 @@ export class Expression implements IStatement, IConstruct {
                         if (bracketCount === 0) return true;
                         else return false;
                     }, true);
-                    isArrowFunction = afterBrackets[0] === JSToken.ArrowFunction;                    
+                    isArrowFunction = afterBrackets[0] === JSToken.ArrowFunction;
                 } catch (error) {
                     // TODO temp ???
                     reader.throwError("Unmatched closing brackets");
@@ -418,10 +422,10 @@ export class Expression implements IStatement, IConstruct {
                 } else {
                     args = new ArgumentList;
                 }
-                expression.lhs = new Expression({ 
-                    lhs: constructor_, 
-                    operation: Operation.Initialize, 
-                    rhs: args 
+                expression.lhs = new Expression({
+                    lhs: constructor_,
+                    operation: Operation.Initialize,
+                    rhs: args
                 });
                 break;
             // Other
@@ -506,7 +510,7 @@ export class Expression implements IStatement, IConstruct {
                     break;
             }
         }
-        
+
         while (reader.current) {
             if (binaryOperators.has(reader.current.type)) {
                 const operator = binaryOperators.get(reader.current.type)!;
