@@ -238,20 +238,20 @@ Prism attempts to move more information to build time so that the runtime is min
 
 #### Command line arguments:
 
-| Name:                            | Defaults: | Explanation: |
-| -------------------------------- | --------- | ------------ |
-| minify                           | false     | Whether to minify the output. This includes HTML, CSS and JS             |
-| comments                         | false     | Whether to include comments in bundle output             |
-| projectPath                      | ./src     | The folder for `.prism` components        |
-| assetPath                        | projectPath + /assets          | The folder with assets to include              |
-| outputPath                       | ./out          | The folder to place a public folder for hosting public assets |
-| serverOutputPath                 | outputPath + /server         | The folder to write functions for rendering pages  |
-| templatePath                 | [template.html](https://github.com/kaleidawave/prism/blob/main/src/bundle/template.html)         | The HTML to inject application into  |
-| context                          | isomorphic          | Either `client` or `isomorphic`. Client applications will not have server functions and lack isomorphic functionality  |
-| buildTimings                     | false          | Whether to log the time it takes to build Prism sites             |
-| run                              | false          | Whether to run the output. Relies on [ws] being installed globally             |
-| backendLanguage                 | js        | Either "js" or "ts"             |
-| disableEventElements                 | true        | Adds disable to ssr elements with event handlers             |
+| Name:                | Defaults:                                                    | Explanation:                                                 |
+| -------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| minify               | false                                                        | Whether to minify the output. This includes HTML, CSS and JS |
+| comments             | false                                                        | Whether to include comments in bundle output                 |
+| projectPath          | ./src                                                        | The folder for `.prism` components                           |
+| assetPath            | projectPath + /assets                                        | The folder with assets to include                            |
+| outputPath           | ./out                                                        | The folder to place a public folder for hosting public assets |
+| serverOutputPath     | outputPath + /server                                         | The folder to write functions for rendering pages            |
+| templatePath         | [template.html](https://github.com/kaleidawave/prism/blob/main/src/bundle/template.html) | The HTML to inject application into                          |
+| context              | isomorphic                                                   | Either `client` or `isomorphic`. Client applications will not have server functions and lack isomorphic functionality |
+| buildTimings         | false                                                        | Whether to log the time it takes to build Prism sites        |
+| run                  | false                                                        | If true will run dev server on client side output. Relies on [ws](https://github.com/lwsjs/local-web-server) being installed globally |
+| backendLanguage      | js                                                           | Either "js" or "ts"                                          |
+| disableEventElements | true                                                         | Adds disable to ssr elements with event handlers             |
 
 Assigning these settings is first done through reading in `prism.config.json` in the current working directory. Then by looking at arguments behind any of the commands. e.g.
 

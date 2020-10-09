@@ -26,14 +26,14 @@ export function makeGetFromDependency(
             if (dependency.element.nullable) {
                 getSource = newOptionalVariableReferenceFromChain(
                     elementStatement,
-                    "childNode",
+                    "childNodes",
                     dependency.fragmentIndex!,
                     "data"
                 );
             } else {
                 getSource = VariableReference.fromChain(
                     elementStatement,
-                    "childNode",
+                    "childNodes",
                     dependency.fragmentIndex!,
                     "data"
                 );

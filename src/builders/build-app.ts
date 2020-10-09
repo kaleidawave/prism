@@ -58,7 +58,12 @@ export function compileApplication() {
         if (settings.buildTimings) console.time("Move static assets");
         // Static styles and scripts come before any component declarations
         // TODO bad that functions does side effects and returns stuff
-        const modulesAndStylesheets = moveStaticAssets(settings.absoluteAssetPath, settings.absoluteOutputPath);
+        const modulesAndStylesheets = moveStaticAssets(
+            settings.absoluteAssetPath, 
+            settings.absoluteOutputPath,
+            clientRenderSettings
+        );
+
         for (const x of modulesAndStylesheets) {
             if (x instanceof Module) {
                 clientScriptBundle.combine(x);
@@ -66,6 +71,7 @@ export function compileApplication() {
                 clientStyleBundle.combine(x);
             }
         }
+        
         if (settings.buildTimings) console.timeEnd("Move static assets");
     }
 
@@ -99,11 +105,10 @@ export function compileApplication() {
     clientStyleBundle.writeToFile(clientRenderSettings);
     if (settings.buildTimings) console.timeEnd("Render and write script & style bundle");
 
-    // Build the index page to serve
-    if (settings.context === "client") {
-        const indexHTML = join(settings.absoluteOutputPath, "index.html");
-        buildIndexHtml().writeToFile(clientRenderSettings, indexHTML);
-    }
+    // Build the index / shell page to serve
+    // This is also built under context===isomorphic to allow for offline with service workers
+    const indexHTML = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
+    buildIndexHtml().writeToFile(clientRenderSettings, indexHTML);
 
     if (settings.run) {
         runApplication(settings.run === "open");
