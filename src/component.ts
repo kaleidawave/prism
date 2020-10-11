@@ -608,7 +608,10 @@ export class Component {
             // Construct ssr function parameters
             const parameters: Array<VariableDeclaration> = [];
             if (this.needsData) {
-                const dataParameter = new VariableDeclaration("data", { typeSignature: componentDataTypeSignature });
+                const dataParameter = new VariableDeclaration(
+                    this.isLayout ? "layoutData" : "data", 
+                    { typeSignature: componentDataTypeSignature }
+                );
                 if (defaultData) {
                     dataParameter.value = defaultData;
                 }
@@ -687,7 +690,6 @@ export class Component {
             }
 
             this.serverModule!.addExport(renderFunction);
-
             this.serverRenderFunction = renderFunction;
 
             // If has page decorator, add another function that renders the page into full document with head
@@ -768,7 +770,7 @@ export class Component {
                     imports,
                     "./" +
                     relative(
-                        dirname(this.serverModule!.filename || ""),
+                        dirname(this.serverModule!.filename ?? ""),
                         join(settings.absoluteServerOutputPath, "prism")
                     ).replace(/\\/g, "/")
                 );

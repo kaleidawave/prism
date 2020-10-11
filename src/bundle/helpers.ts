@@ -25,8 +25,8 @@ export function conditionalSwap(this: Component<any>, predicate: boolean, id: st
  * @param parent
  * @param length The target length for the elem.children
  */
-export function setLength(parent: HTMLElement, length: number) {
-    Array.from(parent.children).splice(length).forEach(elem => elem.remove());
+export function setLength(parent: HTMLElement | null, length: number) {
+    if (parent) Array.from(parent.children).splice(length).forEach(elem => elem.remove());
 }
 
 export function isArrayHoley<T>(array: Array<T>): boolean {

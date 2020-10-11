@@ -75,24 +75,22 @@ export function makeSetFromDependency(
             statements.push(callConditionalSwapFunction);
             break;
         case ValueAspect.Iterator:
-            // TODO temp dependency.element.identifier
-            const renderNewElement = new VariableDeclaration("elem", {
-                value: new Expression({
-                    lhs: VariableReference.fromChain("this", "render" + dependency.element.identifier),
-                    operation: Operation.Call,
-                    rhs: new VariableReference("value")
-                })
+            // TODO temp dependency.element.identifier should maybe have reference to actual method
+            const renderNewElement = new Expression({
+                lhs: VariableReference.fromChain("this", "render" + dependency.element.identifier),
+                operation: Operation.Call,
+                rhs: new VariableReference("value")
             });
-
-            const elemVariableReference = new VariableReference("elem");
 
             const addNewElementToTheParent = new Expression({
-                lhs: new VariableReference("append", getChildrenStatement(dependency.element as PrismHTMLElement)),
-                operation: Operation.Call,
-                rhs: elemVariableReference
+                lhs: isElementNullable ?
+                    newOptionalVariableReferenceFromChain(elementStatement, "append") :
+                    VariableReference.fromChain(elementStatement, "append"),
+                operation: isElementNullable ? Operation.OptionalCall : Operation.Call,
+                rhs: renderNewElement
             });
 
-            statements.push(renderNewElement, addNewElementToTheParent);
+            statements.push(addNewElementToTheParent);
             break;
         case ValueAspect.Attribute:
             const attribute = dependency.attribute!;

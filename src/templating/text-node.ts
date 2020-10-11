@@ -79,7 +79,7 @@ export function parseTextNode(
         // Comments are required to be inserted to separated text nodes during ssr
         if (i + 1 < fragments.length && ssr) {
             const comment = new HTMLComment(textNode.parent!) as PrismComment;
-            comment.fragment = true;
+            comment.isFragment = true;
             insertedChildren.push(comment);
         }
     }

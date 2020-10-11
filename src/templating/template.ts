@@ -41,7 +41,7 @@ export interface PrismTextNode extends TextNode {
 }
 
 export interface PrismComment extends HTMLComment {
-    fragment?: true // If the comment is used to break up text nodes for ssr hydration
+    isFragment?: true // If the comment is used to break up text nodes for ssr hydration
 }
 
 export type PrismNode = PrismHTMLElement | PrismTextNode | PrismComment;

@@ -201,7 +201,7 @@ export function clientRenderPrismNode(element: PrismNode, aliasDataToThis: boole
         }
         return element.value ?? new Value(element.text, Type.string);
     } else if (element instanceof HTMLComment) {
-        if (!element.fragment) throw Error("");
+        if (!element.isFragment) throw Error("Client side rendering of non-fragment comment supported");
         // This used to maintain the same structure as server rendered content
         return new Expression({
             lhs: new VariableReference("createComment"), // Create comment function in render.ts

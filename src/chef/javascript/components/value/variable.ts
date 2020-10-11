@@ -28,6 +28,7 @@ export function tokenAsIdent(token: JSToken) {
         case JSToken.TypeOf: return "typeof";
         case JSToken.Try: return "try";
         case JSToken.Catch: return "catch";
+        case JSToken.Delete: return "delete";
         default: throw Error(`No conversion for token ${JSToken[token]}`);
     }
 }

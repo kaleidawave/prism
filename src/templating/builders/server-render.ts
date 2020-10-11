@@ -168,7 +168,10 @@ function buildServerTemplateLiteralShards(
                         }
                     }
                     if (child.next) {
-                        if (!(child.next instanceof HTMLComment && !(child.next as PrismComment).fragment)) {
+                        const isFragment = 
+                            (child instanceof HTMLComment && child.isFragment && child.next instanceof TextNode) || 
+                            (child instanceof TextNode && child.next instanceof HTMLComment && (child.next as PrismComment).isFragment);
+                        if (!isFragment) {
                             parts.push("\n" + " ".repeat(4));
                         }
                     }
@@ -201,7 +204,7 @@ function buildServerTemplateLiteralShards(
         }
     } else if (element instanceof HTMLComment) {
         // If the comment is used to fragment text nodes:
-        if (element.fragment) {
+        if (element.isFragment) {
             entries.push(`<!--${element.comment}-->`);
         }
     } else if (element instanceof HTMLDocument) {

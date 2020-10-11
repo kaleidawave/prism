@@ -4,7 +4,7 @@ import { HTMLElement, HTMLDocument } from "../chef/html/html";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { ArgumentList } from "../chef/javascript/components/constructs/function";
-import { cloneAST, findVariables } from "../chef/javascript/utils/variables";
+import { cloneAST, findVariables, newOptionalVariableReferenceFromChain } from "../chef/javascript/utils/variables";
 import { findLastIndex } from "../helpers";
 import { IType } from "../chef/javascript/utils/types";
 import { ForIteratorExpression } from "../chef/javascript/components/statements/for";
@@ -162,7 +162,6 @@ export function getElem(element: PrismHTMLElement): Expression {
 
 /**
  * Returns a chained .children[x] statement from which the instance parent value statement returns the instance of descendant
- * TODO account for nullable elements
  * @param ancestor a ancestor of the descendant
  * @param element a descendant of the descendant
  */
@@ -170,6 +169,8 @@ export function getChildrenStatement(element: HTMLElement): IValue {
     if ((element as PrismHTMLElement)?.multiple === false) {
         return getElem(element)
     }
+
+    const isRootElementNullable = (element as PrismHTMLElement).nullable;
 
     // Work backwards up the parent chain until get to parent:
     const indexes: Array<number | "var"> = [];
@@ -193,16 +194,19 @@ export function getChildrenStatement(element: HTMLElement): IValue {
     // Reverse as worked upwards but statement works downwards
     for (let i = indexes.length - 1; i >= 0; i--) {
         const index = indexes[i];
+        const childrenValue = isRootElementNullable ?
+            newOptionalVariableReferenceFromChain(statement, "children")
+            : VariableReference.fromChain(statement, "children");
         if (index === "var") {
             statement = new Expression({
-                lhs: new VariableReference("children", statement),
-                operation: Operation.Index,
+                lhs: childrenValue,
+                operation: isRootElementNullable ? Operation.OptionalIndex : Operation.Index,
                 rhs: new VariableReference(String.fromCharCode(indexer++ + 120))
             });
         } else {
             statement = new Expression({
-                lhs: new VariableReference("children", statement),
-                operation: Operation.Index,
+                lhs: childrenValue,
+                operation: isRootElementNullable ? Operation.OptionalIndex : Operation.Index,
                 rhs: new Value(indexes[i], Type.number)
             });
         }
