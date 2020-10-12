@@ -1,8 +1,6 @@
-import { ClassDeclaration } from "../../chef/javascript/components/constructs/class";
 import { FunctionDeclaration } from "../../chef/javascript/components/constructs/function";
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";
 import { ReturnStatement, IStatement } from "../../chef/javascript/components/statements/statement";
-import { VariableDeclaration } from "../../chef/javascript/components/statements/variable";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
 import { IDependency, ValueAspect, VariableReferenceArray, ForLoopVariable } from "../template";
 import { makeGetFromDependency, getLengthFromIteratorDependency } from "./get-value";
@@ -10,6 +8,7 @@ import { makeSetFromDependency, setLengthForIteratorDependency } from "./set-val
 import { settings } from "../../settings";
 import { getTypeFromVariableReferenceArray } from "../helpers";
 import { IType } from "../../chef/javascript/utils/types";
+import { VariableReference } from "../../chef/javascript/components/value/variable";
 
 /** Represents a data point */
 interface IDataPoint {
@@ -37,13 +36,12 @@ function findDataPoint(points: Array<IDataPoint>, variableChain: VariableReferen
 
 /**
  * Creates the object literal structure that runtime observables use
- * TODO should return object literal rather than side effect
  */
 export function constructBindings(
     dependencies: Array<IDependency>,
     variableType: IType,
-    component: ClassDeclaration
-): void {
+    globals: Array<VariableReference>
+): ObjectLiteral {
     const tree = new ObjectLiteral();
     const dataMap: Array<IDataPoint> = [];
 
@@ -97,14 +95,15 @@ export function constructBindings(
             if ((isomorphicContext && isReversibleDependency && !alreadyHasReturnValue) || dependency.aspect === ValueAspect.Data) {
                 try {
                     dataPoint.getReturnValue = makeGetFromDependency(dependency, type, variableChain)
-                } catch { }
+                } catch (error) { 
+                }
             }   
 
             if (dependency.aspect === ValueAspect.Iterator) {
                 if (!dataPoint.pushStatements) dataPoint.pushStatements = [];
-                dataPoint.pushStatements.push(...makeSetFromDependency(dependency, variableChain));
+                dataPoint.pushStatements.push(...makeSetFromDependency(dependency, variableChain, globals));
             } else {
-                dataPoint.setStatements.push(...makeSetFromDependency(dependency, variableChain));
+                dataPoint.setStatements.push(...makeSetFromDependency(dependency, variableChain, globals));
             }
 
         }
@@ -124,8 +123,7 @@ export function constructBindings(
         generateBranch(point, tree);
     }
 
-    const treeVariable = new VariableDeclaration("_bindings", { isStatic: true, value: tree });
-    component.addMember(treeVariable);
+    return tree;
 }
 
 // Types that don't need to be compiled into the tree

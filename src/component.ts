@@ -547,7 +547,9 @@ export class Component {
                     throw Error(`Data type required for a dependency around element ${dependencies[0].element.render(defaultRenderSettings, { inline: true })}`);
                 }
 
-                constructBindings(dependencies, componentDataType, componentClass);
+                const bindingTree = constructBindings(dependencies, componentDataType, globals);
+                const treeVariable = new VariableDeclaration("_bindings", { isStatic: true, value: bindingTree });
+                componentClass.addMember(treeVariable);
             } catch (error) {
                 error.message += ` in component "${this.filename}"`;
                 throw error;

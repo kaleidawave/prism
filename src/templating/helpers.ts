@@ -95,7 +95,7 @@ export function createNullElseElement(identifier: string): HTMLElement {
  */
 export function addDependency(partialDependency: PartialDependency, locals: Locals, globals: Array<VariableReference>, dependencies: Array<IDependency>) {
     const uniqueExpression = cloneAST(partialDependency.expression);
-    const variablesInExpression = findVariables(uniqueExpression, true);
+    const variablesInExpression = findVariables(partialDependency.expression, true);
 
     let referencesVariables: Array<VariableReferenceArray> = [];
 
@@ -119,8 +119,6 @@ export function addDependency(partialDependency: PartialDependency, locals: Loca
                 referencesVariables.push(thisVariableArr);
             }
 
-            // If its a local alias it to this.data
-            (variable.tail as VariableReference).parent = thisDataVariable;
         }
     }
 

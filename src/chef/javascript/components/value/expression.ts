@@ -106,8 +106,6 @@ const operators = new Map([
     [JSToken.Plus, Operation.UnaryPlus],
     [JSToken.Minus, Operation.UnaryNegation],
     [JSToken.OptionalChain, Operation.OptionalChain],
-    [JSToken.Increment, Operation.PostfixIncrement], // TODO js token not quite right here but is needed for rendering
-    [JSToken.Decrement, Operation.PostfixDecrement]
 ]);
 
 const otherOperators = new Set(operators.values());
@@ -116,6 +114,10 @@ const otherOperators = new Set(operators.values());
 otherOperators.add(Operation.OptionalChain);
 otherOperators.add(Operation.OptionalCall);
 otherOperators.add(Operation.OptionalIndex);
+otherOperators.add(Operation.PrefixIncrement);
+otherOperators.add(Operation.PrefixDecrement);
+otherOperators.add(Operation.PostfixIncrement);
+otherOperators.add(Operation.PostfixDecrement);
 
 /*
     From: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence
@@ -237,6 +239,10 @@ export class Expression implements IStatement, IConstruct {
                     return `await ${this.lhs.render(settings)}`;
                 case Operation.LogNot:
                     return "!" + this.lhs.render(settings);
+                case Operation.PrefixIncrement:
+                    return "++" + this.lhs.render(settings);
+                case Operation.PrefixDecrement:
+                    return "--" + this.lhs.render(settings);
                 case Operation.PostfixIncrement:
                     return this.lhs.render(settings) + "++";
                 case Operation.PostfixDecrement:

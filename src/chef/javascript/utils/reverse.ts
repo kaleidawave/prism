@@ -16,7 +16,7 @@ import { replaceVariables, cloneAST } from "./variables";
  */
 export function buildReverseFunction(expression: IValue): FunctionDeclaration {
     const func = new FunctionDeclaration(null, ["value"], [], { bound: false });
-    const reverseExpression = reverseValue(expression);
+    const reverseExpression = reverseValue(cloneAST(expression));
     func.statements.push(new ReturnStatement(reverseExpression));
     return func;
 }
@@ -57,7 +57,7 @@ export function reverseValue(expression: IValue | ArgumentList): IValue {
  */
 export function reverseTemplateLiteral(templateLiteral: TemplateLiteral): Expression {
     if (templateLiteral.entries.filter(entry => typeof entry !== "string").length !== 1) {
-        throw Error("Cannot reverse value");
+        throw Error("Cannot reverse value as has two or more interpolation points");
     } else {
         let startIndex: number = 0;
         // string ${x} ...

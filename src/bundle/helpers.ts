@@ -36,6 +36,9 @@ export function isArrayHoley<T>(array: Array<T>): boolean {
     return false;
 }
 
-export function tryAssignToTextNode(textNode: CharacterData | null, value: string) {
-    if (textNode) textNode.data = value;
+/**
+ * Luckily CharacterData and Component have a assignable data property
+ */
+export function tryAssignData(elem: CharacterData | Component<any> | null, value: any) {
+    if (elem) elem.data = value;
 }

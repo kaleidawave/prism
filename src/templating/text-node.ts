@@ -68,11 +68,10 @@ export function parseTextNode(
                 aspect: ValueAspect.InnerText,
                 element: textNode.parent,
                 expression: fragment,
-                fragmentIndex: ssr ? i * 2 : i, // TODO actual index *2
+                fragmentIndex: ssr ? i * 2 : i
             }
 
             addDependency(dependency, localData, locals, dependencies);
-
             insertedChildren.push(dynamicTextNode);
         }
 

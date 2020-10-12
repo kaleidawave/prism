@@ -3,15 +3,15 @@ import { Expression, Operation } from "../../chef/javascript/components/value/ex
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
-import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
+import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVariableReferenceFromChain, aliasVariables } from "../../chef/javascript/utils/variables";
 import { getSlice, getChildrenStatement, thisDataVariable } from "../helpers";
 import { ValueAspect, IDependency, PrismHTMLElement, VariableReferenceArray } from "../template";
-import { VariableDeclaration } from "../../chef/javascript/components/statements/variable";
 import { HTMLElement } from "../../chef/html/html";
 
 export function makeSetFromDependency(
     dependency: IDependency,
-    variable: VariableReferenceArray
+    variable: VariableReferenceArray,
+    globals: Array<VariableReference> = []
 ): Array<IStatement> {
     const statements: Array<IStatement> = [];
     const elementStatement = getChildrenStatement(dependency.element);
@@ -19,15 +19,13 @@ export function makeSetFromDependency(
 
     // getSlice will return the trailing portion from the for iterator statement thing
     const variableReference = VariableReference.fromChain(...getSlice(variable) as Array<string>) as VariableReference;
-    // If exists under the main data
-    if (!variable.some(part => typeof part === "object")) {
-        (variableReference.tail as VariableReference).parent = thisDataVariable;
-    }
+    
     let newValue: IValue | null = null;
     if (dependency.expression) {
-        const clonedExpression = cloneAST(dependency.expression);
-        // Alters dependency.expression to switch the value ...? may have negative side effect so may need to implement cloning along the line
-        replaceVariables(clonedExpression, new VariableReference("value"), [variableReference]);
+        const clonedExpression = cloneAST(dependency.expression) as IValue;
+        const valueParam = new VariableReference("value");
+        replaceVariables(clonedExpression, valueParam, [variableReference]);
+        aliasVariables(clonedExpression, thisDataVariable, [valueParam, ...globals]);
         newValue = clonedExpression;
     }
 
@@ -37,7 +35,7 @@ export function makeSetFromDependency(
             // fragment (which exists on CharacterData) to the string value
             if (dependency.element.nullable) {
                 statements.push(new Expression({
-                    lhs: new VariableReference("tryAssignToTextNode"),
+                    lhs: new VariableReference("tryAssignData"),
                     operation: Operation.Call,
                     rhs: new ArgumentList([
                         newOptionalVariableReferenceFromChain(
@@ -113,11 +111,22 @@ export function makeSetFromDependency(
             }
             break;
         case ValueAspect.Data:
-            statements.push(new Expression({
-                lhs: new VariableReference("data", elementStatement),
-                operation: Operation.Assign,
-                rhs: newValue
-            }));
+            if (isElementNullable) {
+                statements.push(new Expression({
+                    lhs: new VariableReference("tryAssignData"),
+                    operation: Operation.Call,
+                    rhs: new ArgumentList([
+                        elementStatement,
+                        newValue!
+                    ])
+                }));
+            } else {
+                statements.push(new Expression({
+                    lhs: new VariableReference("data", elementStatement),
+                    operation: Operation.Assign,
+                    rhs: newValue!
+                }));
+            }
             break;
         case ValueAspect.DocumentTitle:
             statements.push(new Expression({

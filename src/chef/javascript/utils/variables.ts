@@ -186,8 +186,7 @@ export function aliasVariables(
 }
 
 /**
- * TODO object assign bad
- * TODO fuzzy?
+ * Replaces variable in expression inline
  */
 export function replaceVariables(
     value: IConstruct,
@@ -195,7 +194,13 @@ export function replaceVariables(
     targets: Array<VariableReference>
 ): void {
     for (const variable of variableReferenceWalker(value)) {
-        if (targets.some(targetVariable => targetVariable.isEqual(variable))) {
+        if (targets.some(targetVariable => targetVariable.isEqual(variable, true))) {
+            // TODO Needed for fuzzy match. Redundant and slow otherwise
+            let replaceVariable = variable;
+            while (!targets.some(targetVariable => targetVariable.isEqual(replaceVariable, false))) {
+                replaceVariable = variable.parent! as VariableReference;
+            }
+
             let replacerValue: IValue;
             if (typeof replacer === "function") {
                 replacerValue = replacer(variable);
@@ -204,9 +209,9 @@ export function replaceVariables(
             }
             // TODO this is kinda funky:
             // Clear keys, reassign to object, set prototype
-            Object.keys(variable).forEach(key => delete variable[key]);
-            Object.assign(variable, replacerValue);
-            Object.setPrototypeOf(variable, Object.getPrototypeOf(replacerValue));
+            Object.keys(replaceVariable).forEach(key => delete replaceVariable[key]);
+            Object.assign(replaceVariable, replacerValue);
+            Object.setPrototypeOf(replaceVariable, Object.getPrototypeOf(replacerValue));
         }
     }
 }

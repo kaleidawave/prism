@@ -10,6 +10,7 @@ import { IType } from "../../chef/javascript/utils/types";
 import { settings } from "../../settings";
 import { HTMLElement } from "../../chef/html/html";
 import { newOptionalVariableReference, newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
+import { Group } from "../../chef/javascript/components/value/group";
 
 export function makeGetFromDependency(
     dependency: IDependency,
@@ -110,7 +111,7 @@ export function makeGetFromDependency(
 
         // Invoke the reverseFunction with the evaluate output (which is value)
         const iife = new Expression({
-            lhs: reversedExpressionFunction,
+            lhs: new Group(reversedExpressionFunction),
             operation: Operation.Call,
             rhs: value
         });
