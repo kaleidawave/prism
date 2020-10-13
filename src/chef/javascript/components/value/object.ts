@@ -1,6 +1,6 @@
 import { IValue } from "./value";
 import { TokenReader, IRenderSettings, getSettings, IRenderOptions, defaultRenderSettings, IConstruct } from "../../../helpers";
-import { JSToken } from "../../javascript";
+import { commentTokens, JSToken } from "../../javascript";
 import { Expression } from "./expression";
 import { VariableReference, tokenAsIdent } from "./variable";
 import { FunctionDeclaration, functionPrefixes } from "../constructs/function";
@@ -92,7 +92,7 @@ export class ObjectLiteral implements IConstruct {
 
             let key: ObjectLiteralKey | null = null;
             // Skip comments
-            if ([JSToken.Comment, JSToken.MultilineComment].includes(reader.current.type)) {
+            if (commentTokens.includes(reader.current.type)) {
                 reader.move();
                 continue;
             }

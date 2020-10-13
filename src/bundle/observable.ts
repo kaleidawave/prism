@@ -62,7 +62,7 @@ export function createObservableObject<T>(
             // Get the respective (c)hunk on the mapping tree
             const chunk = mappings[prop];
             // If has type assign the new object which ...
-            if (chunk.type) {
+            if (chunk?.type) {
                 Object.assign(proxyCache[prop] ?? receiver[prop], value);
                 if (Array.isArray(value)) {
                     chunk?.set?.call?.(this, value, ...indexes);

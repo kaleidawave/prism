@@ -1,5 +1,5 @@
 import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
-import { JSToken } from "../../javascript";
+import { commentTokens, JSToken } from "../../javascript";
 import { TypeSignature } from "./type-signature";
 import { IStatement } from "../statements/statement";
 import { tokenAsIdent } from "../value/variable";
@@ -70,8 +70,9 @@ export class InterfaceDeclaration implements IStatement {
         const optionalKeys: Set<string> = new Set();
         reader.expectNext(JSToken.OpenCurly)
         while (reader.current.type !== JSToken.CloseCurly) {
-            if ([JSToken.Comment, JSToken.MultilineComment].includes(reader.current.type)) {
+            if (commentTokens.includes(reader.current.type)) {
                 reader.move();
+                continue;
             }
 
             let key: string;
@@ -94,7 +95,7 @@ export class InterfaceDeclaration implements IStatement {
             const typeSig = TypeSignature.fromTokens(reader);
             members.set(key, typeSig);
 
-            while ([JSToken.Comment, JSToken.MultilineComment].includes(reader.current.type)) {
+            while (commentTokens.includes(reader.current.type)) {
                 reader.move();
             }
 

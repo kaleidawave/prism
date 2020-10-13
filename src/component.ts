@@ -57,7 +57,7 @@ export class Component {
     serverRenderFunction?: FunctionDeclaration;
     pageServerRenderFunction?: FunctionDeclaration;
 
-    layout?: Component; // The layout the component extends (component must be a page to have a layout)
+    usesLayout?: Component; // The layout the component extends (component must be a page to have a layout)
     dataTypes: Map<string, Type>; // TODO merge with some kind of root data
 
     filename: string; // The full filename to the component
@@ -193,7 +193,8 @@ export class Component {
         let passive: boolean = false,
             defaultData: ObjectLiteral | null = null,
             clientGlobals: Array<AsExpression> = [],
-            globals: Array<VariableReference> = [];
+            globals: Array<VariableReference> = [],
+            noSSRData = false;
 
         if (componentClass.decorators) {
             for (const decorator of componentClass.decorators || []) {
@@ -242,6 +243,9 @@ export class Component {
                     case "Layout":
                         this.isLayout = true;
                         break;
+                    case "NoSSRData":
+                        noSSRData = true;
+                        break;
                     case "UseLayout":
                         if (decorator.args.length !== 1 || !(decorator.args[0] instanceof VariableReference)) {
                             throw Error(`@UseLayout requires 1 parameter of type object literal in "${filename}"`);
@@ -256,7 +260,7 @@ export class Component {
                         } else if (!layout.isLayout) {
                             throw Error("UseLayout component must be a layout")
                         }
-                        this.layout = layout;
+                        this.usesLayout = layout;
                         break;
                     case "Default":
                         if (decorator.args.length !== 1 || !(decorator.args[0] instanceof ObjectLiteral)) {
@@ -609,7 +613,7 @@ export class Component {
 
             // Construct ssr function parameters
             const parameters: Array<VariableDeclaration> = [];
-            if (this.needsData) {
+            if (this.needsData && !noSSRData) {
                 const dataParameter = new VariableDeclaration(
                     this.isLayout ? "layoutData" : "data", 
                     { typeSignature: componentDataTypeSignature }
@@ -644,6 +648,13 @@ export class Component {
 
             const renderFunction = new FunctionDeclaration(`render${this.className}Component`, parameters, []);
 
+            if (defaultData && noSSRData) {
+                renderFunction.statements.push(new VariableDeclaration("data", {
+                    value: defaultData, 
+                    typeSignature: componentDataTypeSignature
+                }));
+            }
+
             // Append "data-ssr" to the server rendered component. Used at runtime.
             const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
 
@@ -655,7 +666,7 @@ export class Component {
 
             // TODO would this work just using the existing slot functionality?
             // TODO could do in the page render function
-            if (this.layout) {
+            if (this.usesLayout) {
                 // Generate this components markup and then pass it to the layout render function to be injected
                 const innerContent = new VariableDeclaration("content", {
                     isConstant: true,
@@ -663,7 +674,7 @@ export class Component {
                 });
                 renderFunction.statements.push(innerContent);
 
-                // TODO data???
+                // TODO layout data is different to component data. Should be interpreted in same way as client global
                 const renderArgs = new Map([
                     ["attributes", new Value("", Type.string)],
                     ["data", new VariableReference("data")],
@@ -676,12 +687,12 @@ export class Component {
 
                 let argumentList: ArgumentList;
                 try {
-                    argumentList = this.layout.serverRenderFunction!.buildArgumentListFromArguments(renderArgs)
+                    argumentList = this.usesLayout.serverRenderFunction!.buildArgumentListFromArguments(renderArgs)
                 } catch (error) {
-                    throw Error(`Layout "${this.layout.filename}" has a client global not present in "${this.filename}"`);
+                    throw Error(`Layout "${this.usesLayout.filename}" has a client global not present in "${this.filename}"`);
                 }
                 const callLayoutSSRFunction = new Expression({
-                    lhs: new VariableReference(this.layout.serverRenderFunction!.name!.name!),
+                    lhs: new VariableReference(this.usesLayout.serverRenderFunction!.name!.name!),
                     operation: Operation.Call,
                     rhs: argumentList
                 });

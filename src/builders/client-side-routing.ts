@@ -65,8 +65,8 @@ export function buildRouter(): Module {
 
         // Push the component tag and if the the page requires a layout
         parts.push(new Value(component.tag, Type.string));
-        if (component.layout) {
-            parts.push(new Value(component.layout.tag, Type.string));
+        if (component.usesLayout) {
+            parts.push(new Value(component.usesLayout.tag, Type.string));
         }
 
         routePairArray.elements.push(new ArrayLiteral(parts));
@@ -78,8 +78,8 @@ export function buildRouter(): Module {
         const parts: Array<IValue> = [];
         parts.push(new RegExpLiteral(".?")); // This regexp matches on anything inc empty strings
         parts.push(new Value(notFoundRoute.tag, Type.string));
-        if (notFoundRoute.layout) {
-            parts.push(new Value(notFoundRoute.layout.tag, Type.string));
+        if (notFoundRoute.usesLayout) {
+            parts.push(new Value(notFoundRoute.usesLayout.tag, Type.string));
         }
         routePairArray.elements.push(new ArrayLiteral(parts));
     }

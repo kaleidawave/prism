@@ -40,7 +40,7 @@ export enum JSToken {
     EOF,
 }
 
-export const commentTypes = [JSToken.Comment, JSToken.MultilineComment];
+export const commentTokens = [JSToken.Comment, JSToken.MultilineComment];
 
 // All symbols in Javascript. If encountered during tokenization it will cut accumulation
 const symbols: Array<[string, JSToken]> = [

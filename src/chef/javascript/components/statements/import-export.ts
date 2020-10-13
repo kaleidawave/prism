@@ -134,7 +134,7 @@ export class ExportStatement implements IStatement {
             if (!serializedExport) return "";
             return acc + serializedExport;
         } else if (settings.moduleFormat === ModuleFormat.CJS) {
-            if (this.exported instanceof ClassDeclaration || this.exported instanceof FunctionDeclaration || this.exported instanceof VariableDeclaration) {
+            if (this.exported instanceof ClassDeclaration || this.exported instanceof FunctionDeclaration || this.exported instanceof VariableDeclaration || this.exported instanceof InterfaceDeclaration) {
                 /**
                  * this.exported is rendered first because: `export function x() {}` !== module.exports.x = function x() {}. As in the second example x is not hoisted or something like that...
                  */
@@ -152,8 +152,6 @@ export class ExportStatement implements IStatement {
                 }
                 acc += ` = ${exportName}`;
                 return acc;
-            } else if (this.exported instanceof InterfaceDeclaration) {
-                return "";
             } else {
                 // TODO export 2 + 2;
                 throw Error(`Not Supported - Rendering exported member ${this.exported.constructor.name}`);

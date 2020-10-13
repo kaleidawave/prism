@@ -1,6 +1,6 @@
 import { IStatement } from "../statements/statement";
 import { TokenReader, IRenderSettings, defaultRenderSettings, ScriptLanguages } from "../../../helpers";
-import { JSToken } from "../../javascript";
+import { commentTokens, JSToken } from "../../javascript";
 import { tokenAsIdent, VariableReference } from "../value/variable";
 import { Value, Type } from "../value/value";
 import { VariableDeclaration } from "../statements/variable";
@@ -45,6 +45,10 @@ export class EnumDeclaration implements IStatement {
         const members = new Map<string, Value>();
         let counter = 0;
         while (reader.current.type !== JSToken.CloseCurly) {
+            if (commentTokens.includes(reader.current.type)) {
+                reader.move();
+                continue;
+            }
             let value: Value;
             const member = reader.current.value || tokenAsIdent(reader.current.type);
             reader.move();

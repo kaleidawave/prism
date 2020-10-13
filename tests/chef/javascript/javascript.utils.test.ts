@@ -8,7 +8,6 @@ import { compileIIFE, reverseValue } from "../../../src/chef/javascript/utils/re
 import { Type, Value } from "../../../src/chef/javascript/components/value/value";
 import { ReturnStatement } from "../../../src/chef/javascript/components/statements/statement";
 import { TemplateLiteral } from "../../../src/chef/javascript/components/value/template-literal";
-import { VariableDeclaration } from "../../../src/chef/javascript/components/statements/variable";
 import { typeSignatureToIType } from "../../../src/chef/javascript/utils/types";
 import { TypeSignature } from "../../../src/chef/javascript/components/types/type-signature";
 
@@ -87,7 +86,7 @@ describe("Includes", () => {
 describe("Alias", () => {
     test("Alias", () => {
         const expr = Expression.fromString("a + b");
-        aliasVariables(expr, VariableReference.fromChain("this", "data"));
+        aliasVariables(expr, VariableReference.fromChain("this", "data") as VariableReference);
         expect(expr.render()).toBe("this.data.a + this.data.b");
     });
 });

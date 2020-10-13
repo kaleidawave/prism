@@ -1,5 +1,5 @@
 import { TokenReader, IRenderSettings, IConstruct, getSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
-import { JSToken, stringToTokens } from "../../javascript";
+import { commentTokens, JSToken, stringToTokens } from "../../javascript";
 import { TypeSignature } from "../types/type-signature";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./function";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
@@ -252,7 +252,7 @@ export class ClassDeclaration implements IConstruct, IClassSettings {
         while (reader.current.type !== JSToken.CloseCurly) {
             // TODO accessibility modifiers
 
-            if ([JSToken.Comment, JSToken.MultilineComment].includes(reader.current.type)) {
+            if (commentTokens.includes(reader.current.type)) {
                 clsDec.addMember(new Comment(reader.current.value!, reader.current.type === JSToken.MultilineComment));
                 reader.move();
             } else if (reader.current.type === JSToken.At) {
