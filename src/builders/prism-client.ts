@@ -1,8 +1,8 @@
-import { settings } from "../settings"
 import { Module } from "../chef/javascript/components/module";
 import { join } from "path";
 import { ImportStatement } from "../chef/javascript/components/statements/import-export";
 import { buildRouter } from "./client-side-routing";
+import { IFinalPrismSettings } from "../settings";
 
 const clientLibraries = [
     "component.ts",
@@ -19,10 +19,6 @@ export const clientExports: Map<string, Array<string>> = new Map([
     ["router.ts", ["Router"]],
 ]);
 
-export const importPrismClient = new ImportStatement(
-    Array.from(clientExports.values()).flat(),
-    `${settings.staticSrc}prism.js`
-);
 
 /**
  * Returns the whole Prism client as a module.

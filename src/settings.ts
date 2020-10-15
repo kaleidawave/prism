@@ -52,52 +52,52 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteTemplatePath: string,
 }
 
-export const settings: IFinalPrismSettings = {
-    ...defaultSettings,
-    get absoluteProjectPath() {
-        if (isAbsolute(this.projectPath)) {
-            return this.projectPath;
-        }
-        return join(process.cwd(), this.projectPath);
-    },
-    get absoluteOutputPath() {
-        if (isAbsolute(this.outputPath)) {
-            return this.outputPath;
-        }
-        return join(process.cwd(), this.outputPath);
-    },
-    get actualAssetPath() {
-        return this.assetPath ?? join(this.projectPath, "assets");
-    },
-    get absoluteAssetPath() {
-        if (isAbsolute(this.actualAssetPath)) {
-            return this.actualAssetPath;
-        }
-        return join(process.cwd(), this.actualAssetPath);
-    },
-    get actualServerOutputPath() {
-        return this.serverOutputPath ?? join(this.outputPath, "server");
-    },
-    get absoluteServerOutputPath() {
-        if (isAbsolute(this.actualServerOutputPath)) {
-            return this.actualServerOutputPath;
-        }
-        return join(process.cwd(), this.actualServerOutputPath);
-    },
-    get absoluteTemplatePath() {
-        if (isAbsolute(this.templatePath)) {
-            return this.templatePath;
-        }
-        return join(process.cwd(), this.templatePath);
-    },
-};
-
 /**
  * Mutates global `settings` through reading config file & command line arguments (process.argv)
  * TODO remove impure global settings
  * @returns
  */
-export function registerSettings() {
+export function registerSettings(): IFinalPrismSettings {
+    const settings: IFinalPrismSettings = {
+        ...defaultSettings,
+        get absoluteProjectPath() {
+            if (isAbsolute(this.projectPath)) {
+                return this.projectPath;
+            }
+            return join(process.cwd(), this.projectPath);
+        },
+        get absoluteOutputPath() {
+            if (isAbsolute(this.outputPath)) {
+                return this.outputPath;
+            }
+            return join(process.cwd(), this.outputPath);
+        },
+        get actualAssetPath() {
+            return this.assetPath ?? join(this.projectPath, "assets");
+        },
+        get absoluteAssetPath() {
+            if (isAbsolute(this.actualAssetPath)) {
+                return this.actualAssetPath;
+            }
+            return join(process.cwd(), this.actualAssetPath);
+        },
+        get actualServerOutputPath() {
+            return this.serverOutputPath ?? join(this.outputPath, "server");
+        },
+        get absoluteServerOutputPath() {
+            if (isAbsolute(this.actualServerOutputPath)) {
+                return this.actualServerOutputPath;
+            }
+            return join(process.cwd(), this.actualServerOutputPath);
+        },
+        get absoluteTemplatePath() {
+            if (isAbsolute(this.templatePath)) {
+                return this.templatePath;
+            }
+            return join(process.cwd(), this.templatePath);
+        },
+    };
+
     let configFilePath: string, componentFile: string | null;
     let startIndex = 3;
     if (process.argv[startIndex]?.endsWith("prism.config.json")) {
@@ -125,4 +125,6 @@ export function registerSettings() {
             Reflect.set(settings, argument, value);
         }
     }
+
+    return settings;
 }

@@ -98,3 +98,24 @@ export function findLastIndex<T>(arr: Array<T>, predicate: (arg0: T) => boolean)
     }
     return -1;
 }
+
+/**
+ * Utility function for assigning data to objects without interfering their prototypes
+ * @param map The `Map` or `WeakMap` 
+ * @param obj The 
+ * @param key 
+ * @param value 
+ */
+export function assignToObjectMap<T extends Object, U extends Object>(
+    map: Map<T, U> | WeakMap<T, U>,
+    obj: T,
+    key: keyof U,
+    value: U[typeof key]
+) {
+    if (map.has(obj)) {
+        Reflect.set(map.get(obj)!, key, value);
+    } else {
+        // @ts-ignore issue around partials
+        map.set(obj, {[key]: value});
+    }
+}

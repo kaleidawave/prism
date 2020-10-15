@@ -1,5 +1,4 @@
 import { filesInFolder } from "../helpers";
-import { settings } from "../settings";
 import { Component } from "../component";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
@@ -13,19 +12,20 @@ import { Expression, Operation } from "../chef/javascript/components/value/expre
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { moveStaticAssets } from "./assets";
 import { existsSync, readFileSync } from "fs";
+import { IFinalPrismSettings } from "../settings";
 
 /**
  * TODO explain
  * - Registers all components
  * - 
  */
-export function compileApplication() {
+export function compileApplication(settings: IFinalPrismSettings) {
     if (settings.buildTimings) console.time("Parse component files");
     for (const filepath of filesInFolder(settings.absoluteProjectPath)) {
         // Only .prism files that not skipped
         // TODO what about css, js and other assets in component paths
         if (filepath.endsWith(".prism") && !filepath.endsWith(".skip.prism")) {
-            Component.registerComponent(filepath);
+            Component.registerComponent(filepath, settings);
         }
     }
     if (settings.buildTimings) console.timeEnd("Parse component files");
@@ -96,7 +96,7 @@ export function compileApplication() {
     }
 
     if (settings.context === "isomorphic") {
-        generateServerModule(join(settings.absoluteServerOutputPath, "prism")).writeToFile(serverRenderSettings);
+        generateServerModule(join(settings.absoluteServerOutputPath, "prism"), settings).writeToFile(serverRenderSettings);
     }
 
     // Write out files
@@ -108,10 +108,10 @@ export function compileApplication() {
     // Build the index / shell page to serve
     // This is also built under context===isomorphic to allow for offline with service workers
     const indexHTML = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
-    buildIndexHtml().writeToFile(clientRenderSettings, indexHTML);
+    buildIndexHtml(settings).writeToFile(clientRenderSettings, indexHTML);
 
     if (settings.run) {
-        runApplication(settings.run === "open");
+        runApplication(settings.run === "open", settings);
     }
 }
 
@@ -119,7 +119,7 @@ export function compileApplication() {
  * Runs a prism application 
  * @param openBrowser 
  */
-export function runApplication(openBrowser: boolean = false): Promise<void> {
+export function runApplication(openBrowser: boolean = false, settings: IFinalPrismSettings): Promise<void> {
     if (settings.context === "client") {
         console.log("Starting client side with ws. Close with ctrl+c");
 

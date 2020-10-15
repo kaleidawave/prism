@@ -1,17 +1,18 @@
-import { TextNode, HTMLElement, HTMLComment } from "../chef/html/html";
+import { TextNode, HTMLElement, HTMLComment, Node } from "../chef/html/html";
 import type { IValue } from "../chef/javascript/components/value/value";
 import type { VariableReference } from "../chef/javascript/components/value/variable";
 import type { ForLoopExpression, ForIteratorExpression } from "../chef/javascript/components/statements/for";
 import { Component } from "../component";
 import { parseHTMLElement } from "./html-element";
 import { parseTextNode } from "./text-node";
+import { FunctionDeclaration } from "../chef/javascript/components/constructs/function";
 
 /**
  * Represents a event
  */
 export interface IEvent {
     nodeIdentifier: string,
-    element: PrismHTMLElement,
+    element: HTMLElement,
     event: string,
     callback: VariableReference,
     required: boolean, // If required for logic to work, if true will be disabled on ssr,
@@ -21,7 +22,7 @@ export interface IEvent {
 /**
  * Extends the HTMLElement interface adding new properties used in Prism template syntax
  */
-export interface PrismHTMLElement extends HTMLElement {
+export interface NodeData {
     component?: Component // Whether the element is a external component
     dynamicAttributes?: Map<string, IValue> // Attributes of an element which are linked to data
     events?: Array<IEvent> // Events the element has
@@ -29,22 +30,21 @@ export interface PrismHTMLElement extends HTMLElement {
     slotFor?: string // If slot the key of content that should be there
     nullable?: boolean // True if the element is not certain to exist in the DOM
     multiple?: boolean // If the element can exist multiple times in the DOM
-    elseElement?: PrismHTMLElement,
+    // elseElement?: PrismHTMLElement,
     // Client and server are aliased different
-    clientExpression?: IValue | ForIteratorExpression, 
+    clientExpression?: IValue | ForIteratorExpression,
     serverExpression?: IValue | ForIteratorExpression,
-    clientRenderMethod?: string
-}
+    clientRenderMethod?: FunctionDeclaration,
 
-export interface PrismTextNode extends TextNode {
-    value?: IValue; // A expression value for its text content
-}
+    conditionalRoot?: boolean, // If #if
+    elseElement?: HTMLElement, // If #if points to the #else element
+    iteratorRoot?: boolean, // If #for
 
-export interface PrismComment extends HTMLComment {
+    // For TextNodes:
+    textNodeValue?: IValue; // A expression value for its text content
+    // For HTMLComments:
     isFragment?: true // If the comment is used to break up text nodes for ssr hydration
 }
-
-export type PrismNode = PrismHTMLElement | PrismTextNode | PrismComment;
 
 // Explains what a variable affects
 export enum ValueAspect {
@@ -59,8 +59,8 @@ export enum ValueAspect {
 }
 
 // Represents a link between data and a element
-export interface IDependency {
-    element: PrismHTMLElement, // Used to see if the element is multiple or nullable
+export interface IBinding {
+    element: HTMLElement, // Used to see if the element is multiple or nullable
     expression: IValue | ForLoopExpression, // The expression that is the mutation of the variable
     aspect: ValueAspect, // The aspect the variable affects
     fragmentIndex?: number, // The index of the fragment to edit
@@ -69,45 +69,56 @@ export interface IDependency {
     referencesVariables: Array<VariableReferenceArray>,
 }
 
-export type PartialDependency = Omit<IDependency, 'referencesVariables'>;
+export type PartialBinding = Omit<IBinding, 'referencesVariables'>;
 
 export interface ForLoopVariable {
     aspect: "*",
     alias: string,
-    origin: PrismHTMLElement
+    origin: HTMLElement
 }
 
 export type VariableReferenceArray = Array<string | number | ForLoopVariable>;
 export type Locals = Array<{ name: string, path: VariableReferenceArray }>;
 
-export interface Template {
-    slots: Map<string, PrismHTMLElement>,
-    dependencies: Array<IDependency>,
+export interface ITemplateData {
+    slots: Map<string, HTMLElement>,
+    nodeData: WeakMap<Node, Partial<NodeData>>
+    bindings: Array<IBinding>,
     events: Array<IEvent>,
+}
+
+export interface ITemplateConfig {
+    ssrEnabled: boolean,
+    importedComponents: Map<string, Component>,
+    doClientSideRouting: boolean
 }
 
 /**
  * Parse the <template> element and its children. TODO explain
- * @param template
+ * @param templateElement A root <template> element
  * @param component The component that the template exists under
  */
 export function parseTemplate(
-    template: HTMLElement,
-    ssr: boolean = true,
+    templateElement: HTMLElement,
+    templateConfig: ITemplateConfig,
     locals: Array<VariableReference> = [],
-    importedComponents: Map<string, Component> | null = null,
-): Template {
-    if (template.tagName !== "template") {
+): ITemplateData {
+    if (templateElement.tagName !== "template") {
         throw Error("Element must be of tag name template");
     }
 
-    const slots = new Map(), dependencies = [], events = [];
-
-    for (const child of template.children as Array<PrismNode>) {
-        parsePrismNode(child, slots, dependencies, events, importedComponents, ssr, locals);
+    const templateData: ITemplateData = {
+        slots: new Map(),
+        bindings: [],
+        events: [],
+        nodeData: new WeakMap()
     }
 
-    return { slots, dependencies, events }
+    for (const child of templateElement.children) {
+        parseNode(child, templateData, templateConfig, locals);
+    }
+
+    return templateData;
 }
 
 /**
@@ -115,21 +126,18 @@ export function parseTemplate(
  * - Adds event listeners to nodes with event binding attributes
  * - Splits up text node with multiple variables to assist with ssr extraction
  */
-export function parsePrismNode(
-    element: PrismNode,
-    slots: Map<string, PrismHTMLElement>,
-    dependencies: Array<IDependency>,
-    events: Array<IEvent>,
-    importedComponents: Map<string, Component> | null,
-    ssr: boolean,
+export function parseNode(
+    element: Node,
+    templateData: ITemplateData,
+    templateConfig: ITemplateConfig,
     locals: Array<VariableReference>, // TODO eventually remove
     localData: Locals = [],
     nullable = false,
     multiple = false,
 ): void {
     if (element instanceof HTMLElement) {
-        parseHTMLElement(element, slots, dependencies, events, importedComponents, ssr, locals, localData, nullable, multiple);
+        parseHTMLElement(element, templateData, templateConfig, locals, localData, nullable, multiple);
     } else if (element instanceof TextNode) {
-        parseTextNode(element, dependencies, ssr, locals, localData, multiple);
+        parseTextNode(element, templateData, templateConfig, locals, localData, multiple);
     }
 }

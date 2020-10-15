@@ -1,19 +1,16 @@
-import { PrismHTMLElement, IDependency, IEvent, ValueAspect, PrismNode, Locals, VariableReferenceArray, PartialDependency } from "../template";
+import { ValueAspect, Locals, VariableReferenceArray, PartialBinding, ITemplateData, ITemplateConfig } from "../template";
 import { ForStatement, ForStatementExpression } from "../../chef/javascript/components/statements/for";
-import { addIdentifierToElement, addDependency, thisDataVariable } from "../helpers";
+import { addIdentifierToElement, addBinding, thisDataVariable } from "../helpers";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
-import { parsePrismNode } from "../template";
-import { HTMLComment } from "../../chef/html/html";
-import type { Component } from "../../component";
+import { parseNode } from "../template";
+import { HTMLComment, HTMLElement } from "../../chef/html/html";
 import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables";
+import { assignToObjectMap } from "../../helpers";
 
 export function parseForNode(
-    element: PrismHTMLElement,
-    slots: Map<string, PrismHTMLElement>,
-    dependencies: Array<IDependency>,
-    events: Array<IEvent>,
-    importedComponents: Map<string, Component> | null,
-    ssr: boolean,
+    element: HTMLElement,
+    templateData: ITemplateData,
+    templateConfig: ITemplateConfig,
     globals: Array<VariableReference>,
     localData: Locals,
     nullable = false,
@@ -23,6 +20,8 @@ export function parseForNode(
     if (!value) {
         throw Error("Expected value for #for construct")
     }
+
+    assignToObjectMap(templateData.nodeData, element, "iteratorRoot", true);
 
     const expression = ForStatement.parseForParameter(value);
     if (expression instanceof ForStatementExpression) {
@@ -36,7 +35,7 @@ export function parseForNode(
 
     // Parent identifier
     if (!multiple) {
-        addIdentifierToElement(element);
+        addIdentifierToElement(element, templateData.nodeData);
     }
 
     // Deals with nested arrays:
@@ -49,11 +48,11 @@ export function parseForNode(
         throw Error("#for construct element must be single child");
     }
 
-    element.clientExpression = clientAliasedExpression;
-    if (ssr) {
+    assignToObjectMap(templateData.nodeData, element, "clientExpression", clientAliasedExpression)
+    if (templateConfig.ssrEnabled) {
         const serverAliasedExpression = cloneAST(expression);
         aliasVariables(serverAliasedExpression, new VariableReference("data"), globals);
-        element.serverExpression = serverAliasedExpression;
+        assignToObjectMap(templateData.nodeData, element, "serverExpression", serverAliasedExpression)
     }
 
     const newLocals: Locals = [
@@ -64,18 +63,15 @@ export function parseForNode(
         }
     ];
 
-    const dependency: PartialDependency = { aspect: ValueAspect.Iterator, element, expression, }
+    const binding: PartialBinding = { aspect: ValueAspect.Iterator, element, expression, }
 
-    addDependency(dependency, localData, globals, dependencies);
+    addBinding(binding, localData, globals, templateData.bindings);
 
     for (const child of element.children) {
-        parsePrismNode(
-            child as PrismNode,
-            slots,
-            dependencies,
-            events,
-            importedComponents,
-            ssr,
+        parseNode(
+            child,
+            templateData,
+            templateConfig,
             globals,
             newLocals,
             nullable,

@@ -1,23 +1,21 @@
 import { HTMLDocument, flatElements, HTMLElement } from "../chef/html/html";
-import { PrismHTMLElement } from "../templating/template";
 import { getRoutes } from "./client-side-routing";
 import { dynamicUrlToString } from "../chef/dynamic-url";
-import { settings } from "../settings";
+import { IFinalPrismSettings } from "../settings";
 
 /**
  * Creates the underlining index document including references in the script to the script and style bundle.
  */
-export function buildIndexHtml(): HTMLDocument {
-
+export function buildIndexHtml(settings: IFinalPrismSettings): HTMLDocument {
     // Read the included template
-    const htmlPage = HTMLDocument.fromFile(settings.absoluteTemplatePath);
+    const document = HTMLDocument.fromFile(settings.absoluteTemplatePath);
 
-    for (const element of flatElements(htmlPage) as Array<PrismHTMLElement>) {
+    for (const element of flatElements(document)) {
         if (element.tagName === "slot") {
-            element.slotFor = element.attributes!.get("for") ?? "content";
+            const slotFor = element.attributes?.get("for") ?? "content";
 
             // Injecting router
-            if (element.slotFor === "content") {
+            if (slotFor === "content") {
                 let swapElement: HTMLElement;
                 const routes = getRoutes();
                 // TODO temp implementation if only a single page
@@ -44,5 +42,5 @@ export function buildIndexHtml(): HTMLDocument {
         }
     }
 
-    return htmlPage;
+    return document;
 }

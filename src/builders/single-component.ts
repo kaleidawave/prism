@@ -1,19 +1,18 @@
 import { Component } from "../component";
-import { settings } from "../settings";
 import { getPrismClient } from "./prism-client";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { join } from "path";
-import { generateServerModule } from "./prism-server";
 import { ScriptLanguages } from "../chef/helpers";
+import { IFinalPrismSettings } from "../settings";
 
 /**
  * Generate a script for a single client
  * @param componentPath 
  */
-export function compileSingleComponent(componentPath: string): void {
+export function compileSingleComponent(componentPath: string, settings: IFinalPrismSettings): void {
     if (settings.buildTimings) console.time("Parse component file and its imports");
-    const component = Component.registerComponent(componentPath);
+    const component = Component.registerComponent(componentPath, settings);
     if (settings.buildTimings) console.timeEnd("Parse component file and its imports");
 
     const bundledClientModule = getPrismClient(false);

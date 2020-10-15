@@ -1,13 +1,13 @@
-import { PrismHTMLElement, IEvent, IDependency, Locals, PartialDependency, VariableReferenceArray, ForLoopVariable } from "./template";
+import { IEvent, IBinding, Locals, PartialBinding, VariableReferenceArray, ForLoopVariable, NodeData } from "./template";
 import { IValue, Value, Type } from "../chef/javascript/components/value/value";
-import { HTMLElement, HTMLDocument } from "../chef/html/html";
+import { HTMLElement, HTMLDocument, Node } from "../chef/html/html";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { ArgumentList } from "../chef/javascript/components/constructs/function";
 import { cloneAST, findVariables, newOptionalVariableReferenceFromChain } from "../chef/javascript/utils/variables";
-import { findLastIndex } from "../helpers";
+import { assignToObjectMap, findLastIndex } from "../helpers";
 import { IType } from "../chef/javascript/utils/types";
-import { ForIteratorExpression } from "../chef/javascript/components/statements/for";
+import { defaultRenderSettings } from "../chef/helpers";
 
 export const thisDataVariable = VariableReference.fromChain("this", "data") as VariableReference;
 
@@ -33,12 +33,15 @@ function getRandomInt(min: number = 0, max: number = 9) {
 /**
  * Adds a new identifier to an element. Used to reference elements at runtime. Adds identifer as a class (not id)
  */
-export function addIdentifierToElement(element: PrismHTMLElement): string {
-    if (element.identifier) {
-        return element.identifier;
+export function addIdentifierToElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>): string {
+    const existingIdentifer = nodeData.get(element)?.identifier;
+    if (existingIdentifer) {
+        return existingIdentifer;
     } else {
         const identifier = randomPrismId();
-        element.identifier = identifier;
+        assignToObjectMap(nodeData, element, "identifier", identifier);
+
+        // Add identifer to class
         if (!element.attributes) {
             element.attributes = new Map([["class", identifier]]);
         } else if (element.attributes.has("class")) {
@@ -50,31 +53,13 @@ export function addIdentifierToElement(element: PrismHTMLElement): string {
     }
 }
 
-export function addEvent(events: Array<IEvent>, element: PrismHTMLElement, event: IEvent) {
+export function addEvent(events: Array<IEvent>, element: HTMLElement, event: IEvent, nodeData: WeakMap<Node, NodeData>) {
     events.push(event);
-    if (element.events) {
-        element.events.push(event);
+    const elementEvents = nodeData.get(element)?.events;
+    if (elementEvents) {
+        elementEvents.push(event);
     } else {
-        element.events = [event];
-    }
-}
-
-export function addAttribute(element: PrismHTMLElement, name: string, attribute: string | IValue | null = null) {
-    if (attribute === null) {
-        if (!element.attributes) {
-            element.attributes = new Map();
-        }
-        element.attributes.set(name, null);
-    } else if (typeof attribute === "string") {
-        if (!element.attributes) {
-            element.attributes = new Map();
-        }
-        element.attributes.set(name, attribute);
-    } else {
-        if (!element.dynamicAttributes) {
-            element.dynamicAttributes = new Map();
-        }
-        element.dynamicAttributes.set(name, attribute);
+        assignToObjectMap(nodeData, element, "events", [event]);
     }
 }
 
@@ -86,16 +71,21 @@ export function createNullElseElement(identifier: string): HTMLElement {
 }
 
 /**
- * Fills a dependency. Does a bunch of side effects:
- * - Adding to the array of dependencies
+ * Fills a binding. Does a bunch of side effects:
+ * - Adding to the array of bindings
  * - Aliasing the expression to be in terms of this.data
- * @param partialDependency 
+ * @param partialBinding 
  * @param locals Variables introduced by for of statements
  * @param globals Variables outside of class
  */
-export function addDependency(partialDependency: PartialDependency, locals: Locals, globals: Array<VariableReference>, dependencies: Array<IDependency>) {
-    const uniqueExpression = cloneAST(partialDependency.expression);
-    const variablesInExpression = findVariables(partialDependency.expression, true);
+export function addBinding(
+    partialBinding: PartialBinding, 
+    locals: Locals, 
+    globals: Array<VariableReference>, 
+    bindings: Array<IBinding>
+) {
+    const uniqueExpression = cloneAST(partialBinding.expression);
+    const variablesInExpression = findVariables(partialBinding.expression, true);
 
     let referencesVariables: Array<VariableReferenceArray> = [];
 
@@ -123,13 +113,13 @@ export function addDependency(partialDependency: PartialDependency, locals: Loca
     }
 
     if (referencesVariables.length > 0) {
-        const dependency: IDependency = {
-            ...partialDependency,
+        const binding: IBinding = {
+            ...partialBinding,
             expression: uniqueExpression,
             referencesVariables
         }
 
-        dependencies.push(dependency);
+        bindings.push(binding);
     }
 }
 
@@ -148,13 +138,17 @@ function variableReferenceArrayEqual(vra1: VariableReferenceArray, vra2: Variabl
  * Returns a getElem(*id*) expression 
  * For getting a single node under a for statement use `getSpecificElem`
 */
-export function getElem(element: PrismHTMLElement): Expression {
-    // TODO maybe automatically set elements identifier
-    if (!element.identifier) throw Error("Cannot create getElem expression from node without set identifer");
+function getSingleElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>): Expression {
+    let identifier = nodeData.get(element)?.identifier;
+    // Should never throw
+    if (!identifier) {
+        assignToObjectMap(nodeData, element, "identifier", identifier = "PRISM_TEMP_IDENTIFIER");
+        // throw Error("Cannot create getElem expression from node without set identifer");
+    }
     return new Expression({
         lhs: VariableReference.fromChain("this", "getElem"),
         operation: Operation.Call,
-        rhs: new ArgumentList([new Value(element.identifier, Type.string)])
+        rhs: new ArgumentList([new Value(identifier, Type.string)])
     });
 }
 
@@ -163,18 +157,18 @@ export function getElem(element: PrismHTMLElement): Expression {
  * @param ancestor a ancestor of the descendant
  * @param element a descendant of the descendant
  */
-export function getChildrenStatement(element: HTMLElement): IValue {
-    if ((element as PrismHTMLElement)?.multiple === false) {
-        return getElem(element)
-    }
+export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>): IValue {
+    const { multiple, nullable: isRootElementNullable } = nodeData.get(element)!;
 
-    const isRootElementNullable = (element as PrismHTMLElement).nullable;
+    if (!multiple) {
+        return getSingleElement(element, nodeData);
+    }
 
     // Work backwards up the parent chain until get to parent:
     const indexes: Array<number | "var"> = [];
     let point = element;
-    while (((point as PrismHTMLElement).multiple === true)) {
-        if ((point.parent as PrismHTMLElement)?.clientExpression instanceof ForIteratorExpression) {
+    while (nodeData.get(point)?.multiple) {
+        if (nodeData.get(point.parent as HTMLElement)?.iteratorRoot) {
             indexes.push("var");
         } else {
             indexes.push(point.parent!.children.indexOf(point))
@@ -186,7 +180,7 @@ export function getChildrenStatement(element: HTMLElement): IValue {
     }
 
     // Point is now end
-    let statement: IValue = getElem(point);
+    let statement: IValue = getSingleElement(point, nodeData);
     let indexer = 0;
 
     // Reverse as worked upwards but statement works downwards

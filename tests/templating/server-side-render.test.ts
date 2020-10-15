@@ -1,8 +1,10 @@
-import { serverRenderPrismNode } from "../../src/templating/builders/server-render";
+import { IServerRenderSettings, serverRenderPrismNode } from "../../src/templating/builders/server-render";
 import { HTMLElement, TextNode } from "../../src/chef/html/html";
-import { PrismHTMLElement } from "../../src/templating/template";
 import { VariableReference } from "../../src/chef/javascript/components/value/variable";
 import { Operation } from "../../src/chef/javascript/components/value/expression";
+import { assignToObjectMap } from "../../src/helpers";
+
+const serverRenderSettings: IServerRenderSettings = {addDisableToElementWithEvents: false, dynamicAttribute: false, minify: true}
 
 test("Tag and text", () => {
     // TODO parse and create maybe from html example
@@ -10,8 +12,8 @@ test("Tag and text", () => {
     dom.children = [
         new TextNode("Hello World", dom)
     ];
-    expect(serverRenderPrismNode(dom).entries[0]).toBe("<div>Hello World</div>");
-    expect(serverRenderPrismNode(dom).entries[0]).toBe("<div>Hello World</div>");
+    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings).entries[0]).toBe("<div>Hello World</div>");
+    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings).entries[0]).toBe("<div>Hello World</div>");
 });
 
 test("Attributes", () => {
@@ -20,14 +22,15 @@ test("Attributes", () => {
     dom.attributes!.set("id", "123");
     dom.attributes!.set("hidden", null);
 
-    expect(serverRenderPrismNode(dom).entries[0]).toBe(`<div title="abc" id="123" hidden></div>`);
+    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings).entries[0]).toBe(`<div title="abc" id="123" hidden></div>`);
 });
 
 test("Dynamic Attributes", () => {
-    const dom: PrismHTMLElement = new HTMLElement("div");
-    dom.dynamicAttributes = new Map([["title", new VariableReference("someTitle")]]);
+    const div = new HTMLElement("div");
+    const nodeData = new WeakMap;
+    assignToObjectMap(nodeData, div, "dynamicAttributes", new Map([["title", new VariableReference("someTitle")]]))
 
-    expect(serverRenderPrismNode(dom).entries).toMatchObject([
+    expect(serverRenderPrismNode(div, nodeData, serverRenderSettings).entries).toMatchObject([
         `<div title="`,
         {
             lhs: {name: "escape"},
@@ -44,7 +47,7 @@ test("Dynamic Attributes", () => {
 
 test("Self closing tags", () => {
     const element = new HTMLElement("img");
-    expect(serverRenderPrismNode(element).entries[0]).toBe(`<img>`)
+    expect(serverRenderPrismNode(element, new WeakMap, serverRenderSettings).entries[0]).toBe(`<img>`)
 });
 
 test.todo("Comments");

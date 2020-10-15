@@ -1,19 +1,16 @@
-import { PrismHTMLElement, IDependency, IEvent, PrismNode, ValueAspect, Locals, PartialDependency } from "../template";
-import { Component } from "../../component";
+import { ValueAspect, Locals, PartialBinding, ITemplateConfig, ITemplateData } from "../template";
 import { Expression } from "../../chef/javascript/components/value/expression";
-import { addIdentifierToElement, addDependency, createNullElseElement, thisDataVariable } from "../helpers";
-import { parsePrismNode } from "../template";
+import { addIdentifierToElement, addBinding, createNullElseElement, thisDataVariable } from "../helpers";
+import { parseNode } from "../template";
 import { HTMLElement } from "../../chef/html/html";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { cloneAST, aliasVariables } from "../../chef/javascript/utils/variables";
+import { assignToObjectMap } from "../../helpers";
 
 export function parseIfNode(
-    element: PrismHTMLElement,
-    slots: Map<string, PrismHTMLElement>,
-    dependencies: Array<IDependency>,
-    events: Array<IEvent>,
-    importedComponents: Map<string, Component> | null,
-    ssr: boolean,
+    element: HTMLElement,
+    templateData: ITemplateData,
+    templateConfig: ITemplateConfig,
     globals: Array<VariableReference>, // TODO eventually remove
     locals: Locals,
     nullable: boolean,
@@ -25,31 +22,30 @@ export function parseIfNode(
         throw Error("Expected value for #if construct")
     }
 
+    assignToObjectMap(templateData.nodeData, element, "conditionalRoot", true);
+
     const expression = Expression.fromString(value);
 
     if (multiple) {
         throw Error("Not implemented - #if node under a #for element")
     }
 
-    const identifier = addIdentifierToElement(element);
-    element.nullable = true;
+    const identifier = addIdentifierToElement(element, templateData.nodeData);
+    assignToObjectMap(templateData.nodeData, element, "nullable", true);
 
-    const dependency: PartialDependency = {
+    const binding: PartialBinding = {
         aspect: ValueAspect.Conditional,
         expression,
         element
     }
 
-    addDependency(dependency, locals, globals, dependencies);
+    addBinding(binding, locals, globals, templateData.bindings);
 
     for (const child of element.children) {
-        parsePrismNode(
-            child as PrismNode,
-            slots,
-            dependencies,
-            events,
-            importedComponents,
-            ssr,
+        parseNode(
+            child,
+            templateData,
+            templateConfig,
             globals,
             locals,
             true,
@@ -60,11 +56,11 @@ export function parseIfNode(
     element.attributes!.delete("#if");
 
     // Skip over comments in between #if and #else
-    let elseElement: PrismNode | null = element.next as PrismNode;
+    let elseElement: HTMLElement | null = element.next as HTMLElement;
 
     if (elseElement && elseElement instanceof HTMLElement && elseElement.attributes?.has("#else")) {
         elseElement.attributes.delete("#else");
-        parsePrismNode(elseElement, slots, dependencies, events, importedComponents, ssr, globals, locals, true, multiple);
+        parseNode(elseElement, templateData, templateConfig, globals, locals, true, multiple);
         elseElement.attributes.set("data-else", null);
         // Add a (possibly second) identifer to elseElement. It is the same identifer used for the #if element
         // and simplifies runtime by having a single id element to swap
@@ -78,18 +74,21 @@ export function parseIfNode(
         elseElement.parent!.children.splice(elseElement.parent!.children.indexOf(elseElement), 1);
     } else {
         elseElement = createNullElseElement(identifier);
-        elseElement.nullable = true;
+        assignToObjectMap(templateData.nodeData, elseElement, "nullable", true);
     }
 
-    element.elseElement = elseElement;
+    // TODO is elseElement used???
+    assignToObjectMap(templateData.nodeData, element, "elseElement", elseElement);
 
     const clientAliasedExpression = cloneAST(expression);
     aliasVariables(clientAliasedExpression, thisDataVariable, globals);
 
-    element.clientExpression = clientAliasedExpression;
-    if (ssr) {
+    assignToObjectMap(templateData.nodeData, element, "clientExpression", clientAliasedExpression);
+    
+    if (templateConfig.ssrEnabled) {
         const serverAliasedExpression = cloneAST(expression);
+        // TODO do aliasing during server part
         aliasVariables(serverAliasedExpression, new VariableReference("data"), globals);
-        element.serverExpression = serverAliasedExpression;
+        assignToObjectMap(templateData.nodeData, element, "serverExpression", serverAliasedExpression);
     }
 }

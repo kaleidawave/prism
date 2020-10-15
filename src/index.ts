@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { settings, registerSettings } from "./settings";
+import { registerSettings } from "./settings";
 import { lstatSync, existsSync } from "fs";
 import { compileSingleComponent } from "./builders/single-component";
 import { compileApplication, runApplication } from "./builders/build-app";
@@ -32,8 +32,8 @@ switch (action) {
     case IPrismAction.help:
         printHelpScreen();
         break;
-    case IPrismAction.compileComponent:
-        registerSettings();
+    case IPrismAction.compileComponent: {
+        const settings = registerSettings();
         printWarningBanner();
         if (settings.buildTimings) console.time("Building single component");
         if (lstatSync(settings.absoluteProjectPath).isDirectory() || !settings.projectPath.endsWith(".prism")) {
@@ -42,25 +42,28 @@ switch (action) {
         if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
             throw Error(`Output path must be a directory`);
         }
-        compileSingleComponent(settings.projectPath);
+        compileSingleComponent(settings.projectPath, settings);
         if (settings.buildTimings) console.timeEnd("Building single component");
         break;
-    case IPrismAction.compileApp:
-        registerSettings();
+    }
+    case IPrismAction.compileApp: {
+        const settings = registerSettings();
         printWarningBanner();
         if (settings.buildTimings) console.time("Building application");
         if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
             throw Error(`Output path must be a directory`);
         }
-        compileApplication();
+        compileApplication(settings);
         if (settings.buildTimings) console.timeEnd("Building application");
         break;
+    }
     // Others
-    case IPrismAction.run:
+    case IPrismAction.run: {
+        const settings = registerSettings();
         const openBrowser = process.argv[3] === "--open";
-        registerSettings();
-        runApplication(openBrowser);
+        runApplication(openBrowser, settings);
         break;
+    }
     case IPrismAction.minify: {
         // TODO list space savings
         const [targetFile, outputFile] = process.argv.slice(3);
@@ -74,7 +77,7 @@ switch (action) {
         if (!isAbsolute(targetFile)) targetFile = join(process.cwd(), targetFile);
         if (!isAbsolute(outputFile)) outputFile = join(process.cwd(), outputFile);
         const stylesheet = Stylesheet.fromFile(targetFile);
-        stylesheet.writeToFile({minify}, outputFile);
+        stylesheet.writeToFile({ minify }, outputFile);
         break;
     }
     default:
