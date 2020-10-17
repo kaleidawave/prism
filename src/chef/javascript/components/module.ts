@@ -1,13 +1,12 @@
 import { TokenReader, IConstruct, getSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
 import { JSToken, stringToTokens } from "../javascript";
-import { readFileSync, existsSync } from "fs";
 import { Decorator, ClassDeclaration } from "./constructs/class";
 import { IStatement, ParseStatement } from "./statements/statement";
 import { ExportStatement, ImportStatement } from "./statements/import-export";
 import { IValue } from "./value/value";
-import { writeFile } from "../../../helpers";
 import { VariableDeclaration } from "./statements/variable";
 import { renderBlock } from "./constructs/block";
+import { readFile, writeFile } from "../../filesystem";
 
 export class Module implements IConstruct {
 
@@ -25,7 +24,7 @@ export class Module implements IConstruct {
 
     // Caches existing parsed modules
     // TODO rename filename does not change cache..?
-    private static cachedModules: Map<string, Module> = new Map();
+    public static cachedModules: Map<string, Module> = new Map();
 
     constructor(
         statements: Array<IStatement> = []
@@ -51,8 +50,7 @@ export class Module implements IConstruct {
      */
     static fromFile(filename: string): Module {
         if (this.cachedModules.has(filename)) return this.cachedModules.get(filename)!;
-        if (!existsSync(filename)) throw Error(`Could not find module "${filename}"`)
-        const string = readFileSync(filename).toString();
+        const string = readFile(filename).toString();
         const module = Module.fromString(string, filename);
         this.cachedModules.set(filename, module);
         return module;
@@ -118,7 +116,7 @@ export class Module implements IConstruct {
         if (!file.endsWith(extension)) {
             file += extension;
         }
-        writeFile(file, this.render(settings), true);
+        writeFile(file, this.render(settings));
     }
 
     /**

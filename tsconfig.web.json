@@ -2,20 +2,19 @@
     "compilerOptions": {
         "lib": ["es2020"],
         "target": "ES2019",
-        "module": "CommonJS",
+        "module": "ES6",
         "moduleResolution": "node",
         "experimentalDecorators": true,
         "types": [ "node", "jest" ],
         "removeComments": true,
-        "outDir": "node-out",
+        "outDir": "web-out",
         "incremental": true,
         "strictNullChecks": true,
         "diagnostics": true,
-        "downlevelIteration": true,
-        "tsBuildInfoFile": "private/tsbuild.node.info.json",
+        "tsBuildInfoFile": "private/tsbuild.web.info.json",
     },
     "files": [
-        "src/index.ts"
+        "src/web.ts"
     ],
     "exclude": [
         "node_modules",

@@ -58,6 +58,7 @@ export function ParseStatement(reader: TokenReader<JSToken>): IStatement {
             }
         case JSToken.Type: return TypeStatement.fromTokens(reader);
         case JSToken.Export: return ExportStatement.fromTokens(reader);
+        case JSToken.HashBang: return new HashBangStatement(reader.current.value!);
         default: return Expression.fromTokens(reader);
     }
 }
@@ -128,5 +129,15 @@ export class ContinueStatement implements IStatement {
             return continueStatement;
         }
         return new ContinueStatement();
+    }
+}
+
+export class HashBangStatement implements IStatement {
+    constructor(
+        public path: string
+    ) { }
+
+    render(): string {
+        return `#${this.path}`;
     }
 }

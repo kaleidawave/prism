@@ -2,11 +2,13 @@
   "name": "@kaleidawave/prism",
   "version": "1.1.0",
   "description": "Isomorphic web app compiler",
-  "main": "out/index.js",
+  "main": "node-out/index.js",
   "scripts": {
     "test": "jest",
-    "build": "tsc && npm run copy-bundle",
-    "copy-bundle": "xcopy /s /d /i \"src\\bundle\" \"out\\bundle\""
+    "build-web": "tsc -p tsconfig.web.json && rollup -c && npm run copy-bundle-web",
+    "build-node": "tsc -p tsconfig.json && npm run copy-bundle",
+    "copy-bundle-node": "xcopy /s /d /i \"src\\bundle\" \"node-out\\bundle\"",
+    "copy-bundle-web": "xcopy /s /d /i \"src\\bundle\" \"web-out\\bundle\""
   },
   "repository": {
     "type": "git",
@@ -26,17 +28,20 @@
     "url": "https://github.com/kaleidawave/prism/issues"
   },
   "files": [
-    "out"
+    "node-out"
   ],
   "homepage": "https://github.com/kaleidawave/prism#readme",
   "// Only used for testing and development:": "",
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^9.0.0",
     "@types/jest": "^25.2.3",
     "@types/jest-cli": "^24.3.0",
-    "@types/node": "^13.13.15",
+    "@types/node": "^13.13.25",
     "jest": "^25.5.4",
-    "jest-cli": "^26.1.0",
-    "ts-jest": "^26.1.4",
+    "jest-cli": "^26.5.3",
+    "rollup": "^2.32.0",
+    "rollup-plugin-node-polyfills": "^0.2.1",
+    "ts-jest": "^26.4.1",
     "typescript": "^3.9.7"
   },
   "jest": {

@@ -2,7 +2,9 @@ import { TokenReader, Token, characterIsNumber, ITokenizationSettings, createCom
 
 export enum JSToken {
     Identifier, StringLiteral, NumberLiteral, RegexLiteral, TemplateLiteralString,
-    Comma, SemiColon, Colon, Dot, At, TemplateLiteralStart, TemplateLiteralEnd, SingleQuote, DoubleQuote, Backslash,
+    TemplateLiteralStart, TemplateLiteralEnd, SingleQuote, DoubleQuote, HashBang,
+    Backslash,
+    Comma, SemiColon, Colon, Dot, At,
     Const, Var, Let,
     New, Spread, Assign, ArrowFunction,
     OpenBracket, CloseBracket, OpenCurly, CloseCurly, OpenSquare, CloseSquare, OpenAngle, CloseAngle,
@@ -36,6 +38,7 @@ export enum JSToken {
     Private, Public, Protected,
     Null, Undefined,
     OptionalChain, NullishCoalescing, OptionalMember,
+    HashTag,
     As,
     EOF,
 }
@@ -67,6 +70,7 @@ const symbols: Array<[string, JSToken]> = [
     ["\"", JSToken.DoubleQuote],
     ["|", JSToken.BitwiseOr],
     ["?", JSToken.QuestionMark],
+    ["#", JSToken.HashTag],
     ["%", JSToken.Percent],
     ["!", JSToken.LogicalNot],
     ["~", JSToken.BitwiseNot],
@@ -197,7 +201,7 @@ function addIdent(string: string, column: number, line: number): Token<JSToken> 
 }
 
 enum Literals {
-    Regex, Number, SingleQuoteString, DoubleQuoteString, Template, Comment, MultilineComment, Ident
+    Regex, Number, SingleQuoteString, DoubleQuoteString, Template, Comment, MultilineComment, Ident, HashBang
 }
 
 const combineMap = createCombineMap(combine);
@@ -268,6 +272,14 @@ export function stringToTokens(javascript: string, settings: ITokenizationSettin
                     }
                     break;
                 case Literals.Comment:
+                    if (javascript[index] === "\n") {
+                        reader.top.value = reader.top.value!.trim();
+                        currentLiteral = null;
+                    } else {
+                        reader.top.value += javascript[index];
+                    }
+                    break;
+                case Literals.HashBang:
                     if (javascript[index] === "\n") {
                         reader.top.value = reader.top.value!.trim();
                         currentLiteral = null;
@@ -358,76 +370,82 @@ export function stringToTokens(javascript: string, settings: ITokenizationSettin
         }
         // If meets a symbol 
         else if (symbolsMap.has(javascript[index])) {
-            // TODO temp && acc !== "\n"
             if (acc.length > 0) {
                 reader.add(addIdent(acc, column, line));
                 acc = "";
             }
 
-            const type = symbolsMap.get(javascript[index])!;
-            reader.add({ type, column, line });
+            const tokenType = symbolsMap.get(javascript[index])!;
 
             if (templateLiteralDepth > 0) {
-                if (type === JSToken.OpenCurly) {
+                if (tokenType === JSToken.OpenCurly) {
                     curlyCount[templateLiteralDepth - 1]++;
-                } else if (type === JSToken.CloseCurly) {
+                } else if (tokenType === JSToken.CloseCurly) {
                     curlyCount[templateLiteralDepth - 1]--;
                     if (curlyCount[templateLiteralDepth - 1] === 0) {
                         curlyCount.pop();
-                        reader.pop();
                         reader.add({ type: JSToken.TemplateLiteralString, value: "", line, column });
                         currentLiteral = Literals.Template;
                     }
                 }
             }
 
-            const topType = reader.top.type;
-            if (topType === JSToken.Comment) {
-                reader.top.value = "";
+            if (currentLiteral === Literals.Template) { }
+            else if (javascript.startsWith("//", index)) {
+                index++; column++;
+                reader.add({ type: JSToken.Comment, value: "", column, line });
                 currentLiteral = Literals.Comment;
-            } else if (topType === JSToken.MultilineComment) {
-                reader.top.value = "";
+            } else if (javascript.startsWith("/*", index)) {
+                index++; column++;
+                reader.add({ type: JSToken.MultilineComment, value: "", column, line });
                 currentLiteral = Literals.MultilineComment;
-            } else if (topType === JSToken.SingleQuote || topType === JSToken.DoubleQuote) {
-                reader.top.value = "";
-                reader.pop();
+            } else if (tokenType === JSToken.SingleQuote || tokenType === JSToken.DoubleQuote) {
                 reader.add({ type: JSToken.StringLiteral, value: "", line, column })
                 currentLiteral = javascript[index] === "\"" ? Literals.DoubleQuoteString : Literals.SingleQuoteString;
             }
             // Divide can also match regex literal 
-            else if (topType === JSToken.Divide) {
+            else if (tokenType === JSToken.Divide) {
                 // TODO expand, explain and extract this list
                 const tokensBeforeRegex = [JSToken.Identifier, JSToken.NumberLiteral, JSToken.CloseBracket];
-                if ((reader.length === 1 || (tokensBeforeRegex.includes(reader.peekFromTop(1).type) === false)) && "*/".includes(javascript[index + 1]) === false) {
-                    reader.pop();
+                if (
+                    (
+                        reader.length === 1 || 
+                        (tokensBeforeRegex.includes(reader.peekFromTop(1).type) === false)
+                    ) && 
+                    "*/".includes(javascript[index + 1]) === false
+                ) {
                     reader.add({ type: JSToken.RegexLiteral, value: "", column, line });
                     currentLiteral = Literals.Regex;
+                } else {
+                    reader.add({ type: tokenType, column, line });
                 }
             }
             // For template literals 
-            else if (topType === JSToken.TemplateLiteralStart) {
+            else if (tokenType === JSToken.TemplateLiteralStart) {
                 currentLiteral = Literals.Template;
                 templateLiteralDepth++;
+                reader.add({ type: JSToken.TemplateLiteralStart, column, line });
                 reader.add({ type: JSToken.TemplateLiteralString, value: "", column, line });
             }
             // For decimals without number in front e.g  .5
-            else if (topType === JSToken.Dot) {
-                if (characterIsNumber(javascript[index + 1])) {
-                    reader.pop();
-                    reader.add({ type: JSToken.NumberLiteral, value: ".", column, line });
-                    currentLiteral = Literals.Number;
-                }
+            else if (tokenType === JSToken.Dot && characterIsNumber(javascript[index + 1])) {
+                reader.add({ type: JSToken.NumberLiteral, value: ".", column, line });
+                currentLiteral = Literals.Number;
             }
             // For unicode variable names 
-            else if (topType === JSToken.Backslash) {
-                if (javascript[index + 1] === "u") {
-                    reader.pop();
-                    reader.add({ type: JSToken.Identifier, value: "\\", column, line });
-                    currentLiteral = Literals.Ident;
-                }
+            else if (tokenType === JSToken.Backslash && javascript[index + 1] === "u") {
+                reader.add({ type: JSToken.Identifier, value: "\\", column, line });
+                currentLiteral = Literals.Ident;
+            }
+            // HashBang for nodejs scripts
+            else if (tokenType === JSToken.HashTag && reader.length === 0) {
+                reader.add({ type: JSToken.HashBang, value: "", column, line });
+                currentLiteral = Literals.HashBang;
+            } else {
+                reader.add({ type: tokenType, column, line });
             }
         }
-        // If start of number
+        // If start of number (#!/usr/bin/env node)
         else if (characterIsNumber(javascript[index]) && acc.length === 0) {
             if (acc.length > 0) {
                 reader.add(addIdent(acc, column - 1, line));

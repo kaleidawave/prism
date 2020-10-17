@@ -1,4 +1,4 @@
-import { IBinding, IEvent, ValueAspect, parseNode, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
+import { IEvent, ValueAspect, parseNode, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
 import { addIdentifierToElement, addEvent, addBinding } from "./helpers";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { IValue } from "../chef/javascript/components/value/value";
@@ -8,7 +8,7 @@ import { parseIfNode } from "./constructs/if";
 import { parseStylingDeclarationsFromString } from "../chef/css/value";
 import { TemplateLiteral } from "../chef/javascript/components/value/template-literal";
 import { FunctionDeclaration } from "../chef/javascript/components/constructs/function";
-import { HTMLComment, HTMLElement } from "../chef/html/html";
+import { HTMLComment, HTMLDocument, HTMLElement } from "../chef/html/html";
 import { defaultRenderSettings } from "../chef/helpers";
 import { assignToObjectMap } from "../helpers";
 
@@ -67,11 +67,12 @@ export function parseHTMLElement(
             throw Error("Slot cannot be used under a #for element");
         }
 
-        // TODO
-        addIdentifierToElement(element, templateData.nodeData);
+        if (!(element.parent instanceof HTMLDocument)) {
+            addIdentifierToElement(element.parent!, templateData.nodeData);
+        }
 
         // Future potential multiple slots but for now has not been implemented throughout
-        const slotFor = element.attributes?.get("for") || "content";
+        const slotFor = element.attributes?.get("for") ?? "content";
         if (templateData.slots.has(slotFor)) {
             throw Error(`Duplicate slot for "${slotFor}"`);
         }
@@ -113,10 +114,9 @@ export function parseHTMLElement(
         for (const [name, value] of element.attributes) {
             const subject = name.slice(1);
 
-            let identifier;
             // If element is multiple then can be retrieved using root parent
             if (!multiple) {
-                identifier = addIdentifierToElement(element, templateData.nodeData);
+                addIdentifierToElement(element, templateData.nodeData);
             }
 
             // Dynamic attributes

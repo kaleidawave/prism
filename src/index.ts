@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { registerSettings } from "./settings";
-import { lstatSync, existsSync } from "fs";
+import { lstatSync, existsSync, readFileSync } from "fs";
 import { compileSingleComponent } from "./builders/single-component";
 import { compileApplication, runApplication } from "./builders/build-app";
 import { printHelpScreen, printInfoScreen, printWarningBanner } from "./others/banners";
@@ -9,7 +9,7 @@ import { minifyFile } from "./others/actions";
 import { Stylesheet } from "./chef/css/stylesheet";
 import { isAbsolute, join } from "path";
 
-export const enum IPrismAction {
+export enum IPrismAction {
     version = "version",
     info = "info",
     compileComponent = "compile-component",
@@ -33,7 +33,7 @@ switch (action) {
         printHelpScreen();
         break;
     case IPrismAction.compileComponent: {
-        const settings = registerSettings();
+        const settings = registerSettings(process.cwd());
         printWarningBanner();
         if (settings.buildTimings) console.time("Building single component");
         if (lstatSync(settings.absoluteProjectPath).isDirectory() || !settings.projectPath.endsWith(".prism")) {
@@ -42,12 +42,12 @@ switch (action) {
         if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
             throw Error(`Output path must be a directory`);
         }
-        compileSingleComponent(settings.projectPath, settings);
+        compileSingleComponent(settings.projectPath, process.cwd(), settings);
         if (settings.buildTimings) console.timeEnd("Building single component");
         break;
     }
     case IPrismAction.compileApp: {
-        const settings = registerSettings();
+        const settings = registerSettings(process.cwd());
         printWarningBanner();
         if (settings.buildTimings) console.time("Building application");
         if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
@@ -59,7 +59,7 @@ switch (action) {
     }
     // Others
     case IPrismAction.run: {
-        const settings = registerSettings();
+        const settings = registerSettings(process.cwd());
         const openBrowser = process.argv[3] === "--open";
         runApplication(openBrowser, settings);
         break;
@@ -76,7 +76,8 @@ switch (action) {
         const minify = process.argv[5] === "--minify";
         if (!isAbsolute(targetFile)) targetFile = join(process.cwd(), targetFile);
         if (!isAbsolute(outputFile)) outputFile = join(process.cwd(), outputFile);
-        const stylesheet = Stylesheet.fromFile(targetFile);
+        const fileContent = readFileSync(targetFile).toString();
+        const stylesheet = Stylesheet.fromString(fileContent, targetFile);
         stylesheet.writeToFile({ minify }, outputFile);
         break;
     }

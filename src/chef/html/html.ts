@@ -1,8 +1,7 @@
 import { TokenReader, ITokenizationSettings, IRenderSettings, getSettings, defaultRenderSettings, IConstruct, IRenderOptions, IPosition, IParseSettings, defaultParseSettings } from "../helpers";
-import { readFileSync, existsSync } from "fs";
-import { writeFile } from "../../helpers";
 import { Module } from "../javascript/components/module";
 import { Stylesheet } from "../css/stylesheet";
+import { readFile, writeFile } from "../filesystem";
 
 export abstract class Node implements IConstruct {
     abstract parent: HTMLElement | HTMLDocument | null;
@@ -290,8 +289,7 @@ export class HTMLDocument {
     }
 
     static fromFile(filename: string, settings: IParseSettings = defaultParseSettings): HTMLDocument {
-        if (!existsSync(filename)) throw Error(`Could not find file "${filename}"`);
-        const string = readFileSync(filename).toString();
+        const string = readFile(filename).toString();
         return HTMLDocument.fromString(string, filename, settings);
     }
 
@@ -307,7 +305,7 @@ export class HTMLDocument {
 
     writeToFile(settings: Partial<IRenderSettings> = {}, filename?: string) {
         const contents = this.render(settings);
-        writeFile(filename ?? this.filename!, contents, true);
+        writeFile(filename ?? this.filename!, contents);
     }
 }
 

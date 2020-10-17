@@ -1,10 +1,10 @@
 import { Module } from "../chef/javascript/components/module";
+import { injectRoutes } from "./client-side-routing";
+import { IRuntimeFeatures } from "./client-bundle";
+import { readFile } from "../filesystem";
 import { join } from "path";
-import { ImportStatement } from "../chef/javascript/components/statements/import-export";
-import { buildRouter } from "./client-side-routing";
-import { IFinalPrismSettings } from "../settings";
 
-const clientLibraries = [
+export const clientModuleFilenames = [
     "component.ts",
     "helpers.ts",
     "observable.ts",
@@ -24,16 +24,14 @@ export const clientExports: Map<string, Array<string>> = new Map([
  * Returns the whole Prism client as a module.
  * @param clientSideRouting Include the client router module (including injecting routes)
  */
-export function getPrismClient(clientSideRouting: boolean = true): Module {
+export async function getPrismClient(clientSideRouting: boolean = true): Promise<Module> {
     const bundle = new Module();
-    bundle.filename = `prism.js`;
-    for (const clientLib of clientLibraries) {
-        let module: Module;
-        if (clientLib === "router.ts") {
+    bundle.filename = "prism.js";
+    for (const clientLib of clientModuleFilenames) {
+        const module = Module.fromString(await readFile(clientLib), join("bundle", clientLib));
+        if (clientLib.endsWith("router.ts")) {
             if (!clientSideRouting) continue;
-            module = buildRouter();
-        } else {
-            module = Module.fromFile(join(__dirname, "../bundle", clientLib));
+            injectRoutes(module);
         }
         bundle.combine(module);
     }

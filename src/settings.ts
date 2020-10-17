@@ -1,5 +1,5 @@
-import { join, isAbsolute } from "path";
-import { readFileSync, existsSync } from "fs";
+import { join, isAbsolute, dirname } from "path";
+import { readFile } from "./filesystem";
 import { getArguments } from "./helpers";
 
 export interface IPrismSettings {
@@ -20,6 +20,9 @@ export interface IPrismSettings {
     deno: boolean
 }
 
+// @ts-ignore import.meta.url
+const thisDirname = typeof __dirname !== "undefined" ? __dirname : dirname(import.meta.url)
+
 const defaultSettings: IPrismSettings = {
     minify: false,
     backendLanguage: "js",
@@ -30,7 +33,7 @@ const defaultSettings: IPrismSettings = {
     // These two are both null because they relate to project path and output path. There "defaults" are encoded in the respective actual getters in exported setters:
     assetPath: null,
     serverOutputPath: null,
-    templatePath: join(__dirname, "bundle/template.html"),
+    templatePath: join(thisDirname, "bundle/template.html"),
     context: "isomorphic",
     staticSrc: "/",
     clientSideRouting: true,
@@ -52,25 +55,20 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteTemplatePath: string,
 }
 
-/**
- * Mutates global `settings` through reading config file & command line arguments (process.argv)
- * TODO remove impure global settings
- * @returns
- */
-export function registerSettings(): IFinalPrismSettings {
-    const settings: IFinalPrismSettings = {
+export function getSettings(cwd: string, partialSettings: Partial<IPrismSettings>): IFinalPrismSettings {
+    return {
         ...defaultSettings,
         get absoluteProjectPath() {
             if (isAbsolute(this.projectPath)) {
                 return this.projectPath;
             }
-            return join(process.cwd(), this.projectPath);
+            return join(cwd, this.projectPath);
         },
         get absoluteOutputPath() {
             if (isAbsolute(this.outputPath)) {
                 return this.outputPath;
             }
-            return join(process.cwd(), this.outputPath);
+            return join(cwd, this.outputPath);
         },
         get actualAssetPath() {
             return this.assetPath ?? join(this.projectPath, "assets");
@@ -79,7 +77,7 @@ export function registerSettings(): IFinalPrismSettings {
             if (isAbsolute(this.actualAssetPath)) {
                 return this.actualAssetPath;
             }
-            return join(process.cwd(), this.actualAssetPath);
+            return join(cwd, this.actualAssetPath);
         },
         get actualServerOutputPath() {
             return this.serverOutputPath ?? join(this.outputPath, "server");
@@ -88,32 +86,39 @@ export function registerSettings(): IFinalPrismSettings {
             if (isAbsolute(this.actualServerOutputPath)) {
                 return this.actualServerOutputPath;
             }
-            return join(process.cwd(), this.actualServerOutputPath);
+            return join(cwd, this.actualServerOutputPath);
         },
         get absoluteTemplatePath() {
             if (isAbsolute(this.templatePath)) {
                 return this.templatePath;
             }
-            return join(process.cwd(), this.templatePath);
+            return join(cwd, this.templatePath);
         },
+        ...partialSettings
     };
+}
 
+/**
+ * NODE use only
+ */
+export function registerSettings(cwd: string): IFinalPrismSettings {
     let configFilePath: string, componentFile: string | null;
     let startIndex = 3;
     if (process.argv[startIndex]?.endsWith("prism.config.json")) {
         if (isAbsolute(process.argv[startIndex])) {
             configFilePath = process.argv[startIndex];
         } else {
-            configFilePath = join(process.cwd(), process.argv[startIndex]);
+            configFilePath = join(cwd, process.argv[startIndex]);
         }
         startIndex++;
     } else {
-        configFilePath = join(process.cwd(), "prism.config.json");
+        configFilePath = join(cwd, "prism.config.json");
     }
+
+    let settings = {};
     
-    if (existsSync(join(configFilePath))) {
-        const configFile = readFileSync(configFilePath).toString();
-        Object.assign(settings, JSON.parse(configFile));
+    if (require("fs").existsSync(join(configFilePath))) {
+        Object.assign(settings, JSON.parse(readFile(configFilePath).toString()));
     }
 
     const args = process.argv.slice(startIndex);
@@ -126,5 +131,5 @@ export function registerSettings(): IFinalPrismSettings {
         }
     }
 
-    return settings;
+    return getSettings(cwd, settings);
 }
