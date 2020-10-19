@@ -7,9 +7,10 @@ import { Module } from "../chef/javascript/components/module";
 import { VariableDeclaration } from "../chef/javascript/components/statements/variable";
 import { TypeSignature } from "../chef/javascript/components/types/type-signature";
 import { getRoutes } from "./client-side-routing";
-import { IFinalPrismSettings } from "../settings";
+import { defaultTemplateHTML, IFinalPrismSettings } from "../settings";
 import { NodeData } from "../templating/template";
 import { assignToObjectMap } from "../helpers";
+import { fileBundle } from "../bundled-files";
 
 /**
  * Builds a server module including a function which wraps a component in a document. 
@@ -17,14 +18,20 @@ import { assignToObjectMap } from "../helpers";
  * TODO there is some overlap with client-bundle
  * @param path The path to the final server module (TODO)
  */
-export function generateServerModule(path: string, settings: IFinalPrismSettings): Module {
+export async function generateServerModule(path: string, settings: IFinalPrismSettings): Promise<Module> {
     const baseServerModule = new Module();
     const nodeData: WeakMap<Node, NodeData> = new WeakMap();
     baseServerModule.filename = path;
 
-    const htmlPage = HTMLDocument.fromFile(settings.absoluteTemplatePath);
+    // Read the included template or one specified by settings
+    let document: HTMLDocument;
+    if (settings.templatePath === defaultTemplateHTML) {
+        document = HTMLDocument.fromString(fileBundle.get("template.html")!);
+    } else {
+        document = await HTMLDocument.fromFile(settings.absoluteTemplatePath);
+    }
 
-    for (const element of flatElements(htmlPage)) {
+    for (const element of flatElements(document)) {
         if (element instanceof HTMLElement && element.tagName === "slot") {
             const slotFor = element.attributes?.get("for") ?? "content";
             assignToObjectMap(nodeData, element, "slotFor", slotFor)
@@ -65,7 +72,7 @@ export function generateServerModule(path: string, settings: IFinalPrismSettings
     }
 
     // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
-    const pageRenderTemplateLiteral = serverRenderPrismNode(htmlPage, nodeData, { minify: settings.minify, addDisableToElementWithEvents: false, dynamicAttribute: false });
+    const pageRenderTemplateLiteral = serverRenderPrismNode(document, nodeData, { minify: settings.minify, addDisableToElementWithEvents: false, dynamicAttribute: false });
 
     // Create function with content and meta slot parameters
     const pageRenderFunction = new FunctionDeclaration(
@@ -80,7 +87,7 @@ export function generateServerModule(path: string, settings: IFinalPrismSettings
     baseServerModule.addExport(pageRenderFunction);
 
     // Include the escape function
-    const bundledServerModule = Module.fromFile(join(__dirname, "../bundle/server.ts"));
+    const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!);
 
     const escapedFunction = bundledServerModule.statements.find(statement =>
         statement instanceof FunctionDeclaration && statement.name?.name === "escape") as FunctionDeclaration;

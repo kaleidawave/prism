@@ -288,8 +288,8 @@ export class HTMLDocument {
         return document;
     }
 
-    static fromFile(filename: string, settings: IParseSettings = defaultParseSettings): HTMLDocument {
-        const string = readFile(filename).toString();
+    static async fromFile(filename: string, settings: IParseSettings = defaultParseSettings): Promise<HTMLDocument> {
+        const string = await readFile(filename);
         return HTMLDocument.fromString(string, filename, settings);
     }
 

@@ -1,14 +1,14 @@
 /**
  * Given a filename returns the result 
  */
-export type fsReadCallback = (filename: string) => string;
+export type fsReadCallback = (filename: string) => string | Promise<string>;
 
 let __fileSystemReadCallback: fsReadCallback | null = null;
 export function registerFSReadCallback(cb: fsReadCallback) {
     __fileSystemReadCallback = cb;
 }
 
-export type fsWriteCallback = (filename: string, content: string) => void;
+export type fsWriteCallback = (filename: string, content: string) => void | Promise<void>;
 
 let __fileSystemWriteCallback: fsWriteCallback | null = null;
 export function registerFSWriteCallback(cb: fsWriteCallback) {
@@ -19,16 +19,22 @@ export type nodeReadFileSyncSignature =
     (path: string, options?: { encoding?: null; flag?: string; } | null) => Buffer;
 let nodeReadFileSync: nodeReadFileSyncSignature | null;
 
-export function readFile(filename: string): string {
-    // @ts-ignore 
-    if (typeof window !== "undefined") {
-        if (!__fileSystemReadCallback) throw Error("Cannot get file without fs callback");
+/**
+ * TODO if Deno
+ * @param filename 
+ */
+export async function readFile(filename: string): Promise<string> {
+    if (__fileSystemReadCallback) {
         return __fileSystemReadCallback(filename);
     } else {
-        if (!nodeReadFileSync) {
-            nodeReadFileSync = require("fs").readFileSync;
+        if (typeof window !== "undefined") {
+            throw Error("Cannot read file without fs callback");
+        } else {
+            if (!nodeReadFileSync) {
+                nodeReadFileSync = require("fs").readFileSync;
+            }
+            return nodeReadFileSync!(filename).toString();
         }
-        return nodeReadFileSync!(filename).toString();
     }
 }
 
@@ -37,14 +43,16 @@ export type nodeWriteFileSyncSignature =
 let nodeWriteFileSync: nodeWriteFileSyncSignature | null;
 
 export function writeFile(filename: string, content: string): void {
-    // @ts-ignore 
-    if (typeof window !== "undefined") {
-        if (!__fileSystemWriteCallback) throw Error("Cannot write file without fs callback");
+    if (__fileSystemWriteCallback) {
         __fileSystemWriteCallback(filename, content);
     } else {
-        if (!nodeWriteFileSync) {
-            nodeWriteFileSync = require("fs").writeFileSync;
+        if (typeof window !== "undefined") {
+            throw Error("Cannot write file without fs callback");
+        } else {
+            if (!nodeWriteFileSync) {
+                nodeWriteFileSync = require("fs").writeFileSync;
+            }
+            nodeWriteFileSync!(filename, content);
         }
-        nodeWriteFileSync!(filename, content);
     }
 }

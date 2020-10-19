@@ -1,8 +1,7 @@
 node_modules
 private
 bin
-node-out
-web-out
+out
 .git
 .vscode
 prism.config.json

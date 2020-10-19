@@ -3,6 +3,19 @@ import { CSSValue, renderValue, parseStylingDeclarations } from "./value";
 import { IRenderSettings, defaultRenderSettings, TokenReader } from "../helpers";
 import { CSSToken } from "./css";
 
+/**
+ * Polyfill for .flatMap
+ * @param arr 
+ * @param func 
+ */
+function flatMap<T>(arr: Array<T>, func: (v: T) => any) {
+    if (typeof arr.flatMap === "function") {
+        return arr.flatMap(func);
+    } else {
+        return arr.map(func).reduce((acc, val) => acc.concat(val), []);
+    }
+}
+
 export class Rule {
 
     constructor(
@@ -58,8 +71,8 @@ export class Rule {
             if (nestedRule.declarations.size === 0) continue;
 
             // Modify the nestedRule selectors to be prefixed under the main rule
-            nestedRule.selectors = nestedRule.selectors
-                .flatMap(selector1 => selectors.map(selector2 => prefixSelector(selector1, selector2)));
+            nestedRule.selectors = 
+                flatMap(nestedRule.selectors, selector1 => selectors.map(selector2 => prefixSelector(selector1, selector2)));
 
             allRules.push(nestedRule);
         }

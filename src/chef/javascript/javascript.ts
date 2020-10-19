@@ -299,8 +299,6 @@ export function stringToTokens(javascript: string, settings: ITokenizationSettin
                 case Literals.SingleQuoteString:
                     if (javascript[index] === "'" && !escaped) {
                         currentLiteral = null;
-                    } else if (javascript[index] === "\n") {
-                        reader.throwError(`New line in string ${line}:${column}`)
                     } else {
                         escaped = javascript[index] === "\\";
                         reader.top.value += javascript[index];
@@ -309,8 +307,6 @@ export function stringToTokens(javascript: string, settings: ITokenizationSettin
                 case Literals.DoubleQuoteString:
                     if (javascript[index] === "\"" && !escaped) {
                         currentLiteral = null;
-                    } else if (javascript[index] === "\n") {
-                        reader.throwError(`New line in string ${line}:${column}`)
                     } else {
                         escaped = javascript[index] === "\\";
                         reader.top.value += javascript[index];
@@ -405,12 +401,12 @@ export function stringToTokens(javascript: string, settings: ITokenizationSettin
             }
             // Divide can also match regex literal 
             else if (tokenType === JSToken.Divide) {
-                // TODO expand, explain and extract this list
-                const tokensBeforeRegex = [JSToken.Identifier, JSToken.NumberLiteral, JSToken.CloseBracket];
+                // These tokens cannot be used before regex literal as they imply division
+                const tokensBeforeDivision = [JSToken.Identifier, JSToken.NumberLiteral, JSToken.CloseBracket];
                 if (
                     (
-                        reader.length === 1 || 
-                        (tokensBeforeRegex.includes(reader.peekFromTop(1).type) === false)
+                        reader.length === 0 || 
+                        (tokensBeforeDivision.includes(reader.top.type) === false)
                     ) && 
                     "*/".includes(javascript[index + 1]) === false
                 ) {

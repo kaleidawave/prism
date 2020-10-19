@@ -49,8 +49,8 @@ export class Stylesheet {
         return styleSheet;
     }
 
-    static fromFile(filename: string): Stylesheet {
-        return Stylesheet.fromString(readFile(filename).toString(), filename);
+    static async fromFile(filename: string): Promise<Stylesheet> {
+        return Stylesheet.fromString(await readFile(filename), filename);
     }
 
     combine(stylesheet2: Stylesheet): void {

@@ -27,9 +27,19 @@ export class Module implements IConstruct {
     public static cachedModules: Map<string, Module> = new Map();
 
     constructor(
-        statements: Array<IStatement> = []
+        statements: Array<IStatement> = [],
+        filename?: string
     ) {
-        this.statements = statements
+        this.filename = filename;
+        for (const statement of statements) {
+            if (statement instanceof ImportStatement) this.imports.push(statement);
+            else if (statement instanceof ExportStatement) {
+                this.exports.push(statement);
+                if (statement.exported instanceof ClassDeclaration) this.classes.push(statement.exported)
+            }
+            if (statement instanceof ClassDeclaration) this.classes.push(statement);
+        }
+        this.statements = statements;
     }
     
     static fromString(text: string, filename: string | null = null, columnOffset?: number, lineOffset?: number): Module {
@@ -48,9 +58,9 @@ export class Module implements IConstruct {
      * Will return a module. Will cache modules and return modules if they exist in cache
      * @param filename absolute path to module
      */
-    static fromFile(filename: string): Module {
+    static async fromFile(filename: string): Promise<Module> {
         if (this.cachedModules.has(filename)) return this.cachedModules.get(filename)!;
-        const string = readFile(filename).toString();
+        const string = await readFile(filename);
         const module = Module.fromString(string, filename);
         this.cachedModules.set(filename, module);
         return module;

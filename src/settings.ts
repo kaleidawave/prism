@@ -1,6 +1,4 @@
-import { join, isAbsolute, dirname } from "path";
-import { readFile } from "./filesystem";
-import { getArguments } from "./helpers";
+import { join, isAbsolute } from "path";
 
 export interface IPrismSettings {
     minify: boolean, // Removes whitespace for space saving in output
@@ -20,8 +18,7 @@ export interface IPrismSettings {
     deno: boolean
 }
 
-// @ts-ignore import.meta.url
-const thisDirname = typeof __dirname !== "undefined" ? __dirname : dirname(import.meta.url)
+export const defaultTemplateHTML = "bundle/template.html";
 
 const defaultSettings: IPrismSettings = {
     minify: false,
@@ -33,7 +30,7 @@ const defaultSettings: IPrismSettings = {
     // These two are both null because they relate to project path and output path. There "defaults" are encoded in the respective actual getters in exported setters:
     assetPath: null,
     serverOutputPath: null,
-    templatePath: join(thisDirname, "bundle/template.html"),
+    templatePath: defaultTemplateHTML,
     context: "isomorphic",
     staticSrc: "/",
     clientSideRouting: true,
@@ -58,13 +55,16 @@ export interface IFinalPrismSettings extends IPrismSettings {
 export function getSettings(cwd: string, partialSettings: Partial<IPrismSettings>): IFinalPrismSettings {
     return {
         ...defaultSettings,
+        ...partialSettings,
         get absoluteProjectPath() {
+            this.projectPath ??= partialSettings.projectPath ?? defaultSettings.projectPath;
             if (isAbsolute(this.projectPath)) {
                 return this.projectPath;
             }
             return join(cwd, this.projectPath);
         },
         get absoluteOutputPath() {
+            this.outputPath ??= partialSettings.outputPath ?? defaultSettings.outputPath;
             if (isAbsolute(this.outputPath)) {
                 return this.outputPath;
             }
@@ -89,47 +89,11 @@ export function getSettings(cwd: string, partialSettings: Partial<IPrismSettings
             return join(cwd, this.actualServerOutputPath);
         },
         get absoluteTemplatePath() {
-            if (isAbsolute(this.templatePath)) {
+            this.templatePath ??= partialSettings.templatePath ?? defaultSettings.templatePath;
+            if (isAbsolute(this.templatePath) || this.templatePath === defaultTemplateHTML) {
                 return this.templatePath;
             }
             return join(cwd, this.templatePath);
         },
-        ...partialSettings
     };
-}
-
-/**
- * NODE use only
- */
-export function registerSettings(cwd: string): IFinalPrismSettings {
-    let configFilePath: string, componentFile: string | null;
-    let startIndex = 3;
-    if (process.argv[startIndex]?.endsWith("prism.config.json")) {
-        if (isAbsolute(process.argv[startIndex])) {
-            configFilePath = process.argv[startIndex];
-        } else {
-            configFilePath = join(cwd, process.argv[startIndex]);
-        }
-        startIndex++;
-    } else {
-        configFilePath = join(cwd, "prism.config.json");
-    }
-
-    let settings = {};
-    
-    if (require("fs").existsSync(join(configFilePath))) {
-        Object.assign(settings, JSON.parse(readFile(configFilePath).toString()));
-    }
-
-    const args = process.argv.slice(startIndex);
-    
-    for (const [argument, value] of getArguments(args)) {
-        if (value === null) {
-            Reflect.set(settings, argument, true);
-        } else {
-            Reflect.set(settings, argument, value);
-        }
-    }
-
-    return getSettings(cwd, settings);
 }

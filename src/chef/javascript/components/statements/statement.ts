@@ -58,7 +58,10 @@ export function ParseStatement(reader: TokenReader<JSToken>): IStatement {
             }
         case JSToken.Type: return TypeStatement.fromTokens(reader);
         case JSToken.Export: return ExportStatement.fromTokens(reader);
-        case JSToken.HashBang: return new HashBangStatement(reader.current.value!);
+        case JSToken.HashBang: 
+            const path = reader.current.value!;
+            reader.move();
+            return new HashBangStatement(path);
         default: return Expression.fromTokens(reader);
     }
 }

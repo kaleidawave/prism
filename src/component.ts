@@ -20,7 +20,7 @@ import { TemplateLiteral } from "./chef/javascript/components/value/template-lit
 import { buildMetaTags } from "./metatags";
 import { Stylesheet } from "./chef/css/stylesheet";
 import { prefixSelector, ISelector } from "./chef/css/selectors";
-import { randomPrismId, getElement, thisDataVariable } from "./templating/helpers";
+import { getElement, randomPrismId, thisDataVariable } from "./templating/helpers";
 import { ImportStatement, ExportStatement } from "./chef/javascript/components/statements/import-export";
 import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings } from "./chef/helpers";
@@ -34,10 +34,11 @@ import { ForIteratorExpression } from "./chef/javascript/components/statements/f
 import { cloneAST, aliasVariables } from "./chef/javascript/utils/variables";
 import { assignToObjectMap } from "./helpers";
 import { IFinalPrismSettings } from "./settings";
-
-const registeredTags: Set<string> = new Set();
+import { settings } from "cluster";
 
 export class Component {
+    static registeredTags: Set<string> = new Set()
+
     title: IValue | null = null; // If page the document title
 
     isPage: boolean = false;
@@ -52,6 +53,7 @@ export class Component {
     hasSlots: boolean = false; // If the component has slots
 
     // The root data of the component
+    templateElement: HTMLElement;
     componentClass: ClassDeclaration;
     clientModule: Module;
     serverModule?: Module;
@@ -68,7 +70,7 @@ export class Component {
 
     clientGlobals: Array<VariableReference> = [];
 
-    stylesheet: Stylesheet;
+    stylesheet?: Stylesheet;
 
     imports: Array<ImportStatement>;
     exports: Map<string, any> | null = null;
@@ -85,7 +87,7 @@ export class Component {
      * Returns a component under a filename
      * If a component has been parsed will return it from the register and not re parse it
      */
-    static registerComponent(filepath: string, settings: IFinalPrismSettings): Component {
+    static async registerComponent(filepath: string, settings: IFinalPrismSettings): Promise<Component> {
         if (Component.parsingComponents.has(filepath)) {
             throw Error(`Cyclic import ${filepath}`); // TODO test and better error message
         }
@@ -93,67 +95,61 @@ export class Component {
         if (Component.registeredComponents.has(filepath)) {
             return Component.registeredComponents.get(filepath)!;
         } else {
-            const component = Component.fromFile(filepath, settings);
+            const component = await Component.fromFile(filepath);
+            await component.processComponent(settings)
             Component.registeredComponents.set(filepath, component);
             return component;
         }
     }
 
-    static fromFile(filename: string, settings: IFinalPrismSettings) {
-        const componentFile = HTMLDocument.fromFile(filename, { comments: false });
-        return new Component(componentFile, settings, filename);
+    static async fromFile(filename: string) {
+        const componentFile = await HTMLDocument.fromFile(filename, { comments: false });
+        return new Component(componentFile);
     }
 
-    static fromString(component: string, settings: IFinalPrismSettings, filename?: string) {
+    static fromString(component: string, filename?: string) {
         const componentFile = HTMLDocument.fromString(component, filename, { comments: false });
-        return new Component(componentFile, settings, filename);
+        return new Component(componentFile);
     }
 
-    private constructor(componentFile: HTMLDocument, settings: IFinalPrismSettings, filename?: string) {
-
-        if (filename) {
-            this.filename = filename;
-            this.relativeFilename = relative(settings.projectPath, filename);
-        } else {
-            // TODO temp
-            this.filename = this.relativeFilename = "anonymous";
-        }
+    private constructor(componentFile: HTMLDocument) {
+        this.filename = componentFile.filename;
 
         // Read the template from file
-        // Typescript cannot recognize that the only return type is HTMLElement due to "child instanceof HTMLElement"
-        // which is why the "as" keyword is there :/
-        const templateElement = componentFile.children.find(child =>
+        this.templateElement = componentFile.children.find((child) =>
             child instanceof HTMLElement && child.tagName === "template") as HTMLElement;
+
+        if (!this.templateElement) {
+            throw Error("Component requires <template> element");
+        }
 
         const scriptElement: HTMLElement = componentFile.children.find(child =>
             child instanceof HTMLElement && child.tagName === "script") as HTMLElement;
 
+        if (!scriptElement) {
+            this.clientModule = new Module([
+                new ClassDeclaration(randomPrismId(), [], { base: new TypeSignature("Component") })
+            ]);
+        } else {
+            this.clientModule = scriptElement.module!;
+        }
+
         const styleElement: HTMLElement = componentFile.children.find(child =>
             child instanceof HTMLElement && child.tagName === "style") as HTMLElement;
 
-        if (!templateElement) {
-            throw Error(`Expected <template> in "${filename}"`)
+        this.stylesheet = styleElement?.stylesheet;
+    }
+
+    async processComponent(settings: IFinalPrismSettings) {
+        this.relativeFilename = relative(settings.projectPath, this.filename);
+
+        // Find component class
+        let componentClass = this.clientModule.classes?.find(cls => cls.base?.name === "Component");
+        if (!componentClass) {
+            throw Error(`Could not find class that extends "Component" in "${this.filename}"`);
         }
 
-        let componentClass: ClassDeclaration;
-        let name: string;
-        if (scriptElement) {
-            this.clientModule = scriptElement.module!;
-
-            // Find component class
-            let componentClass_ = this.clientModule.classes?.find(cls => cls.base?.name === "Component");
-            if (!componentClass_) {
-                throw Error(`Could not find class that extends "Component" in "${filename}"`);
-            }
-            componentClass = componentClass_;
-            name = componentClass.name!.name!;
-        } else {
-            name = randomPrismId();
-            componentClass = new ClassDeclaration(name, [], { base: "Component" });
-            this.clientModule = new Module([componentClass])
-        }
-
-        this.className = name;
+        this.className = componentClass.name!.name!;
         this.componentClass = componentClass;
 
         // If isomorphic generate a module for the server render
@@ -175,7 +171,7 @@ export class Component {
         for (const import_ of this.clientModule.imports) {
             // TODO other imports such as css etc
             if (import_.from.endsWith(".prism")) {
-                const component = Component.registerComponent(resolve(dirname(this.filename), import_.from), settings)
+                const component = await Component.registerComponent(resolve(dirname(this.filename), import_.from), settings);
                 this.importedComponents.set(component.className, component);
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
                 import_.from = relativePath + ".js";
@@ -210,7 +206,7 @@ export class Component {
                         }
 
                         this.tag = (decorator.args[0] as Value).value!;
-                        if (registeredTags.has(this.tag)) {
+                        if (Component.registeredTags.has(this.tag)) {
                             throw Error(`"${this.filename}" - "${this.tag}" already registered under another component`);
                         }
                         break;
@@ -249,7 +245,7 @@ export class Component {
                         break;
                     case "UseLayout":
                         if (decorator.args.length !== 1 || !(decorator.args[0] instanceof VariableReference)) {
-                            throw Error(`@UseLayout requires 1 parameter of type object literal in "${filename}"`);
+                            throw Error(`@UseLayout requires 1 parameter of type object literal in "${this.filename}"`);
                         }
                         if (!componentClass.decorators.some(decorator => decorator.name === "Page")) {
                             throw Error("Only pages can have layouts");
@@ -265,7 +261,7 @@ export class Component {
                         break;
                     case "Default":
                         if (decorator.args.length !== 1 || !(decorator.args[0] instanceof ObjectLiteral)) {
-                            throw Error(`@Default requires 1 argument of type object literal in "${filename}"`)
+                            throw Error(`@Default requires 1 argument of type object literal in "${this.filename}"`)
                         }
                         defaultData = decorator.args[0] as ObjectLiteral;
                         break;
@@ -274,7 +270,7 @@ export class Component {
                         break;
                     case "Globals":
                         if (!decorator.args.every(arg => arg instanceof VariableReference)) {
-                            throw Error(`Arguments of @Globals must be variable references in "${filename}"`);
+                            throw Error(`Arguments of @Globals must be variable references in "${this.filename}"`);
                         }
                         globals = decorator.args as Array<VariableReference>;
                         break;
@@ -285,7 +281,7 @@ export class Component {
                             } else if (arg instanceof VariableReference) {
                                 clientGlobals.push(new AsExpression(arg, new TypeSignature("any")));
                             } else {
-                                throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${filename}"`);
+                                throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${this.filename}"`);
                             }
                         }
                         this.clientGlobals = clientGlobals.map(({ value }) => value as VariableReference)
@@ -310,7 +306,7 @@ export class Component {
                         this.metadata = new Map();
                         for (const [key, value] of mappings) {
                             if (typeof key !== "string") {
-                                throw Error(`Metadata object literal keys must be constant in "${filename}"`);
+                                throw Error(`Metadata object literal keys must be constant in "${this.filename}"`);
                             }
                             if (value instanceof Value && value.type === Type.string) {
                                 this.metadata.set(key as string, value.value!);
@@ -321,9 +317,9 @@ export class Component {
                         break;
                     case "Singleton":
                     case "Shadow":
-                        throw Error(`Not implement - @${decorator.name} in "${filename}"`);
+                        throw Error(`Not implement - @${decorator.name} in "${this.filename}"`);
                     default:
-                        throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators in "${filename}"`)
+                        throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators in "${this.filename}"`)
                 }
             }
         }
@@ -350,7 +346,7 @@ export class Component {
 
         let templateData: ITemplateData;
         try {
-            templateData = parseTemplate(templateElement, {
+            templateData = parseTemplate(this.templateElement, {
                 ssrEnabled: settings.context === "isomorphic",
                 doClientSideRouting: settings.clientSideRouting,
                 importedComponents: this.importedComponents
@@ -483,8 +479,7 @@ export class Component {
         }
 
         // Parse stylesheet
-        if (styleElement) {
-            this.stylesheet = styleElement.stylesheet!;
+        if (this.stylesheet) {
             // Prefix all rules in the style tag to be descendants of the tag name
             const thisTagSelector: ISelector = { tagName: this.tag }
             for (const rule of this.stylesheet.rules) {
@@ -496,14 +491,12 @@ export class Component {
                     })
                 }
             }
-        } else {
-            this.stylesheet = new Stylesheet();
-        }
 
-        this.stylesheet.filename = join(
-            settings.absoluteOutputPath,
-            this.relativeFilename + ".css",
-        );
+            this.stylesheet.filename = join(
+                settings.absoluteOutputPath,
+                this.relativeFilename + ".css",
+            );
+        }
 
         this.bindings = templateData.bindings;
         this.hasSlots = templateData.slots.size > 0;
@@ -512,7 +505,7 @@ export class Component {
         let componentDataType: IType | null = null;
         if (componentClass.base!.typeArguments?.[0]) {
             try {
-                componentDataType = typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
+                componentDataType = await typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
                 this.needsData = !Array.from(componentDataType.properties!.values())
                     .every(property => property.name === "HTMLElement");
             } catch (error) {
@@ -522,7 +515,7 @@ export class Component {
         }
 
         // Build the render method
-        const clientRenderMethod = buildClientRenderMethod(templateElement, templateData.nodeData, true, globals);
+        const clientRenderMethod = buildClientRenderMethod(this.templateElement, templateData.nodeData, true, globals);
         componentClass.addMember(clientRenderMethod);
 
         // Build event bindings for ssr components
@@ -666,7 +659,7 @@ export class Component {
             const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
 
             // Generate a tag of self (instead of using template) (reuses template.element.children)
-            const componentHtmlTag = new HTMLElement(this.tag, componentAttributes, templateElement.children, templateElement.parent);
+            const componentHtmlTag = new HTMLElement(this.tag, componentAttributes, this.templateElement.children, this.templateElement.parent);
 
             const ssrSettings: IServerRenderSettings = {
                 dynamicAttribute: generateAttributeArgument,
@@ -742,7 +735,7 @@ export class Component {
                 }
 
                 if (this.metadata) {
-                    const {metadataTags, nodeData: metaDataNodeData} = buildMetaTags(this.metadata)
+                    const { metadataTags, nodeData: metaDataNodeData } = buildMetaTags(this.metadata)
                     for (const metaTag of metadataTags) {
                         metadataString.addEntry(...serverRenderPrismNode(metaTag, metaDataNodeData, ssrSettings, globals).entries);
                         metadataString.addEntry("\n");
@@ -767,9 +760,9 @@ export class Component {
                 );
 
                 let description = "Server render function for ";
-                if (filename) {
+                if (this.filename) {
                     // Create a link back to the component
-                    description += `[${this.className}](file:///${filename?.replace(/\\/g, "/")})`
+                    description += `[${this.className}](file:///${this.filename?.replace(/\\/g, "/")})`
                 } else {
                     description += name;
                 }

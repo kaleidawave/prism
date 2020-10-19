@@ -2,11 +2,10 @@ import { filesInFolder } from "../helpers";
 import { Component } from "../component";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
-import { getPrismClient } from "./prism-client";
+import { buildIndexHtml, getPrismClient } from "./prism-client";
 import { spawn } from "child_process";
 import { join } from "path";
 import { generateServerModule } from "./prism-server";
-import { buildIndexHtml } from "./client-bundle";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { VariableReference } from "../chef/javascript/components/value/variable";
@@ -15,17 +14,21 @@ import { existsSync, readFileSync } from "fs";
 import { IFinalPrismSettings } from "../settings";
 
 /**
- * TODO explain
  * - Registers all components
- * - 
+ * - Resolves prism client
+ * - Moves assets
+ * - Combines all scripts and stylesheets
+ * - Write out server modules
+ * - Generate server module
+ * - Write out scripts, stylesheets and shell.html
  */
-export function compileApplication(settings: IFinalPrismSettings) {
+export async function compileApplication(settings: IFinalPrismSettings) {
     if (settings.buildTimings) console.time("Parse component files");
     for (const filepath of filesInFolder(settings.absoluteProjectPath)) {
         // Only .prism files that not skipped
         // TODO what about css, js and other assets in component paths
         if (filepath.endsWith(".prism") && !filepath.endsWith(".skip.prism")) {
-            Component.registerComponent(filepath, settings);
+            await Component.registerComponent(filepath, settings);
         }
     }
     if (settings.buildTimings) console.timeEnd("Parse component files");
@@ -51,14 +54,14 @@ export function compileApplication(settings: IFinalPrismSettings) {
     clientScriptBundle.filename = join(settings.absoluteOutputPath, "bundle.js");
     clientStyleBundle.filename = join(settings.absoluteOutputPath, "bundle.css");
 
-    const prismClient = getPrismClient(settings.clientSideRouting);
+    const prismClient = await getPrismClient(settings.clientSideRouting);
     clientScriptBundle.combine(prismClient);
 
     if (existsSync(settings.absoluteAssetPath)) {
         if (settings.buildTimings) console.time("Move static assets");
         // Static styles and scripts come before any component declarations
         // TODO bad that functions does side effects and returns stuff
-        const modulesAndStylesheets = moveStaticAssets(
+        const modulesAndStylesheets = await moveStaticAssets(
             settings.absoluteAssetPath, 
             settings.absoluteOutputPath,
             clientRenderSettings
@@ -76,11 +79,15 @@ export function compileApplication(settings: IFinalPrismSettings) {
     }
 
     // Combine all registered components client modules and stylesheets and write out the server module separately
+    if (settings.buildTimings) console.time("Combine all component scripts and styles, write out server modules");
     for (const [, registeredComponent] of Component.registeredComponents) {
         clientScriptBundle.combine(registeredComponent.clientModule);
-        clientStyleBundle.combine(registeredComponent.stylesheet);
+        if (registeredComponent.stylesheet) {
+            clientStyleBundle.combine(registeredComponent.stylesheet);
+        }
         registeredComponent.serverModule?.writeToFile(serverRenderSettings);
     }
+    if (settings.buildTimings) console.timeEnd("Combine all component scripts and styles, write out server modules");
 
     // TODO temp remove all imports and exports as it is a bundle
     clientScriptBundle.removeImportsAndExports();
@@ -96,19 +103,23 @@ export function compileApplication(settings: IFinalPrismSettings) {
     }
 
     if (settings.context === "isomorphic") {
-        generateServerModule(join(settings.absoluteServerOutputPath, "prism"), settings).writeToFile(serverRenderSettings);
+        generateServerModule(join(settings.absoluteServerOutputPath, "prism"), settings)
+            .then(serverModule => serverModule.writeToFile(serverRenderSettings));
     }
 
     // Write out files
     if (settings.buildTimings) console.time("Render and write script & style bundle");
     clientScriptBundle.writeToFile(clientRenderSettings);
-    clientStyleBundle.writeToFile(clientRenderSettings);
+    if (clientStyleBundle.rules.length > 0) {
+        clientStyleBundle.writeToFile(clientRenderSettings);
+    }
     if (settings.buildTimings) console.timeEnd("Render and write script & style bundle");
 
     // Build the index / shell page to serve
     // This is also built under context===isomorphic to allow for offline with service workers
-    const indexHTML = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
-    buildIndexHtml(settings).writeToFile(clientRenderSettings, indexHTML);
+    const indexHTMLPath = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
+    buildIndexHtml(settings)
+        .then(indexHTML => indexHTML.writeToFile(clientRenderSettings, indexHTMLPath));
 
     if (settings.run) {
         runApplication(settings.run === "open", settings);
