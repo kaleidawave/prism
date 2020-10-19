@@ -1,5 +1,7 @@
-import { parseTemplate } from "../../src/templating/template";
+import { ITemplateConfig, parseTemplate } from "../../src/templating/template";
 import { HTMLElement } from "../../src/chef/html/html";
+
+const templateConfig: ITemplateConfig  = {doClientSideRouting: false, importedComponents: new Map, ssrEnabled: false}
 
 test("Events", () => {
     const template = `<template>
@@ -8,7 +10,7 @@ test("Events", () => {
 
     const templateElement = HTMLElement.fromString(template);
 
-    const { events } = parseTemplate(templateElement);
+    const { events } = parseTemplate(templateElement, templateConfig);
 
     expect(events.length).toBe(1);
     expect(events[0].element).toBe(templateElement.children[0]);

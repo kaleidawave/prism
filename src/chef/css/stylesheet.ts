@@ -1,8 +1,7 @@
 import { TokenReader, IRenderSettings, getSettings } from "../helpers";
 import { CSSToken, stringToTokens } from "./css";
-import { readFileSync } from "fs";
-import { writeFile } from "../../helpers";
 import { Rule } from "./rule";
+import { readFile, writeFile } from "../filesystem";
 import { AtRule, AtRuleFromTokens } from "./at-rules";
 
 export class Stylesheet {
@@ -50,8 +49,8 @@ export class Stylesheet {
         return styleSheet;
     }
 
-    static fromFile(filename: string): Stylesheet {
-        return Stylesheet.fromString(readFileSync(filename).toString(), filename);
+    static async fromFile(filename: string): Promise<Stylesheet> {
+        return Stylesheet.fromString(await readFile(filename), filename);
     }
 
     combine(stylesheet2: Stylesheet): void {
@@ -59,6 +58,6 @@ export class Stylesheet {
     }
 
     writeToFile(settings: Partial<IRenderSettings> = {}, filename?: string ) {
-        writeFile(filename ?? this.filename!, this.render(settings), true);
+        writeFile(filename ?? this.filename!, this.render(settings));
     }
 }

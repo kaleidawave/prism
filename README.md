@@ -3,6 +3,7 @@
 [![Twitter](https://img.shields.io/badge/-@kaleidawave-blue?style=flat-square&logo=twitter)](https://twitter.com/kaleidawave) 
 [![Issues](https://img.shields.io/github/issues/kaleidawave/prism?style=flat-square)](https://github.com/kaleidawave/prism/issues) 
 [![Stars](https://img.shields.io/github/stars/kaleidawave/prism?style=flat-square)](https://github.com/kaleidawave/prism/stargazers)
+![Node Version](https://img.shields.io/node/v/@kaleidawave/prism)
 
 Prism is *experimental* a compiler that takes declarative component definitions and creates lightweight web apps. Prism is built from the ground up. All HTML, CSS and JS parsing and rendering is done under a internal library known as [chef](https://github.com/kaleidawave/prism/tree/main/src/chef). 
 
@@ -217,7 +218,7 @@ Prism attempts to move more information to build time so that the runtime is min
     @TagName("my-component") // Set components html tag name (else it will be generate automatically based of the name of the class)
     @Default({count: 1, foo: "bar", arr: ["Hello World"]) // Set a default data for the component
     @Page("*") // If the argument to page "*" it will match on all paths. Can be used as a not found page
-    @Globals(someFunc) // Variables in the template matching "globalUser" are assumed to be outside the class and will not be prefixed
+    @Globals(someFunc) // Calls to "someFunc" in the template are assumed to be outside the class and will not be prefixed
     @ClientGlobals(user as IUser) // Variables global to client but not server
     @Passive // Will not generate runtime bindings
     @Title("Page X") // Title for the page

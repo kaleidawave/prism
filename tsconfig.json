@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
-        "lib": ["es2020"],
-        "target": "ES2019",
+        "lib": ["es2020", "es2019.array"],
+        "target": "ES6",
         "module": "CommonJS",
         "moduleResolution": "node",
         "experimentalDecorators": true,
@@ -10,11 +10,14 @@
         "outDir": "out",
         "incremental": true,
         "strictNullChecks": true,
-        "diagnostics": true,
+        "listEmittedFiles": false,
+        "diagnostics": false,
+        "downlevelIteration": true,
         "tsBuildInfoFile": "private/tsbuild.info.json",
     },
     "files": [
-        "src/index.ts"
+        "src/cli.ts",
+        "src/web.ts",
     ],
     "exclude": [
         "node_modules",

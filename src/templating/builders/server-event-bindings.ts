@@ -2,13 +2,18 @@ import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/compone
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
-import { IEvent } from "../template";
-import { settings } from "../../settings";
+import { IEvent, NodeData } from "../template";
+import { Node } from "../../chef/html/html";
+import { newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
 
 /**
  * Creates functions for binding events to ssr content
  */
-export function buildEventBindings(events: Array<IEvent>): [FunctionDeclaration, FunctionDeclaration] {
+export function buildEventBindings(
+    events: Array<IEvent>,
+    nodeData: WeakMap<Node, NodeData>,
+    disableEventElements: boolean
+): [FunctionDeclaration, FunctionDeclaration] {
     const bindEventListenersFunction = new FunctionDeclaration("bindEventListeners");
     const unbindEventListenersFunction = new FunctionDeclaration("unbindEventListeners");
 
@@ -33,17 +38,17 @@ export function buildEventBindings(events: Array<IEvent>): [FunctionDeclaration,
 
         let addEventListenerExpression: Expression;
 
-        if (event.element.multiple) {
+        const { multiple, nullable } = nodeData.get(event.element) ?? {};
+
+        if (multiple) {
             // TODO forEach getElementExpression
             throw Error("Not implemented - event listeners on elements tagged with multiple");
         } else {
             addEventListenerExpression = new Expression({
-                lhs: event.element.nullable ? new Expression({
-                    lhs: getElementExpression,
-                    operation: Operation.OptionalChain,
-                    rhs: new VariableReference("addEventListener")
-                }) : new VariableReference("addEventListener", getElementExpression),
-                operation: Operation.Call,
+                lhs: nullable ?
+                    newOptionalVariableReferenceFromChain(getElementExpression, "addEventListener") :
+                    VariableReference.fromChain(getElementExpression, "addEventListener"),
+                operation: nullable ? Operation.OptionalCall : Operation.Call,
                 rhs: new ArgumentList([
                     new Value(event.event, Type.string),
                     callback
@@ -53,14 +58,12 @@ export function buildEventBindings(events: Array<IEvent>): [FunctionDeclaration,
             bindEventListenersFunction.statements.push(addEventListenerExpression);
 
             // Enable the component now that its functionality is available
-            if (event.required && settings.disableEventElements) {
+            if (event.required && disableEventElements) {
                 const enableComponent = new Expression({
-                    lhs: event.element.nullable ? new Expression({
-                        lhs: getElementExpression,
-                        operation: Operation.OptionalChain,
-                        rhs: new VariableReference("removeAttribute")
-                    }) : new VariableReference("removeAttribute", getElementExpression),
-                    operation: Operation.Call,
+                    lhs: nullable ?
+                        newOptionalVariableReferenceFromChain(getElementExpression, "addEventListener") :
+                        VariableReference.fromChain(getElementExpression, "addEventListener"),
+                    operation: nullable ? Operation.OptionalCall : Operation.Call,
                     rhs: new ArgumentList([new Value("disabled", Type.string)])
                 });
 
@@ -71,17 +74,15 @@ export function buildEventBindings(events: Array<IEvent>): [FunctionDeclaration,
         let removeEventListenerExpression: Expression;
 
         // TODO has a lot of overlap with the creation of the addEventListener expression creation
-        if (event.element.multiple) {
+        if (multiple) {
             // TODO forEach remove thing
             throw Error("Not implemented - event listeners on elements tagged with multiple");
         } else {
             removeEventListenerExpression = new Expression({
-                lhs: event.element.nullable ? new Expression({
-                    lhs: getElementExpression,
-                    operation: Operation.OptionalChain,
-                    rhs: new VariableReference("removeEventListener")
-                }) : new VariableReference("removeEventListener", getElementExpression),
-                operation: Operation.Call,
+                lhs: nullable ?
+                    newOptionalVariableReferenceFromChain(getElementExpression, "removeEventListener") :
+                    VariableReference.fromChain(getElementExpression, "removeEventListener"),
+                operation: nullable ? Operation.OptionalCall : Operation.Call,
                 rhs: new ArgumentList([
                     new Value(event.event, Type.string),
                     callback

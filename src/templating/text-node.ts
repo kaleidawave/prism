@@ -1,15 +1,16 @@
-import { PrismTextNode, ValueAspect, IDependency, Locals, PartialDependency, PrismComment } from "./template";
+import { ValueAspect, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
 import { IValue } from "../chef/javascript/components/value/value";
 import { Expression } from "../chef/javascript/components/value/expression";
 import { HTMLComment, TextNode } from "../chef/html/html";
-import { addIdentifierToElement, addDependency } from "./helpers";
+import { addIdentifierToElement, addBinding } from "./helpers";
 import { HTMLElement } from "../chef/html/html";
 import { VariableReference } from "../chef/javascript/components/value/variable";
+import { assignToObjectMap } from "../helpers";
 
 export function parseTextNode(
-    textNode: PrismTextNode,
-    dependencies: Array<IDependency>,
-    ssr: boolean,
+    textNode: TextNode,
+    templateData: ITemplateData,
+    templateConfig: ITemplateConfig,
     locals: Array<VariableReference>,
     localData: Locals,
     multiple: boolean = false
@@ -50,10 +51,10 @@ export function parseTextNode(
     }
 
     if (!multiple) {
-        addIdentifierToElement(textNode.parent!);
+        addIdentifierToElement(textNode.parent, templateData.nodeData);
     }
 
-    const insertedChildren: Array<PrismTextNode | HTMLComment> = [];
+    const insertedChildren: Array<TextNode | HTMLComment> = [];
 
     for (let i = 0; i < fragments.length; i++) {
         const fragment = fragments[i];
@@ -61,24 +62,26 @@ export function parseTextNode(
             const staticTextNode = new TextNode(fragment, textNode.parent);
             insertedChildren.push(staticTextNode)
         } else {
-            const dynamicTextNode: PrismTextNode = new TextNode("", textNode.parent);
-            dynamicTextNode.value = fragment;
+            const dynamicTextNode: TextNode = new TextNode("", textNode.parent);
+            assignToObjectMap(templateData.nodeData, dynamicTextNode, "textNodeValue", fragment)
 
-            const dependency: PartialDependency = {
+            const bindings: PartialBinding = {
                 aspect: ValueAspect.InnerText,
                 element: textNode.parent,
                 expression: fragment,
-                fragmentIndex: ssr ? i * 2 : i
+                // Under SSR comments are needed to create text nodes,
+                // therefore the text nodes are every other index and the need for *2
+                fragmentIndex: templateConfig.ssrEnabled ? i * 2 : i
             }
 
-            addDependency(dependency, localData, locals, dependencies);
+            addBinding(bindings, localData, locals, templateData.bindings);
             insertedChildren.push(dynamicTextNode);
         }
 
         // Comments are required to be inserted to separated text nodes during ssr
-        if (i + 1 < fragments.length && ssr) {
-            const comment = new HTMLComment(textNode.parent!) as PrismComment;
-            comment.isFragment = true;
+        if (i + 1 < fragments.length && templateConfig.ssrEnabled) {
+            const comment = new HTMLComment(textNode.parent!);
+            assignToObjectMap(templateData.nodeData, comment, "isFragment", true);
             insertedChildren.push(comment);
         }
     }

@@ -1,22 +1,28 @@
 import { Component } from "../component";
-import { settings } from "../settings";
 import { getPrismClient } from "./prism-client";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { join } from "path";
-import { generateServerModule } from "./prism-server";
 import { ScriptLanguages } from "../chef/helpers";
+import { IPrismSettings, getSettings } from "../settings";
+import { fileBundle } from "../bundled-files";
 
 /**
  * Generate a script for a single client
  * @param componentPath 
  */
-export function compileSingleComponent(componentPath: string): void {
+export async function compileSingleComponent(
+    componentPath: string, 
+    cwd: string, 
+    partialSettings: Partial<IPrismSettings>
+): Promise<void> {
+    const settings = getSettings(cwd, partialSettings);
+
     if (settings.buildTimings) console.time("Parse component file and its imports");
-    const component = Component.registerComponent(componentPath);
+    const component = await Component.registerComponent(componentPath, settings);
     if (settings.buildTimings) console.timeEnd("Parse component file and its imports");
 
-    const bundledClientModule = getPrismClient(false);
+    const bundledClientModule = await getPrismClient(false);
     const bundledStylesheet = new Stylesheet();
 
     // This bundles all the components together into a single client module, single stylesheet
@@ -26,10 +32,12 @@ export function compileSingleComponent(componentPath: string): void {
     bundledClientModule.removeImportsAndExports();
 
     if (settings.buildTimings) console.time("Render and write script & style bundle");
+
     bundledClientModule.writeToFile({ minify: settings.minify }, join(settings.absoluteOutputPath, "component.js"));
     bundledStylesheet.writeToFile({ minify: settings.minify }, join(settings.absoluteOutputPath, "component.css"));
+
     if (settings.context === "isomorphic") {
-        const bundledServerModule = Module.fromFile(join(__dirname, "../bundle/server.ts"));
+        const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!);
         bundledServerModule.filename = join(settings.absoluteOutputPath, "component.server.js");
         for (const [, comp] of Component.registeredComponents) {
             bundledServerModule.combine(comp.serverModule!);

@@ -1,16 +1,34 @@
-import { PrismNode } from "./templating/template";
-import { HTMLElement } from "./chef/html/html";
+import { HTMLElement, Node } from "./chef/html/html";
 import { IValue } from "./chef/javascript/components/value/value";
-import { addAttribute } from "./templating/helpers";
+import { assignToObjectMap } from "./helpers";
+import { NodeData } from "./templating/template";
 
 /**
  * Helper for building meta tag with attributes
  * @param metadata a object equal to the 
  */
-function buildMetaTag(metadata: object): PrismNode {
-    const tag: PrismNode = new HTMLElement("meta");
+function buildMetaTag(metadata: object, nodeData: WeakMap<Node, NodeData>): HTMLElement {
+    const tag = new HTMLElement("meta");
     for (const key in metadata) {
-        addAttribute(tag, key, metadata[key]);
+        const attribute = metadata[key];
+        if (attribute === null) {
+            if (!tag.attributes) {
+                tag.attributes = new Map();
+            }
+            tag.attributes.set(key, null);
+        } else if (typeof attribute === "string") {
+            if (!tag.attributes) {
+                tag.attributes = new Map();
+            }
+            tag.attributes.set(key, attribute);
+        } else {
+            const dynamicAttributes = nodeData.get(tag)?.dynamicAttributes;
+            if (!dynamicAttributes) {
+                assignToObjectMap(nodeData, tag, "dynamicAttributes", new Map([[key, attribute]]));
+            } else {
+                dynamicAttributes.set(key, attribute);
+            }
+        }
     }
     return tag;
 }
@@ -18,35 +36,53 @@ function buildMetaTag(metadata: object): PrismNode {
 /**
  * Creates a series of standard meta tags used for seo and 
  * TODO stricter metadata types (possible string enums)
+ * TODO send also node data as well
  * @param metadata 
  */
-export function* buildMetaTags(metadata: Map<string, string | IValue>): Generator<PrismNode> {
+export function buildMetaTags(metadata: Map<string, string | IValue>): {
+    metadataTags: Array<HTMLElement>,
+    nodeData: WeakMap<Node, NodeData>
+} {
+    const metadataTags: Array<HTMLElement> = [], nodeData = new WeakMap();
     for (const [key, value] of metadata) {
         switch (key) {
             case "title":
-                yield buildMetaTag({ name: "title", content: value });
-                yield buildMetaTag({ property: "og:title", content: value });
-                yield buildMetaTag({ property: "twitter:title", content: value });
+                metadataTags.push(
+                    buildMetaTag({ name: "title", content: value }, nodeData),
+                    buildMetaTag({ property: "og:title", content: value }, nodeData),
+                    buildMetaTag({ property: "twitter:title", content: value }, nodeData)
+                );
                 break;
             case "description":
-                yield buildMetaTag({ name: "description", content: value });
-                yield buildMetaTag({ property: "og:description", content: value });
-                yield buildMetaTag({ property: "twitter:description", content: value });
+                metadataTags.push(
+                    buildMetaTag({ name: "description", content: value }, nodeData),
+                    buildMetaTag({ property: "og:description", content: value }, nodeData),
+                    buildMetaTag({ property: "twitter:description", content: value }, nodeData)
+                );
                 break;
             case "image":
-                yield buildMetaTag({ property: "og:image", content: value });
-                yield buildMetaTag({ property: "twitter:image", content: value });
+                metadataTags.push(
+                    buildMetaTag({ property: "og:image", content: value }, nodeData),
+                    buildMetaTag({ property: "twitter:image", content: value }, nodeData)
+                );
                 break;
             case "website":
-                yield buildMetaTag({ property: "og:website", content: value });
-                yield buildMetaTag({ property: "twitter:website", content: value });
+                metadataTags.push(
+                    buildMetaTag({ property: "og:website", content: value }, nodeData),
+                    buildMetaTag({ property: "twitter:website", content: value }, nodeData)
+                );
                 break;
             default:
-                yield buildMetaTag({ property: key, content: value });
+                // TODO dynamic tags other than <meta>
+                metadataTags.push(buildMetaTag({ property: key, content: value }, nodeData));
                 break;
         }
     }
 
-    yield buildMetaTag({ property: "og:type", content: "website" });
-    yield buildMetaTag({ property: "twitter:card", content: "summary_large_image" });
+    metadataTags.push(
+        buildMetaTag({ property: "og:type", content: "website" }, nodeData),
+        buildMetaTag({ property: "twitter:card", content: "summary_large_image" }, nodeData),
+    );
+
+    return { metadataTags, nodeData };
 }

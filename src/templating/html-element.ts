@@ -1,5 +1,5 @@
-import { PrismHTMLElement, IDependency, IEvent, ValueAspect, PrismNode, parsePrismNode, Locals, PartialDependency } from "./template";
-import { addIdentifierToElement, addEvent, addDependency } from "./helpers";
+import { IEvent, ValueAspect, parseNode, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
+import { addIdentifierToElement, addEvent, addBinding } from "./helpers";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { IValue } from "../chef/javascript/components/value/value";
 import { Expression } from "../chef/javascript/components/value/expression";
@@ -8,28 +8,25 @@ import { parseIfNode } from "./constructs/if";
 import { parseStylingDeclarationsFromString } from "../chef/css/value";
 import { TemplateLiteral } from "../chef/javascript/components/value/template-literal";
 import { FunctionDeclaration } from "../chef/javascript/components/constructs/function";
-import type { Component } from "../component";
-import { HTMLComment } from "../chef/html/html";
-import { settings } from "../settings";
+import { HTMLComment, HTMLDocument, HTMLElement } from "../chef/html/html";
 import { defaultRenderSettings } from "../chef/helpers";
+import { assignToObjectMap } from "../helpers";
 
 export function parseHTMLElement(
-    element: PrismHTMLElement,
-    slots: Map<string, PrismHTMLElement>,
-    dependencies: Array<IDependency>,
-    events: Array<IEvent>,
-    importedComponents: Map<string, Component> | null,
-    ssr: boolean,
+    element: HTMLElement,
+    templateData: ITemplateData,
+    templateConfig: ITemplateConfig,
     locals: Array<VariableReference>, // TODO eventually remove
     localData: Locals = [],
     nullable = false,
     multiple = false,
 ) {
-    element.nullable = nullable; element.multiple = multiple;
+    assignToObjectMap(templateData.nodeData, element, "nullable", true);
+    assignToObjectMap(templateData.nodeData, element, "multiple", multiple);
 
     // If imported element:
-    if (importedComponents?.has(element.tagName)) {
-        const component = importedComponents.get(element.tagName)!;
+    if (templateConfig.importedComponents.has(element.tagName)) {
+        const component = templateConfig.importedComponents.get(element.tagName)!;
 
         if (!component) {
             throw Error(`Cannot find imported component of name ${element.tagName}`)
@@ -52,8 +49,8 @@ export function parseHTMLElement(
         // Modify the tag to match mentioned component tag (used by client side render)
         element.tagName = component.tag;
         // Used for binding ssr function call to component render function
-        element.component = component;
-    }
+        assignToObjectMap(templateData.nodeData, element, "component", component);
+    }        
 
     // If element is slot 
     if (element.tagName === "slot") {
@@ -66,21 +63,25 @@ export function parseHTMLElement(
             throw Error("Slot element must be single child of element");
         }
 
-        if (element.multiple) {
+        if (multiple) {
             throw Error("Slot cannot be used under a #for element");
         }
 
-        addIdentifierToElement(element.parent! as PrismHTMLElement);
+        if (!(element.parent instanceof HTMLDocument)) {
+            addIdentifierToElement(element.parent!, templateData.nodeData);
+        }
 
         // Future potential multiple slots but for now has not been implemented throughout
-        const slotFor = element.attributes?.get("for") || "content";
-        if (slots.has(slotFor)) {
+        const slotFor = element.attributes?.get("for") ?? "content";
+        if (templateData.slots.has(slotFor)) {
             throw Error(`Duplicate slot for "${slotFor}"`);
         }
-        slots.set(slotFor, element);
-        element.slotFor = slotFor;
+        templateData.slots.set(slotFor, element);
+        assignToObjectMap(templateData.nodeData, element, "slotFor", slotFor);
         return;
     }
+
+    let childrenParsed = false;
 
     // If element has attributes
     if (element.attributes) {
@@ -92,8 +93,8 @@ export function parseHTMLElement(
         ) {
             element.attributes.delete("relative");
 
-            if (settings.clientSideRouting) {
-                const identifier = addIdentifierToElement(element);
+            if (templateConfig.doClientSideRouting) {
+                const identifier = addIdentifierToElement(element, templateData.nodeData);
 
                 const event: IEvent = {
                     nodeIdentifier: identifier,
@@ -101,17 +102,11 @@ export function parseHTMLElement(
                     // Router.bind is a method will which call Router.goTo using the href of the element
                     callback: VariableReference.fromChain("Router", "bind") as VariableReference, 
                     event: "click",
-                    required: false,
+                    required: false, // A 
                     existsOnComponentClass: false
                 }
 
-                if (element.events) {
-                    element.events.push(event);
-                } else {
-                    element.events = [event];
-                }
-
-                events.push(event);
+                addEvent(templateData.events, element, event, templateData.nodeData);
             }
         }
 
@@ -119,11 +114,14 @@ export function parseHTMLElement(
         for (const [name, value] of element.attributes) {
             const subject = name.slice(1);
 
+            // If element is multiple then can be retrieved using root parent
+            if (!multiple) {
+                addIdentifierToElement(element, templateData.nodeData);
+            }
+
             // Dynamic attributes
             if (name === "$style") {
-                if (!multiple) {
-                    addIdentifierToElement(element);
-                }
+
                 const parts: Array<string | IValue> = [];
                 for (const [key, [cssValue]] of parseStylingDeclarationsFromString(value!)) {
                     if (!cssValue || typeof cssValue === "string" || !("value" in cssValue)) {
@@ -133,47 +131,49 @@ export function parseHTMLElement(
 
                     parts.push(key + ":", expression, ";");
 
-                    const dependency: PartialDependency = {
+                    const binding: PartialBinding = {
                         aspect: ValueAspect.Style,
                         expression,
                         element: element,
                         styleKey: key
                     }
 
-                    addDependency(dependency, localData, locals, dependencies);
+                    addBinding(binding, localData, locals, templateData.bindings);
                 }
 
                 // With CSR: elem.style = "color: red" does work okay!;
                 const styleTemplateLiteral = new TemplateLiteral(parts);
-                if (element.dynamicAttributes) {
-                    element.dynamicAttributes.set("style", styleTemplateLiteral);
+                const dynamicAttributes = templateData.nodeData.get(element)?.dynamicAttributes;
+                if (dynamicAttributes) {
+                    dynamicAttributes.set("style", styleTemplateLiteral);
                 } else {
-                    element.dynamicAttributes = new Map([["style", styleTemplateLiteral]]);
+                    assignToObjectMap(
+                        templateData.nodeData, 
+                        element, 
+                        "dynamicAttributes", 
+                        new Map([["style", styleTemplateLiteral]])
+                    );
                 }
 
                 element.attributes.delete(name);
             } else if (name[0] === "$") {
                 let expression: IValue;
                 if (!value) {
-                    // Allow shorthand #src <=> #src="src"
+                    // Allows shorthand #src <=> #src="src"
                     expression = new VariableReference(subject);
                 } else {
                     expression = Expression.fromString(value);
                 }
 
-                if (!multiple) {
-                    addIdentifierToElement(element);
-                }
-
-                let dependency: PartialDependency;
-                if (element.component && subject === "data") {
-                    dependency = {
+                let binding: PartialBinding;
+                if (templateData.nodeData.get(element)?.component && subject === "data") {
+                    binding = {
                         aspect: ValueAspect.Data,
                         expression,
                         element,
                     }
                 } else {
-                    dependency = {
+                    binding = {
                         aspect: ValueAspect.Attribute,
                         attribute: subject,
                         expression,
@@ -181,12 +181,18 @@ export function parseHTMLElement(
                     }
                 }
 
-                addDependency(dependency, localData, locals, dependencies);
+                addBinding(binding, localData, locals, templateData.bindings);
 
-                if (element.dynamicAttributes) {
-                    element.dynamicAttributes.set(subject, expression);
+                const dynamicAttributes = templateData.nodeData.get(element)?.dynamicAttributes;
+                if (dynamicAttributes) {
+                    dynamicAttributes.set(subject, expression);
                 } else {
-                    element.dynamicAttributes = new Map([[subject, expression]]);
+                    assignToObjectMap(
+                        templateData.nodeData, 
+                        element, 
+                        "dynamicAttributes", 
+                        new Map([[subject, expression]])
+                    );
                 }
 
                 element.attributes.delete(name);
@@ -210,7 +216,7 @@ export function parseHTMLElement(
 
                 const internal = !locals.some(local => local.isEqual(methodReference, true));
 
-                const identifier = addIdentifierToElement(element);
+                const identifier = addIdentifierToElement(element, templateData.nodeData);
 
                 const event: IEvent = {
                     nodeIdentifier: identifier,
@@ -221,17 +227,19 @@ export function parseHTMLElement(
                     existsOnComponentClass: internal
                 }
 
-                addEvent(events, element, event);
+                addEvent(templateData.events, element, event, templateData.nodeData);
 
                 element.attributes.delete(name);
 
             } else if (name[0] === "#") {
                 switch (subject) {
                     case "for":
-                        parseForNode(element, slots, dependencies, events, importedComponents, ssr, locals, localData, nullable, multiple);
+                        childrenParsed = true;
+                        parseForNode(element, templateData, templateConfig, locals, localData, nullable, multiple);
                         break;
                     case "if":
-                        parseIfNode(element, slots, dependencies, events, importedComponents, ssr, locals, localData, nullable, multiple);
+                        childrenParsed = true;
+                        parseIfNode(element, templateData, templateConfig, locals, localData, nullable, multiple);
                         break;
                     default:
                         throw Error(`Unknown / unsupported construct "#${subject}"`);
@@ -241,10 +249,11 @@ export function parseHTMLElement(
         }
     }
 
-    // If element has clientRenderFunction its children have already been parsed
-    if (!element.clientExpression) {
-        for (const child of element.children as Array<PrismNode>) {
-            parsePrismNode(child, slots, dependencies, events, importedComponents, ssr, locals, localData, nullable, multiple);
-        }
+    if (childrenParsed) {
+        return;
+    }
+
+    for (const child of element.children) {
+        parseNode(child, templateData, templateConfig, locals, localData, nullable, multiple);
     }
 }

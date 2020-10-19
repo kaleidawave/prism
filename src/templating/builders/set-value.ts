@@ -4,36 +4,37 @@ import { VariableReference } from "../../chef/javascript/components/value/variab
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
 import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVariableReferenceFromChain, aliasVariables } from "../../chef/javascript/utils/variables";
-import { getSlice, getChildrenStatement, thisDataVariable } from "../helpers";
-import { ValueAspect, IDependency, PrismHTMLElement, VariableReferenceArray } from "../template";
-import { HTMLElement } from "../../chef/html/html";
+import { getSlice, getElement, thisDataVariable } from "../helpers";
+import { ValueAspect, IBinding, VariableReferenceArray, NodeData } from "../template";
+import { HTMLElement, Node } from "../../chef/html/html";
 
-export function makeSetFromDependency(
-    dependency: IDependency,
+export function makeSetFromBinding(
+    binding: IBinding,
+    nodeData: WeakMap<Node, NodeData>,
     variable: VariableReferenceArray,
     globals: Array<VariableReference> = []
 ): Array<IStatement> {
     const statements: Array<IStatement> = [];
-    const elementStatement = getChildrenStatement(dependency.element);
-    const isElementNullable = dependency.element.nullable ?? false;
+    const elementStatement = getElement(binding.element, nodeData);
+    const isElementNullable = nodeData.get(binding.element)?.nullable ?? false;
 
     // getSlice will return the trailing portion from the for iterator statement thing
     const variableReference = VariableReference.fromChain(...getSlice(variable) as Array<string>) as VariableReference;
-    
+
     let newValue: IValue | null = null;
-    if (dependency.expression) {
-        const clonedExpression = cloneAST(dependency.expression) as IValue;
+    if (binding.expression) {
+        const clonedExpression = cloneAST(binding.expression) as IValue;
         const valueParam = new VariableReference("value");
         replaceVariables(clonedExpression, valueParam, [variableReference]);
         aliasVariables(clonedExpression, thisDataVariable, [valueParam, ...globals]);
         newValue = clonedExpression;
     }
 
-    switch (dependency.aspect) {
+    switch (binding.aspect) {
         case ValueAspect.InnerText:
             // Gets the index of the fragment and alters the data property of the 
             // fragment (which exists on CharacterData) to the string value
-            if (dependency.element.nullable) {
+            if (isElementNullable) {
                 statements.push(new Expression({
                     lhs: new VariableReference("tryAssignData"),
                     operation: Operation.Call,
@@ -41,7 +42,7 @@ export function makeSetFromDependency(
                         newOptionalVariableReferenceFromChain(
                             elementStatement,
                             "childNodes",
-                            dependency.fragmentIndex!,
+                            binding.fragmentIndex!,
                         ),
                         newValue!
                     ])
@@ -51,7 +52,7 @@ export function makeSetFromDependency(
                     lhs: VariableReference.fromChain(
                         elementStatement,
                         "childNodes",
-                        dependency.fragmentIndex!,
+                        binding.fragmentIndex!,
                         "data"
                     ),
                     operation: Operation.Assign,
@@ -59,23 +60,27 @@ export function makeSetFromDependency(
                 }));
             }
             break;
-        case ValueAspect.Conditional:
+        case ValueAspect.Conditional: {
+            const clientRenderFunction = nodeData.get(binding.element)!.clientRenderMethod!;
+
             const callConditionalSwapFunction = new Expression({
                 lhs: VariableReference.fromChain("conditionalSwap", "call"),
                 operation: Operation.Call,
                 rhs: new ArgumentList([
                     new VariableReference("this"),
                     newValue!, // TODO temp non null
-                    new Value(dependency.element.identifier!, Type.string),
-                    VariableReference.fromChain("this", "render" + dependency.element.identifier)
+                    new Value(nodeData.get(binding.element)!.identifier!, Type.string),
+                    VariableReference.fromChain("this", clientRenderFunction.name?.name!)
                 ])
             });
             statements.push(callConditionalSwapFunction);
             break;
-        case ValueAspect.Iterator:
-            // TODO temp dependency.element.identifier should maybe have reference to actual method
+        }
+        case ValueAspect.Iterator: {
+            const clientRenderFunction = nodeData.get(binding.element)!.clientRenderMethod!;
+
             const renderNewElement = new Expression({
-                lhs: VariableReference.fromChain("this", "render" + dependency.element.identifier),
+                lhs: VariableReference.fromChain("this", clientRenderFunction.name?.name!),
                 operation: Operation.Call,
                 rhs: new VariableReference("value")
             });
@@ -90,8 +95,9 @@ export function makeSetFromDependency(
 
             statements.push(addNewElementToTheParent);
             break;
+        }
         case ValueAspect.Attribute:
-            const attribute = dependency.attribute!;
+            const attribute = binding.attribute!;
             if (HTMLElement.booleanAttributes.has(attribute)) {
                 statements.push(new Expression({
                     lhs: new VariableReference(attribute, elementStatement),
@@ -138,7 +144,7 @@ export function makeSetFromDependency(
         case ValueAspect.Style:
             const styleObject = new VariableReference("style", elementStatement);
             // Converts background-color -> backgroundColor which is the key JS uses
-            const styleKey = dependency.styleKey!.replace(/(?:-)([a-z])/g, (_, m) => m.toUpperCase());
+            const styleKey = binding.styleKey!.replace(/(?:-)([a-z])/g, (_, m) => m.toUpperCase());
             statements.push(new Expression({
                 lhs: new VariableReference(styleKey, styleObject),
                 operation: Operation.Assign,
@@ -146,15 +152,15 @@ export function makeSetFromDependency(
             }));
             break;
         default:
-            throw Error(`Unknown aspect ${ValueAspect[dependency.aspect]}`)
+            throw Error(`Unknown aspect ${ValueAspect[binding.aspect]}`)
     }
 
     return statements;
 }
 
-export function setLengthForIteratorDependency(dependency: IDependency): IStatement {
-
-    const getElemExpression = getChildrenStatement(dependency.element as PrismHTMLElement);
+export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): IStatement {
+    if (binding.aspect !== ValueAspect.Iterator) throw Error("Expected iterator binding");
+    const getElemExpression = getElement(binding.element, nodeData);
 
     // Uses the setLength helper to assist with sorting cache and removing from DOM
     return new Expression({

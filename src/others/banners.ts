@@ -1,4 +1,3 @@
-import { readFileSync } from "fs";
 import { join } from "path";
 
 export function printWarningBanner(): void {
@@ -8,8 +7,11 @@ export function printWarningBanner(): void {
 }
 
 export function printInfoScreen(): void {
-    const packageJSON = JSON.parse(readFileSync(join(__dirname, "../../package.json")).toString());
-    const version = packageJSON.version;
+    let version = "";
+    if (typeof window === "undefined") {
+        const packageJSON = JSON.parse(require("fs").readFileSync(join(__dirname, "../../package.json")).toString());
+        version = packageJSON.version;
+    }
     const leftOffset = Math.floor(Math.max(process.stdout.columns - 76, 0) / 2);
     console.log(
         `${" ".repeat(leftOffset)} ______   ______     __     ______     __    __    

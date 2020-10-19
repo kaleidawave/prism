@@ -1,6 +1,4 @@
 import { join, isAbsolute } from "path";
-import { readFileSync, existsSync } from "fs";
-import { getArguments } from "./helpers";
 
 export interface IPrismSettings {
     minify: boolean, // Removes whitespace for space saving in output
@@ -20,6 +18,8 @@ export interface IPrismSettings {
     deno: boolean
 }
 
+export const defaultTemplateHTML = "bundle/template.html";
+
 const defaultSettings: IPrismSettings = {
     minify: false,
     backendLanguage: "js",
@@ -30,7 +30,7 @@ const defaultSettings: IPrismSettings = {
     // These two are both null because they relate to project path and output path. There "defaults" are encoded in the respective actual getters in exported setters:
     assetPath: null,
     serverOutputPath: null,
-    templatePath: join(__dirname, "bundle/template.html"),
+    templatePath: defaultTemplateHTML,
     context: "isomorphic",
     staticSrc: "/",
     clientSideRouting: true,
@@ -52,77 +52,48 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteTemplatePath: string,
 }
 
-export const settings: IFinalPrismSettings = {
-    ...defaultSettings,
-    get absoluteProjectPath() {
-        if (isAbsolute(this.projectPath)) {
-            return this.projectPath;
-        }
-        return join(process.cwd(), this.projectPath);
-    },
-    get absoluteOutputPath() {
-        if (isAbsolute(this.outputPath)) {
-            return this.outputPath;
-        }
-        return join(process.cwd(), this.outputPath);
-    },
-    get actualAssetPath() {
-        return this.assetPath ?? join(this.projectPath, "assets");
-    },
-    get absoluteAssetPath() {
-        if (isAbsolute(this.actualAssetPath)) {
-            return this.actualAssetPath;
-        }
-        return join(process.cwd(), this.actualAssetPath);
-    },
-    get actualServerOutputPath() {
-        return this.serverOutputPath ?? join(this.outputPath, "server");
-    },
-    get absoluteServerOutputPath() {
-        if (isAbsolute(this.actualServerOutputPath)) {
-            return this.actualServerOutputPath;
-        }
-        return join(process.cwd(), this.actualServerOutputPath);
-    },
-    get absoluteTemplatePath() {
-        if (isAbsolute(this.templatePath)) {
-            return this.templatePath;
-        }
-        return join(process.cwd(), this.templatePath);
-    },
-};
-
-/**
- * Mutates global `settings` through reading config file & command line arguments (process.argv)
- * TODO remove impure global settings
- * @returns
- */
-export function registerSettings() {
-    let configFilePath: string, componentFile: string | null;
-    let startIndex = 3;
-    if (process.argv[startIndex]?.endsWith("prism.config.json")) {
-        if (isAbsolute(process.argv[startIndex])) {
-            configFilePath = process.argv[startIndex];
-        } else {
-            configFilePath = join(process.cwd(), process.argv[startIndex]);
-        }
-        startIndex++;
-    } else {
-        configFilePath = join(process.cwd(), "prism.config.json");
-    }
-    
-    if (existsSync(join(configFilePath))) {
-        const configFile = readFileSync(configFilePath).toString();
-        Object.assign(settings, JSON.parse(configFile));
-    }
-
-    const args = process.argv.slice(startIndex);
-    
-    for (const [argument, value] of getArguments(args)) {
-        if (value === null) {
-            Reflect.set(settings, argument, true);
-        } else {
-            Reflect.set(settings, argument, value);
-        }
-    }
+export function getSettings(cwd: string, partialSettings: Partial<IPrismSettings>): IFinalPrismSettings {
+    return {
+        ...defaultSettings,
+        ...partialSettings,
+        get absoluteProjectPath() {
+            this.projectPath ??= partialSettings.projectPath ?? defaultSettings.projectPath;
+            if (isAbsolute(this.projectPath)) {
+                return this.projectPath;
+            }
+            return join(cwd, this.projectPath);
+        },
+        get absoluteOutputPath() {
+            this.outputPath ??= partialSettings.outputPath ?? defaultSettings.outputPath;
+            if (isAbsolute(this.outputPath)) {
+                return this.outputPath;
+            }
+            return join(cwd, this.outputPath);
+        },
+        get actualAssetPath() {
+            return this.assetPath ?? join(this.projectPath, "assets");
+        },
+        get absoluteAssetPath() {
+            if (isAbsolute(this.actualAssetPath)) {
+                return this.actualAssetPath;
+            }
+            return join(cwd, this.actualAssetPath);
+        },
+        get actualServerOutputPath() {
+            return this.serverOutputPath ?? join(this.outputPath, "server");
+        },
+        get absoluteServerOutputPath() {
+            if (isAbsolute(this.actualServerOutputPath)) {
+                return this.actualServerOutputPath;
+            }
+            return join(cwd, this.actualServerOutputPath);
+        },
+        get absoluteTemplatePath() {
+            this.templatePath ??= partialSettings.templatePath ?? defaultSettings.templatePath;
+            if (isAbsolute(this.templatePath) || this.templatePath === defaultTemplateHTML) {
+                return this.templatePath;
+            }
+            return join(cwd, this.templatePath);
+        },
+    };
 }

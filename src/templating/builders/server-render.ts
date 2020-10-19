@@ -1,5 +1,4 @@
-import { HTMLElement, TextNode, HTMLDocument, HTMLComment } from "../../chef/html/html";
-import { PrismNode, PrismComment, PrismHTMLElement } from "../template";
+import { HTMLElement, TextNode, HTMLDocument, HTMLComment, Node } from "../../chef/html/html";
 import { TemplateLiteral } from "../../chef/javascript/components/value/template-literal";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
@@ -7,10 +6,16 @@ import { Expression, Operation } from "../../chef/javascript/components/value/ex
 import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { ReturnStatement } from "../../chef/javascript/components/statements/statement";
-import { settings } from "../../settings";
 import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables";
+import { NodeData } from "../template";
 
 const dataVariable = new VariableReference("data");
+
+export interface IServerRenderSettings {
+    dynamicAttribute: boolean,
+    minify: boolean,
+    addDisableToElementWithEvents: boolean
+}
 
 /**
  * Generates a template literal with relevant interpolation of variables that when run will generate ssr html
@@ -20,9 +25,15 @@ const dataVariable = new VariableReference("data");
  * @param minify Will not prettify the output in the template literal
  * @param dynamicAttribute If true will add a ${attributes} onto the top tag attribute. Kinda temp but doing it later breaks because template literal collapsation 
  */
-export function serverRenderPrismNode(template: PrismNode | HTMLDocument, locals: Array<VariableReference> = [], minify = true, dynamicAttribute = false,): TemplateLiteral {
-    const parts = buildServerTemplateLiteralShards(template, locals, minify);
-    if (dynamicAttribute) {
+export function serverRenderPrismNode(
+    template: HTMLElement | HTMLDocument,
+    nodeData: WeakMap<Node, NodeData>,
+    serverRenderSettings: IServerRenderSettings,
+    locals: Array<VariableReference> = [],
+    skipOverServerExpression: boolean = false
+): TemplateLiteral {
+    const parts = buildServerTemplateLiteralShards(template, nodeData, serverRenderSettings, locals, skipOverServerExpression);
+    if (serverRenderSettings.minify) {
         parts.splice(1, 0, new VariableReference("attributes"));
     }
     return new TemplateLiteral(parts);
@@ -46,54 +57,59 @@ function wrapWithEscapeValue(value: IValue): Expression {
  * TODO generator ???
  */
 function buildServerTemplateLiteralShards(
-    element: PrismNode | HTMLDocument,
+    element: Node | HTMLDocument,
+    nodeData: WeakMap<Node, NodeData>,
+    serverRenderSettings: IServerRenderSettings,
     locals: Array<VariableReference>,
-    minify: boolean = true,
+    skipOverServerExpression: boolean = false
 ): Array<string | IValue> {
 
     const entries: Array<string | IValue> = []; // Entries is unique for each execution for indentation benefits
     if (element instanceof HTMLElement) {
 
-        if (element.slotFor) {
-            entries.push(new VariableReference(`${element.slotFor}Slot`));
+        const elementData = nodeData.get(element);
+
+        if (elementData?.slotFor) {
+            entries.push(new VariableReference(`${elementData?.slotFor}Slot`));
             return entries;
         }
 
         // If node
-        if (element.serverExpression && !(element.serverExpression instanceof ForIteratorExpression)) {
+        if (elementData?.conditionalRoot && !skipOverServerExpression) {
             // TODO very temp removal of the elements clientExpression to not clash 
-            const serverExpression = element.serverExpression;
-            delete element.serverExpression;
-            const renderTruthyChild = serverRenderPrismNode(element as PrismHTMLElement, locals, minify);
-            element.serverExpression = serverExpression;
+            const renderTruthyChild = serverRenderPrismNode(element, nodeData, serverRenderSettings, locals, true);
+            const renderFalsyChild = serverRenderPrismNode(elementData.elseElement!, nodeData, serverRenderSettings, locals);
 
-            const renderFalsyChild = serverRenderPrismNode(element.elseElement!, locals, minify);
-
-            return [new Expression({
-                lhs: serverExpression,
-                operation: Operation.Ternary,
-                rhs: new ArgumentList([renderTruthyChild, renderFalsyChild])
-            })];
+            return [
+                new Expression({
+                    lhs: elementData.serverExpression as IValue,
+                    operation: Operation.Ternary,
+                    rhs: new ArgumentList([renderTruthyChild, renderFalsyChild])
+                })
+            ];
         }
 
-        if (element.component) {
+        if (elementData?.component) {
+            const component = elementData.component;
 
             // Components data
-            const componentsData: IValue | null =  element.dynamicAttributes?.get("data") ?? null;
+            const componentsData: IValue | null = elementData.dynamicAttributes?.get("data") ?? null;
 
             // A render function for a component goes attributes, componentData, contentSlot, ...context. With all of those being optional apart from contentSlot
 
             const renderArgs: Map<string, IValue> = new Map();
 
-            renderArgs.set("attributes", new TemplateLiteral(serverRenderNodeAttribute(element, locals)));
+            renderArgs.set("attributes", new TemplateLiteral(serverRenderNodeAttribute(element, nodeData, locals)));
 
-            if (element.component.hasSlots) {
+            if (component.hasSlots) {
                 const slotRenderFunction: Array<string | IValue> = [];
                 if (element.children.length > 0) {
                     for (let i = 0; i < element.children.length; i++) {
-                        const child = element.children[i] as PrismNode;
-                        slotRenderFunction.push(...buildServerTemplateLiteralShards(child, locals, minify));
-                        if (!minify && i !== element.children.length - 1) entries.push("\n");
+                        const child = element.children[i];
+                        slotRenderFunction.push(
+                            ...buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals)
+                        );
+                        if (!serverRenderSettings.minify && i !== element.children.length - 1) entries.push("\n");
                     }
                 }
                 renderArgs.set("contentSlot", new TemplateLiteral(slotRenderFunction));
@@ -105,17 +121,17 @@ function buildServerTemplateLiteralShards(
                 renderArgs.set("data", aliasedData);
             }
 
-            if (element.component.clientGlobals) {
-                for (const clientGlobal of element.component.clientGlobals) {
+            if (component.clientGlobals) {
+                for (const clientGlobal of component.clientGlobals) {
                     renderArgs.set((clientGlobal.tail as VariableReference).name, clientGlobal);
                 }
             }
 
             // buildArgumentListFromArguments means that the order of arguments does not matter
             const renderComponentFunction = new Expression({
-                lhs: new VariableReference(element.component.serverRenderFunction!.name!.name!),
+                lhs: new VariableReference(component.serverRenderFunction!.name!.name!),
                 operation: Operation.Call,
-                rhs: element.component.serverRenderFunction!.buildArgumentListFromArguments(renderArgs)
+                rhs: component.serverRenderFunction!.buildArgumentListFromArguments(renderArgs)
             });
 
             entries.push(renderComponentFunction);
@@ -124,31 +140,38 @@ function buildServerTemplateLiteralShards(
 
         entries.push(`<${element.tagName}`);
 
-        entries.push(...serverRenderNodeAttribute(element, locals))
+        entries.push(...serverRenderNodeAttribute(element, nodeData, locals))
 
         // If the element has any events disable it by default TODO explain why
-        // TODO possibly add during template parse
-        if (element.events?.some(event => event.required) && settings.disableEventElements) {
+        if (serverRenderSettings.addDisableToElementWithEvents && elementData?.events?.some(event => event.required)) {
             entries.push(" disabled")
         }
 
         if (element.closesSelf) entries.push("/");
         entries.push(">");
-        if (!minify && element.children.length > 0) entries.push("\n    ");
+        if (!serverRenderSettings.minify && element.children.length > 0) entries.push("\n    ");
 
         if (HTMLElement.selfClosingTags.has(element.tagName) || element.closesSelf) return entries;
 
-        if (element.serverExpression && element.serverExpression instanceof ForIteratorExpression) {
+        if (elementData?.iteratorRoot) {
+            const expression = elementData.serverExpression as ForIteratorExpression;
             entries.push(
                 new Expression({
                     lhs: new VariableReference("join", new Expression({
-                        lhs: new VariableReference("map", element.serverExpression.subject),
+                        lhs: new VariableReference("map", expression.subject),
                         operation: Operation.Call,
                         rhs: new FunctionDeclaration(
                             null,
-                            [element.serverExpression.variable],
+                            [expression.variable],
                             [new ReturnStatement(
-                                new TemplateLiteral(buildServerTemplateLiteralShards(element.children[0] as PrismHTMLElement, [element.serverExpression.variable.toReference(), ...locals], minify))
+                                new TemplateLiteral(
+                                    buildServerTemplateLiteralShards(
+                                        element.children[0],
+                                        nodeData,
+                                        serverRenderSettings,
+                                        [expression.variable.toReference(), ...locals]
+                                    )
+                                )
                             )],
                             { bound: false }
                         )
@@ -158,19 +181,20 @@ function buildServerTemplateLiteralShards(
                 })
             );
         } else {
-            for (const child of element.children as Array<PrismNode>) {
-                const parts = buildServerTemplateLiteralShards(child, locals, minify);
+            for (const child of element.children) {
+                const parts = buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals);
                 // Indent children
-                if (!minify) {
+                if (!serverRenderSettings.minify) {
                     for (let i = 0; i < parts.length; i++) {
                         if (typeof parts[i] === "string" && (parts[i] as string).startsWith("\n")) {
                             parts[i] = parts[i] + " ".repeat(4);
                         }
                     }
+                    // Comments 
                     if (child.next) {
-                        const isFragment = 
-                            (child instanceof HTMLComment && child.isFragment && child.next instanceof TextNode) || 
-                            (child instanceof TextNode && child.next instanceof HTMLComment && (child.next as PrismComment).isFragment);
+                        const isFragment =
+                            (child instanceof HTMLComment && nodeData.get(child)?.isFragment && child.next instanceof TextNode) ||
+                            (child instanceof TextNode && child.next instanceof HTMLComment && (nodeData.get(child.next)?.isFragment));
                         if (!isFragment) {
                             parts.push("\n" + " ".repeat(4));
                         }
@@ -179,13 +203,14 @@ function buildServerTemplateLiteralShards(
                 entries.push(...parts);
             }
         }
-        if (!minify && element.children.length > 0) entries.push("\n");
+        if (!serverRenderSettings.minify && element.children.length > 0) entries.push("\n");
         entries.push(`</${element.tagName}>`);
 
     } else if (element instanceof TextNode) {
-        if (element.value) {
-            if (element.value instanceof TemplateLiteral) {
-                for (const part of element.value.entries) {
+        const value = nodeData.get(element)?.textNodeValue;
+        if (value) {
+            if (value instanceof TemplateLiteral) {
+                for (const part of value.entries) {
                     if (typeof part === "string") {
                         entries.push(part);
                     } else {
@@ -195,7 +220,7 @@ function buildServerTemplateLiteralShards(
                     }
                 }
             } else {
-                const aliasedPart = cloneAST(element.value!);
+                const aliasedPart = cloneAST(value);
                 aliasVariables(aliasedPart, dataVariable, locals);
                 entries.push(wrapWithEscapeValue(aliasedPart));
             }
@@ -204,14 +229,14 @@ function buildServerTemplateLiteralShards(
         }
     } else if (element instanceof HTMLComment) {
         // If the comment is used to fragment text nodes:
-        if (element.isFragment) {
+        if (nodeData.get(element)?.isFragment) {
             entries.push(`<!--${element.comment}-->`);
         }
     } else if (element instanceof HTMLDocument) {
         for (let i = 0; i < element.children.length; i++) {
             const child = element.children[i];
-            entries.push(...buildServerTemplateLiteralShards(child as PrismNode, locals, minify));
-            if (!minify && i !== element.children.length - 1) entries.push("\n");
+            entries.push(...buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals));
+            if (!serverRenderSettings.minify && i !== element.children.length - 1) entries.push("\n");
         }
     } else {
         throw Error(`Cannot build render string from construct ${(element as any).constructor.name}`)
@@ -219,7 +244,7 @@ function buildServerTemplateLiteralShards(
     return entries;
 }
 
-export function serverRenderNodeAttribute(element: PrismHTMLElement, locals: Array<VariableReference>) {
+export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMap<Node, NodeData>, locals: Array<VariableReference>) {
     const entries: Array<string | IValue> = [];
     if (element.attributes) {
         for (const [name, value] of element.attributes) {
@@ -229,8 +254,10 @@ export function serverRenderNodeAttribute(element: PrismHTMLElement, locals: Arr
             }
         }
     }
-    if (element.dynamicAttributes) {
-        for (let [name, value] of element.dynamicAttributes) {
+
+    const dynamicAttributes = nodeData.get(element)?.dynamicAttributes;
+    if (dynamicAttributes) {
+        for (let [name, value] of dynamicAttributes) {
             const aliasedValue = cloneAST(value);
             aliasVariables(aliasedValue, dataVariable, locals);
             if (HTMLElement.booleanAttributes.has(name)) {

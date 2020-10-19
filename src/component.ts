@@ -1,6 +1,6 @@
 import { HTMLElement, HTMLDocument, TextNode } from "./chef/html/html";
 import { ClassDeclaration } from "./chef/javascript/components/constructs/class";
-import { parseTemplate, PrismNode, PrismTextNode, IDependency, PrismHTMLElement, Template, ValueAspect } from "./templating/template";
+import { parseTemplate, IBinding, ITemplateData, ValueAspect } from "./templating/template";
 import { Module } from "./chef/javascript/components/module";
 import { buildClientRenderMethod, clientRenderPrismNode } from "./templating/builders/client-render";
 import { buildEventBindings } from "./templating/builders/server-event-bindings";
@@ -10,18 +10,17 @@ import { Expression, Operation } from "./chef/javascript/components/value/expres
 import { VariableDeclaration } from "./chef/javascript/components/statements/variable";
 import { Value, Type, IValue } from "./chef/javascript/components/value/value";
 import { ReturnStatement } from "./chef/javascript/components/statements/statement";
-import { serverRenderPrismNode } from "./templating/builders/server-render";
+import { IServerRenderSettings, serverRenderPrismNode } from "./templating/builders/server-render";
 import { GenerateDocString } from "./chef/javascript/components/statements/comments";
 import { setNotFoundRoute, addRoute } from "./builders/client-side-routing";
 import { DynamicUrl, stringToDynamicUrl } from "./chef/dynamic-url";
 import { resolve, dirname, relative, join } from "path";
-import { settings } from "./settings";
 import { ObjectLiteral } from "./chef/javascript/components/value/object";
 import { TemplateLiteral } from "./chef/javascript/components/value/template-literal";
 import { buildMetaTags } from "./metatags";
 import { Stylesheet } from "./chef/css/stylesheet";
 import { prefixSelector, ISelector } from "./chef/css/selectors";
-import { randomPrismId, getElem, thisDataVariable } from "./templating/helpers";
+import { getElement, randomPrismId, thisDataVariable } from "./templating/helpers";
 import { ImportStatement, ExportStatement } from "./chef/javascript/components/statements/import-export";
 import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings } from "./chef/helpers";
@@ -33,10 +32,13 @@ import { TypeSignature } from "./chef/javascript/components/types/type-signature
 import { AsExpression } from "./chef/javascript/components/types/statements";
 import { ForIteratorExpression } from "./chef/javascript/components/statements/for";
 import { cloneAST, aliasVariables } from "./chef/javascript/utils/variables";
-
-const registeredTags: Set<string> = new Set();
+import { assignToObjectMap } from "./helpers";
+import { IFinalPrismSettings } from "./settings";
+import { settings } from "cluster";
 
 export class Component {
+    static registeredTags: Set<string> = new Set()
+
     title: IValue | null = null; // If page the document title
 
     isPage: boolean = false;
@@ -51,6 +53,7 @@ export class Component {
     hasSlots: boolean = false; // If the component has slots
 
     // The root data of the component
+    templateElement: HTMLElement;
     componentClass: ClassDeclaration;
     clientModule: Module;
     serverModule?: Module;
@@ -67,13 +70,13 @@ export class Component {
 
     clientGlobals: Array<VariableReference> = [];
 
-    stylesheet: Stylesheet;
+    stylesheet?: Stylesheet;
 
     imports: Array<ImportStatement>;
     exports: Map<string, any> | null = null;
     importedComponents: Map<string, Component>;
 
-    dependencies: Array<IDependency>;
+    bindings: Array<IBinding>;
 
     // Used to prevent cyclic imports
     static parsingComponents: Set<string> = new Set();
@@ -84,7 +87,7 @@ export class Component {
      * Returns a component under a filename
      * If a component has been parsed will return it from the register and not re parse it
      */
-    static registerComponent(filepath: string): Component {
+    static async registerComponent(filepath: string, settings: IFinalPrismSettings): Promise<Component> {
         if (Component.parsingComponents.has(filepath)) {
             throw Error(`Cyclic import ${filepath}`); // TODO test and better error message
         }
@@ -92,67 +95,61 @@ export class Component {
         if (Component.registeredComponents.has(filepath)) {
             return Component.registeredComponents.get(filepath)!;
         } else {
-            const component = Component.fromFile(filepath);
+            const component = await Component.fromFile(filepath);
+            await component.processComponent(settings)
             Component.registeredComponents.set(filepath, component);
             return component;
         }
     }
 
-    static fromFile(filename: string) {
-        const componentFile = HTMLDocument.fromFile(filename, { comments: false });
-        return new Component(componentFile, filename);
+    static async fromFile(filename: string) {
+        const componentFile = await HTMLDocument.fromFile(filename, { comments: false });
+        return new Component(componentFile);
     }
 
     static fromString(component: string, filename?: string) {
         const componentFile = HTMLDocument.fromString(component, filename, { comments: false });
-        return new Component(componentFile, filename);
+        return new Component(componentFile);
     }
 
-    private constructor(componentFile: HTMLDocument, filename?: string) {
-
-        if (filename) {
-            this.filename = filename;
-            this.relativeFilename = relative(settings.projectPath, filename);
-        } else {
-            // TODO temp
-            this.filename = this.relativeFilename = "anonymous";
-        }
+    private constructor(componentFile: HTMLDocument) {
+        this.filename = componentFile.filename;
 
         // Read the template from file
-        // Typescript cannot recognize that the only return type is HTMLElement due to "child instanceof HTMLElement"
-        // which is why the "as" keyword is there :/
-        const templateElement = componentFile.children.find(child =>
+        this.templateElement = componentFile.children.find((child) =>
             child instanceof HTMLElement && child.tagName === "template") as HTMLElement;
+
+        if (!this.templateElement) {
+            throw Error("Component requires <template> element");
+        }
 
         const scriptElement: HTMLElement = componentFile.children.find(child =>
             child instanceof HTMLElement && child.tagName === "script") as HTMLElement;
 
+        if (!scriptElement) {
+            this.clientModule = new Module([
+                new ClassDeclaration(randomPrismId(), [], { base: new TypeSignature("Component") })
+            ]);
+        } else {
+            this.clientModule = scriptElement.module!;
+        }
+
         const styleElement: HTMLElement = componentFile.children.find(child =>
             child instanceof HTMLElement && child.tagName === "style") as HTMLElement;
 
-        if (!templateElement) {
-            throw Error(`Expected <template> in "${filename}"`)
+        this.stylesheet = styleElement?.stylesheet;
+    }
+
+    async processComponent(settings: IFinalPrismSettings) {
+        this.relativeFilename = relative(settings.projectPath, this.filename);
+
+        // Find component class
+        let componentClass = this.clientModule.classes?.find(cls => cls.base?.name === "Component");
+        if (!componentClass) {
+            throw Error(`Could not find class that extends "Component" in "${this.filename}"`);
         }
 
-        let componentClass: ClassDeclaration;
-        let name: string;
-        if (scriptElement) {
-            this.clientModule = scriptElement.module!;
-
-            // Find component class
-            let componentClass_ = this.clientModule.classes?.find(cls => cls.base?.name === "Component");
-            if (!componentClass_) {
-                throw Error(`Could not find class that extends "Component" in "${filename}"`);
-            }
-            componentClass = componentClass_;
-            name = componentClass.name!.name!;
-        } else {
-            name = randomPrismId();
-            componentClass = new ClassDeclaration(name, [], { base: "Component" });
-            this.clientModule = new Module([componentClass])
-        }
-
-        this.className = name;
+        this.className = componentClass.name!.name!;
         this.componentClass = componentClass;
 
         // If isomorphic generate a module for the server render
@@ -174,7 +171,7 @@ export class Component {
         for (const import_ of this.clientModule.imports) {
             // TODO other imports such as css etc
             if (import_.from.endsWith(".prism")) {
-                const component = Component.registerComponent(resolve(dirname(this.filename), import_.from))
+                const component = await Component.registerComponent(resolve(dirname(this.filename), import_.from), settings);
                 this.importedComponents.set(component.className, component);
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
                 import_.from = relativePath + ".js";
@@ -209,7 +206,7 @@ export class Component {
                         }
 
                         this.tag = (decorator.args[0] as Value).value!;
-                        if (registeredTags.has(this.tag)) {
+                        if (Component.registeredTags.has(this.tag)) {
                             throw Error(`"${this.filename}" - "${this.tag}" already registered under another component`);
                         }
                         break;
@@ -248,7 +245,7 @@ export class Component {
                         break;
                     case "UseLayout":
                         if (decorator.args.length !== 1 || !(decorator.args[0] instanceof VariableReference)) {
-                            throw Error(`@UseLayout requires 1 parameter of type object literal in "${filename}"`);
+                            throw Error(`@UseLayout requires 1 parameter of type object literal in "${this.filename}"`);
                         }
                         if (!componentClass.decorators.some(decorator => decorator.name === "Page")) {
                             throw Error("Only pages can have layouts");
@@ -264,7 +261,7 @@ export class Component {
                         break;
                     case "Default":
                         if (decorator.args.length !== 1 || !(decorator.args[0] instanceof ObjectLiteral)) {
-                            throw Error(`@Default requires 1 argument of type object literal in "${filename}"`)
+                            throw Error(`@Default requires 1 argument of type object literal in "${this.filename}"`)
                         }
                         defaultData = decorator.args[0] as ObjectLiteral;
                         break;
@@ -273,7 +270,7 @@ export class Component {
                         break;
                     case "Globals":
                         if (!decorator.args.every(arg => arg instanceof VariableReference)) {
-                            throw Error(`Arguments of @Globals must be variable references in "${filename}"`);
+                            throw Error(`Arguments of @Globals must be variable references in "${this.filename}"`);
                         }
                         globals = decorator.args as Array<VariableReference>;
                         break;
@@ -284,7 +281,7 @@ export class Component {
                             } else if (arg instanceof VariableReference) {
                                 clientGlobals.push(new AsExpression(arg, new TypeSignature("any")));
                             } else {
-                                throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${filename}"`);
+                                throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${this.filename}"`);
                             }
                         }
                         this.clientGlobals = clientGlobals.map(({ value }) => value as VariableReference)
@@ -309,7 +306,7 @@ export class Component {
                         this.metadata = new Map();
                         for (const [key, value] of mappings) {
                             if (typeof key !== "string") {
-                                throw Error(`Metadata object literal keys must be constant in "${filename}"`);
+                                throw Error(`Metadata object literal keys must be constant in "${this.filename}"`);
                             }
                             if (value instanceof Value && value.type === Type.string) {
                                 this.metadata.set(key as string, value.value!);
@@ -320,9 +317,9 @@ export class Component {
                         break;
                     case "Singleton":
                     case "Shadow":
-                        throw Error(`Not implement - @${decorator.name} in "${filename}"`);
+                        throw Error(`Not implement - @${decorator.name} in "${this.filename}"`);
                     default:
-                        throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators in "${filename}"`)
+                        throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators in "${this.filename}"`)
                 }
             }
         }
@@ -347,21 +344,18 @@ export class Component {
 
         const componentDataTypeSignature = componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
 
-        let template: Template;
+        let templateData: ITemplateData;
         try {
-            template = parseTemplate(
-                templateElement as HTMLElement,
-                settings.context === "isomorphic",
-                globals,
-                this.importedComponents,
-            );
+            templateData = parseTemplate(this.templateElement, {
+                ssrEnabled: settings.context === "isomorphic",
+                doClientSideRouting: settings.clientSideRouting,
+                importedComponents: this.importedComponents
+            }, globals);
         } catch (error) {
             // Append the component filename to the error message
             error.message += ` in component "${this.filename}"`;
             throw error;
         }
-
-        const { dependencies, slots, events } = template;
 
         // Add dynamic title and dependencies
         if (this.title) {
@@ -384,68 +378,66 @@ export class Component {
             });
             loadMethod.statements.push(titleSetter);
 
-            // TODO title dependency, element? referencesVariables...?
+            // TODO title bindings, element? referencesVariables...?
             // findVariables(this.title)
-            // dependencies.push({
+            // bindings.push({
             //     aspect: ValueAspect.DocumentTitle, 
             //     expression: this.title, 
             //     referencesVariables: []
             // })
         }
 
-        // TODO temp
-        dependencies
-            .filter(dependency => [ValueAspect.Iterator, ValueAspect.Conditional].includes(dependency.aspect))
-            .forEach(dependency => dependency.element.clientRenderMethod = dependency.element.identifier!);
-
-        for (const dependency of dependencies) {
-            if (dependency.aspect === ValueAspect.Iterator) {
-                const expression = dependency.expression as ForIteratorExpression;
+        for (const binding of templateData.bindings) {
+            if (binding.aspect === ValueAspect.Iterator) {
+                const expression = binding.expression as ForIteratorExpression;
                 const renderChildren = clientRenderPrismNode(
-                    dependency.element.children[0] as PrismHTMLElement,
+                    binding.element.children[0],
+                    templateData.nodeData,
                     true,
                     [...globals, expression.variable.toReference()]
                 );
-                const renderFunction = new FunctionDeclaration(
-                    "render" + dependency.element.identifier!,
+                const elementIdentifer = templateData.nodeData.get(binding.element)?.identifier!;
+                const renderMethod = new FunctionDeclaration(
+                    "render" + elementIdentifer,
                     [expression.variable],
                     [new ReturnStatement(renderChildren)]
                 );
-                componentClass.addMember(renderFunction);
-            } else if (dependency.aspect === ValueAspect.Conditional) {
-                // TODO very temp removal of the elements clientExpression to not clash 
-                const clientExpression = dependency.element.clientExpression;
-                delete dependency.element.clientExpression;
-                const renderTruthyChild = clientRenderPrismNode(dependency.element as PrismHTMLElement, true, globals);
-                dependency.element.clientExpression = clientExpression;
+                componentClass.addMember(renderMethod);
+                assignToObjectMap(templateData.nodeData, binding.element, "clientRenderMethod", renderMethod);
+            } else if (binding.aspect === ValueAspect.Conditional) {
+                // Final true is important here to make sure 
+                const renderTruthyChild =
+                    clientRenderPrismNode(binding.element, templateData.nodeData, true, globals, true);
 
-                const renderFalsyChild = clientRenderPrismNode(dependency.element.elseElement!, true, globals);
+                const { elseElement, identifier, clientExpression } = templateData.nodeData.get(binding.element)!;
+                const renderFalsyChild = clientRenderPrismNode(elseElement!, templateData.nodeData, true, globals);
 
-                const renderFunction = new FunctionDeclaration(
-                    "render" + dependency.element.identifier!,
+                const renderMethod = new FunctionDeclaration(
+                    "render" + identifier!,
                     [],
                     [
-                        new IfStatement(dependency.element.clientExpression! as IValue, [
+                        new IfStatement(clientExpression! as IValue, [
                             new ReturnStatement(renderTruthyChild)
                         ], new ElseStatement(null, [
                             new ReturnStatement(renderFalsyChild)
                         ]))
                     ]
                 );
-                componentClass.addMember(renderFunction);
+                componentClass.addMember(renderMethod);
+                assignToObjectMap(templateData.nodeData, binding.element, "clientRenderMethod", renderMethod);
             }
         }
 
-        if (slots.size > 1) {
+        if (templateData.slots.size > 1) {
             throw Error(`Prism only allows for a single slot "${this.filename}"`);
-        } else if (slots.size === 1) {
-            const [[, slotElement]] = slots;
+        } else if (templateData.slots.size === 1) {
+            const [[, slotElement]] = templateData.slots;
 
-            const parentOfSlotElement = slotElement.parent! as PrismHTMLElement;
+            const parentOfSlotElement = slotElement.parent as HTMLElement;
 
             // The reference to a variable in which to call the append method on
             const referenceToSlotElement = parentOfSlotElement.tagName === "template"
-                ? new VariableReference("super") : getElem(parentOfSlotElement);
+                ? new VariableReference("super") : getElement(parentOfSlotElement, templateData.nodeData);
 
             // Overrides the HTMLElements append method
             // It stores it in a property under the component which is refereed to during initial csr
@@ -474,7 +466,11 @@ export class Component {
 
         // If layout it generates override for firstChild which is a reference to the page component it wraps
         if (this.isLayout) {
-            const getReferenceToSlotParent = getElem(slots.get("content")!.parent! as PrismHTMLElement);
+            const contentSlot = templateData.slots.get("content");
+            if (!contentSlot) {
+                throw Error(`Layout must have content slot for page content`)
+            }
+            const getReferenceToSlotParent = getElement(contentSlot.parent as HTMLElement, templateData.nodeData);
             const getFirstChild = new VariableReference("firstElementChild", getReferenceToSlotParent);
             const getFirstChildGetter = new FunctionDeclaration("firstElementChild", [], [
                 new ReturnStatement(getFirstChild)
@@ -483,8 +479,7 @@ export class Component {
         }
 
         // Parse stylesheet
-        if (styleElement) {
-            this.stylesheet = styleElement.stylesheet!;
+        if (this.stylesheet) {
             // Prefix all rules in the style tag to be descendants of the tag name
             const thisTagSelector: ISelector = { tagName: this.tag }
             for (const rule of this.stylesheet.rules) {
@@ -496,23 +491,21 @@ export class Component {
                     })
                 }
             }
-        } else {
-            this.stylesheet = new Stylesheet();
+
+            this.stylesheet.filename = join(
+                settings.absoluteOutputPath,
+                this.relativeFilename + ".css",
+            );
         }
 
-        this.stylesheet.filename = join(
-            settings.absoluteOutputPath,
-            this.relativeFilename + ".css",
-        );
-
-        this.dependencies = dependencies;
-        this.hasSlots = slots.size > 0;
+        this.bindings = templateData.bindings;
+        this.hasSlots = templateData.slots.size > 0;
 
         // Process the components data type
         let componentDataType: IType | null = null;
         if (componentClass.base!.typeArguments?.[0]) {
             try {
-                componentDataType = typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
+                componentDataType = await typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
                 this.needsData = !Array.from(componentDataType.properties!.values())
                     .every(property => property.name === "HTMLElement");
             } catch (error) {
@@ -522,12 +515,12 @@ export class Component {
         }
 
         // Build the render method
-        const clientRenderMethod = buildClientRenderMethod(templateElement, true, globals);
+        const clientRenderMethod = buildClientRenderMethod(this.templateElement, templateData.nodeData, true, globals);
         componentClass.addMember(clientRenderMethod);
 
         // Build event bindings for ssr components
         if (settings.context === "isomorphic") {
-            for (const method of buildEventBindings(events)) {
+            for (const method of buildEventBindings(templateData.events, templateData.nodeData, settings.disableEventElements)) {
                 if (method.statements.length > 0) {
                     componentClass.addMember(method);
                 }
@@ -544,14 +537,21 @@ export class Component {
         this.clientModule.statements.push(define);
 
         // Construct bindings
-        if (dependencies.length > 0 && !passive) {
+        if (templateData.bindings.length > 0 && !passive) {
             try {
                 if (!componentDataType) {
                     // TODO dependency element debug not great
-                    throw Error(`Data type required for a dependency around element ${dependencies[0].element.render(defaultRenderSettings, { inline: true })}`);
+                    throw Error(`Data type required for a dependency around element ${templateData.bindings[0].element.render(defaultRenderSettings, { inline: true })}`);
                 }
 
-                const bindingTree = constructBindings(dependencies, componentDataType, globals);
+                const bindingTree = constructBindings(
+                    templateData.bindings,
+                    templateData.nodeData,
+                    componentDataType,
+                    globals,
+                    settings
+                );
+
                 const treeVariable = new VariableDeclaration("_bindings", { isStatic: true, value: bindingTree });
                 componentClass.addMember(treeVariable);
             } catch (error) {
@@ -615,7 +615,7 @@ export class Component {
             const parameters: Array<VariableDeclaration> = [];
             if (this.needsData && !noSSRData) {
                 const dataParameter = new VariableDeclaration(
-                    this.isLayout ? "layoutData" : "data", 
+                    this.isLayout ? "layoutData" : "data",
                     { typeSignature: componentDataTypeSignature }
                 );
                 if (defaultData) {
@@ -641,7 +641,7 @@ export class Component {
             }
 
             if (this.hasSlots) {
-                for (const slot of slots.keys()) {
+                for (const slot of templateData.slots.keys()) {
                     parameters.push(new VariableDeclaration(`${slot}Slot`, { typeSignature: new TypeSignature({ name: "string" }) }));
                 }
             }
@@ -650,7 +650,7 @@ export class Component {
 
             if (defaultData && noSSRData) {
                 renderFunction.statements.push(new VariableDeclaration("data", {
-                    value: defaultData, 
+                    value: defaultData,
                     typeSignature: componentDataTypeSignature
                 }));
             }
@@ -659,10 +659,16 @@ export class Component {
             const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
 
             // Generate a tag of self (instead of using template) (reuses template.element.children)
-            const componentHtmlTag: PrismNode = new HTMLElement(this.tag, componentAttributes, templateElement.children, templateElement.parent);
+            const componentHtmlTag = new HTMLElement(this.tag, componentAttributes, this.templateElement.children, this.templateElement.parent);
+
+            const ssrSettings: IServerRenderSettings = {
+                dynamicAttribute: generateAttributeArgument,
+                minify: settings.minify,
+                addDisableToElementWithEvents: settings.disableEventElements
+            }
 
             // Final argument is to add a entry onto the component that is sent attributes 
-            const renderTemplateLiteral = serverRenderPrismNode(componentHtmlTag, globals, settings.minify, generateAttributeArgument);
+            const renderTemplateLiteral = serverRenderPrismNode(componentHtmlTag, templateData.nodeData, ssrSettings, globals);
 
             // TODO would this work just using the existing slot functionality?
             // TODO could do in the page render function
@@ -720,15 +726,18 @@ export class Component {
                 let metadataString = new TemplateLiteral();
                 if (this.title) {
                     const title = new HTMLElement("title");
-                    const tn: PrismTextNode = new TextNode("", title);
-                    tn.value = this.title;
-                    title.children.push(tn);
-                    metadataString.addEntry(...serverRenderPrismNode(title, globals, settings.minify).entries);
+                    const titleTextNode = new TextNode("", title);
+                    assignToObjectMap(templateData.nodeData, titleTextNode, "textNodeValue", this.title);
+                    title.children.push(titleTextNode);
+                    metadataString.addEntry(
+                        ...serverRenderPrismNode(title, templateData.nodeData, ssrSettings).entries
+                    );
                 }
 
                 if (this.metadata) {
-                    for (const metaTag of buildMetaTags(this.metadata)) {
-                        metadataString.addEntry(...serverRenderPrismNode(metaTag, globals, settings.minify).entries);
+                    const { metadataTags, nodeData: metaDataNodeData } = buildMetaTags(this.metadata)
+                    for (const metaTag of metadataTags) {
+                        metadataString.addEntry(...serverRenderPrismNode(metaTag, metaDataNodeData, ssrSettings, globals).entries);
                         metadataString.addEntry("\n");
                     }
                 }
@@ -751,9 +760,9 @@ export class Component {
                 );
 
                 let description = "Server render function for ";
-                if (filename) {
+                if (this.filename) {
                     // Create a link back to the component
-                    description += `[${this.className}](file:///${filename?.replace(/\\/g, "/")})`
+                    description += `[${this.className}](file:///${this.filename?.replace(/\\/g, "/")})`
                 } else {
                     description += name;
                 }

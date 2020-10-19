@@ -1,25 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, writeFileSync } from "fs";
-import { join, dirname } from "path";
-import { EOL } from "os";
-
-/**
- * Writes a file out, will create folders if folder does not exist.
- * @param overwrite if true and file exists will throw error 
- * @param log Will log out the file has been written
- */
-export function writeFile(filepath: string, content: string | Buffer, overwrite = false, log = true) {
-    if (existsSync(filepath) && !overwrite) {
-        throw Error(`File: "${filepath}" already exists`);
-    }
-    const dir = dirname(filepath);
-    if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-    }
-    writeFileSync(filepath, content);
-    if (log) {
-        console.log(`Wrote out "${filepath}"`);
-    }
-}
+import { join } from "path";
 
 /**
  * Parses command line arguments to map
@@ -56,19 +35,8 @@ export function isUppercase(char: string): boolean {
     return charCode >= 65 && charCode <= 90
 }
 
-// Environment variables
-export function readEnvironmentVariables(envFilePath: string): Map<string, string> {
-    const environmentVariables = new Map<string, string>();
-
-    const env = readFileSync(envFilePath).toString();
-
-    for (const line of env.split(EOL)) {
-        const [key, value] = line.split('=');
-        environmentVariables.set(key.trim(), value.trim());
-    }
-
-    return environmentVariables;
-}
+let nodeReadDirSync: ((path: string) => Array<string>) | null = null;
+let nodeLStatSync: ((path: string) => { isDirectory: () => boolean }) | null = null;
 
 /**
  * Recursively yields absolute file paths in a folder
@@ -76,9 +44,12 @@ export function readEnvironmentVariables(envFilePath: string): Map<string, strin
  * @yields full filepath
  */
 export function* filesInFolder(folder: string): Generator<string> {
-    for (const member of readdirSync(folder)) {
+    if (!nodeReadDirSync) nodeReadDirSync = require("fs").readdirSync;
+    if (!nodeLStatSync) nodeLStatSync = require("fs").lstatSync;
+
+    for (const member of nodeReadDirSync!(folder)) {
         const memberPath = join(folder, member);
-        if (lstatSync(memberPath).isDirectory()) {
+        if (nodeLStatSync!(memberPath).isDirectory()) {
             yield* filesInFolder(memberPath);
         } else {
             yield memberPath;
@@ -97,4 +68,25 @@ export function findLastIndex<T>(arr: Array<T>, predicate: (arg0: T) => boolean)
         if (predicate(arr[i])) return i;
     }
     return -1;
+}
+
+/**
+ * Utility function for assigning data to objects without interfering their prototypes
+ * @param map The `Map` or `WeakMap` 
+ * @param obj The 
+ * @param key 
+ * @param value 
+ */
+export function assignToObjectMap<T extends Object, U extends Object>(
+    map: Map<T, U> | WeakMap<T, U>,
+    obj: T,
+    key: keyof U,
+    value: U[typeof key]
+) {
+    if (map.has(obj)) {
+        Reflect.set(map.get(obj)!, key, value);
+    } else {
+        // @ts-ignore issue around partials
+        map.set(obj, {[key]: value});
+    }
 }

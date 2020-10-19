@@ -1,6 +1,5 @@
 import { Component } from "../component";
 import { Module } from "../chef/javascript/components/module";
-import { join } from "path";
 import { ArrayLiteral } from "../chef/javascript/components/value/array";
 import { Value, Type, IValue } from "../chef/javascript/components/value/value";
 import { DynamicUrl, dynamicUrlToRegexPattern } from "../chef/dynamic-url";
@@ -36,10 +35,9 @@ export function setNotFoundRoute(component: Component) {
 /**
  * Takes the client side router module and injects a array map the router uses to pair urls to components and layouts
  */
-export function buildRouter(): Module {
+export function injectRoutes(routerModule: Module): void {
 
     // Use the bundled router and get the router component
-    const routerModule = Module.fromFile(join(__dirname, "../bundle/router.ts"));
     const routerComponent: ClassDeclaration = routerModule.classes.find(cls => cls.name!.name === "Router")!;
 
     // Build up array that map patterns to components and their possible layout
@@ -86,6 +84,4 @@ export function buildRouter(): Module {
 
     // Add the routes as a static member to the router class
     routerComponent.staticFields!.get("routes")!.value = routePairArray;
-
-    return routerModule;
 }

@@ -2,11 +2,12 @@
   "name": "@kaleidawave/prism",
   "version": "1.1.0",
   "description": "Isomorphic web app compiler",
-  "main": "out/index.js",
+  "main": "node-out/index.js",
   "scripts": {
     "test": "jest",
+    "build-web": "echo \"TODO npm run build-web\"",
     "build": "tsc && npm run copy-bundle",
-    "copy-bundle": "xcopy /s /d /i \"src\\bundle\" \"out\\bundle\""
+    "build-bundle": "node inject-bundle.js"
   },
   "repository": {
     "type": "git",
@@ -33,18 +34,21 @@
   "devDependencies": {
     "@types/jest": "^25.2.3",
     "@types/jest-cli": "^24.3.0",
-    "@types/node": "^13.13.15",
+    "@types/node": "^13.13.25",
     "jest": "^25.5.4",
-    "jest-cli": "^26.1.0",
-    "ts-jest": "^26.1.4",
+    "jest-cli": "^26.5.3",
+    "ts-jest": "^26.4.1",
     "typescript": "^3.9.7"
   },
   "jest": {
     "preset": "ts-jest"
   },
+  "engines": {
+    "node": ">=10.0.0"
+  },
   "dependencies": {},
   "bin": {
-    "prism": "out/index.js"
+    "prism": "out/cli.js"
   },
   "directories": {
     "example": "examples",

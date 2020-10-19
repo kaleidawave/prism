@@ -1,13 +1,12 @@
 import { TokenReader, IConstruct, getSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
 import { JSToken, stringToTokens } from "../javascript";
-import { readFileSync, existsSync } from "fs";
 import { Decorator, ClassDeclaration } from "./constructs/class";
 import { IStatement, ParseStatement } from "./statements/statement";
 import { ExportStatement, ImportStatement } from "./statements/import-export";
 import { IValue } from "./value/value";
-import { writeFile } from "../../../helpers";
 import { VariableDeclaration } from "./statements/variable";
 import { renderBlock } from "./constructs/block";
+import { readFile, writeFile } from "../../filesystem";
 
 export class Module implements IConstruct {
 
@@ -25,12 +24,22 @@ export class Module implements IConstruct {
 
     // Caches existing parsed modules
     // TODO rename filename does not change cache..?
-    private static cachedModules: Map<string, Module> = new Map();
+    public static cachedModules: Map<string, Module> = new Map();
 
     constructor(
-        statements: Array<IStatement> = []
+        statements: Array<IStatement> = [],
+        filename?: string
     ) {
-        this.statements = statements
+        this.filename = filename;
+        for (const statement of statements) {
+            if (statement instanceof ImportStatement) this.imports.push(statement);
+            else if (statement instanceof ExportStatement) {
+                this.exports.push(statement);
+                if (statement.exported instanceof ClassDeclaration) this.classes.push(statement.exported)
+            }
+            if (statement instanceof ClassDeclaration) this.classes.push(statement);
+        }
+        this.statements = statements;
     }
     
     static fromString(text: string, filename: string | null = null, columnOffset?: number, lineOffset?: number): Module {
@@ -49,10 +58,9 @@ export class Module implements IConstruct {
      * Will return a module. Will cache modules and return modules if they exist in cache
      * @param filename absolute path to module
      */
-    static fromFile(filename: string): Module {
+    static async fromFile(filename: string): Promise<Module> {
         if (this.cachedModules.has(filename)) return this.cachedModules.get(filename)!;
-        if (!existsSync(filename)) throw Error(`Could not find module "${filename}"`)
-        const string = readFileSync(filename).toString();
+        const string = await readFile(filename);
         const module = Module.fromString(string, filename);
         this.cachedModules.set(filename, module);
         return module;
@@ -118,7 +126,7 @@ export class Module implements IConstruct {
         if (!file.endsWith(extension)) {
             file += extension;
         }
-        writeFile(file, this.render(settings), true);
+        writeFile(file, this.render(settings));
     }
 
     /**

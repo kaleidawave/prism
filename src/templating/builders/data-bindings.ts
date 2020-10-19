@@ -2,13 +2,14 @@ import { FunctionDeclaration } from "../../chef/javascript/components/constructs
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";
 import { ReturnStatement, IStatement } from "../../chef/javascript/components/statements/statement";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
-import { IDependency, ValueAspect, VariableReferenceArray, ForLoopVariable } from "../template";
-import { makeGetFromDependency, getLengthFromIteratorDependency } from "./get-value";
-import { makeSetFromDependency, setLengthForIteratorDependency } from "./set-value";
-import { settings } from "../../settings";
+import { IBinding, ValueAspect, VariableReferenceArray, ForLoopVariable, NodeData } from "../template";
+import { makeGetFromBinding, getLengthFromIteratorBinding } from "./get-value";
+import { makeSetFromBinding, setLengthForIteratorBinding } from "./set-value";
 import { getTypeFromVariableReferenceArray } from "../helpers";
 import { IType } from "../../chef/javascript/utils/types";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { Node } from "../../chef/html/html";
+import { IFinalPrismSettings } from "../../settings";
 
 /** Represents a data point */
 interface IDataPoint {
@@ -19,34 +20,23 @@ interface IDataPoint {
     pushStatements?: Array<IStatement>
 }
 
-/**
- * Returns the right most `IDataPoint` given a `VariableReferenceArray`
- */
-function findDataPoint(points: Array<IDataPoint>, variableChain: VariableReferenceArray): IDataPoint | null {
-    return points.find(point =>
-        point.variable.length === variableChain.length
-        && point.variable.every(
-            (v, i) =>
-                typeof v === "object" ?
-                    v.aspect === (variableChain[i] as ForLoopVariable)?.alias :
-                    v === variableChain[i]
-        )
-    ) ?? null;
-}
+
 
 /**
  * Creates the object literal structure that runtime observables use
  */
 export function constructBindings(
-    dependencies: Array<IDependency>,
+    bindings: Array<IBinding>,
+    nodeData: WeakMap<Node, NodeData>,
     variableType: IType,
-    globals: Array<VariableReference>
+    globals: Array<VariableReference>,
+    settings: IFinalPrismSettings
 ): ObjectLiteral {
     const tree = new ObjectLiteral();
     const dataMap: Array<IDataPoint> = [];
 
-    for (const dependency of dependencies) {
-        for (const variableChain of dependency.referencesVariables) {
+    for (const binding of bindings) {
+        for (const variableChain of binding.referencesVariables) {
             // TODO diff dataMap with used variables as to not compile bindings for data that isn't used AND do this before creating bindings
             const type = getTypeFromVariableReferenceArray(variableChain, variableType);
 
@@ -63,10 +53,10 @@ export function constructBindings(
                 dataMap.push(dataPoint);
             }
 
-            // TODO if dependency.aspect === ValueTypes.data or dependency.aspect === ValueTypes.reference add some data to the tree so the runtime observable can do stuff
+            // TODO if binding.aspect === ValueTypes.data or binding.aspect === ValueTypes.reference add some data to the tree so the runtime observable can do stuff
 
             // Add getters and setters for length of the array
-            if (dependency.aspect === ValueAspect.Iterator) {
+            if (binding.aspect === ValueAspect.Iterator) {
                 const lengthVariableChain = [...variableChain, "length"];
                 let lengthDataPoint = findDataPoint(dataMap, lengthVariableChain);
 
@@ -82,28 +72,28 @@ export function constructBindings(
                 }
 
                 if (!lengthDataPoint.getReturnValue && settings.context === "isomorphic") {
-                    lengthDataPoint.getReturnValue = getLengthFromIteratorDependency(dependency)
+                    lengthDataPoint.getReturnValue = getLengthFromIteratorBinding(binding, nodeData)
                 }
 
-                lengthDataPoint.setStatements.push(setLengthForIteratorDependency(dependency));
+                lengthDataPoint.setStatements.push(setLengthForIteratorBinding(binding, nodeData));
             }
 
             const isomorphicContext = settings.context === "isomorphic";
-            const isReversibleDependency = dependency.aspect !== ValueAspect.Iterator;
+            const isReversibleBinding = binding.aspect !== ValueAspect.Iterator;
             const alreadyHasReturnValue = Boolean(dataPoint.getReturnValue);
 
-            if ((isomorphicContext && isReversibleDependency && !alreadyHasReturnValue) || dependency.aspect === ValueAspect.Data) {
+            if ((isomorphicContext && isReversibleBinding && !alreadyHasReturnValue) || binding.aspect === ValueAspect.Data) {
                 try {
-                    dataPoint.getReturnValue = makeGetFromDependency(dependency, type, variableChain)
+                    dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings)
                 } catch (error) { 
                 }
             }   
 
-            if (dependency.aspect === ValueAspect.Iterator) {
+            if (binding.aspect === ValueAspect.Iterator) {
                 if (!dataPoint.pushStatements) dataPoint.pushStatements = [];
-                dataPoint.pushStatements.push(...makeSetFromDependency(dependency, variableChain, globals));
+                dataPoint.pushStatements.push(...makeSetFromBinding(binding, nodeData, variableChain, globals));
             } else {
-                dataPoint.setStatements.push(...makeSetFromDependency(dependency, variableChain, globals));
+                dataPoint.setStatements.push(...makeSetFromBinding(binding, nodeData, variableChain, globals));
             }
 
         }
@@ -133,7 +123,7 @@ function generateBranch(
     point: IDataPoint,
     tree: ObjectLiteral
 ): void {
-    // Retrieve branch related to variableDependency
+    // Retrieve branch related to variableBinding
     let variableContainer: ObjectLiteral = tree;
 
     const positionalArgs: Array<string> = [];
@@ -185,4 +175,19 @@ function generateBranch(
             variableContainer.values.set("type", new Value(point.type.name ?? "object", Type.string));
         }
     }
+}
+
+/**
+ * Returns the right most `IDataPoint` given a `VariableReferenceArray`
+ */
+function findDataPoint(points: Array<IDataPoint>, variableChain: VariableReferenceArray): IDataPoint | null {
+    return points.find(point =>
+        point.variable.length === variableChain.length
+        && point.variable.every(
+            (v, i) =>
+                typeof v === "object" ?
+                    v.aspect === (variableChain[i] as ForLoopVariable)?.alias :
+                    v === variableChain[i]
+        )
+    ) ?? null;
 }

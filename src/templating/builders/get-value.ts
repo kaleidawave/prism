@@ -1,60 +1,65 @@
-import { IDependency, ValueAspect, VariableReferenceArray, PrismHTMLElement } from "../template";
+import { IBinding, NodeData, ValueAspect, VariableReferenceArray } from "../template";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { buildReverseFunction, compileIIFE } from "../../chef/javascript/utils/reverse";
-import { getChildrenStatement } from "../helpers";
+import { getElement } from "../helpers";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
 import { IType } from "../../chef/javascript/utils/types";
-import { settings } from "../../settings";
-import { HTMLElement } from "../../chef/html/html";
+import { HTMLElement, Node } from "../../chef/html/html";
 import { newOptionalVariableReference, newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
 import { Group } from "../../chef/javascript/components/value/group";
+import { IFinalPrismSettings } from "../../settings";
 
-export function makeGetFromDependency(
-    dependency: IDependency,
+export function makeGetFromBinding(
+    binding: IBinding,
+    nodeData: WeakMap<Node, NodeData>,
     dataType: IType,
-    variable: VariableReferenceArray
+    variable: VariableReferenceArray,
+    settings: IFinalPrismSettings
 ): IValue {
 
     // If the element is multiple get the "pivot" of that element and building a chain
-    const elementStatement = getChildrenStatement(dependency.element);
+    const elementStatement = getElement(binding.element, nodeData);
+    const isElementNullable: boolean = nodeData.get(binding.element)?.nullable ?? false;
 
     let getSource: IValue;
-    switch (dependency.aspect) {
+    switch (binding.aspect) {
         case ValueAspect.InnerText:
-            if (dependency.element.nullable) {
+            if (isElementNullable) {
                 getSource = newOptionalVariableReferenceFromChain(
                     elementStatement,
                     "childNodes",
-                    dependency.fragmentIndex!,
+                    binding.fragmentIndex!,
                     "data"
                 );
             } else {
                 getSource = VariableReference.fromChain(
                     elementStatement,
                     "childNodes",
-                    dependency.fragmentIndex!,
+                    binding.fragmentIndex!,
                     "data"
                 );
             }
             break;
         case ValueAspect.Attribute:
-            const attribute = dependency.attribute!;
+            const attribute = binding.attribute!;
             if (HTMLElement.booleanAttributes.has(attribute)) {
-                getSource = dependency.element.nullable ? newOptionalVariableReference("data", elementStatement) : new VariableReference("data", elementStatement);
+                getSource = isElementNullable ? newOptionalVariableReference("data", elementStatement) : new VariableReference("data", elementStatement);
             } else {
-                const getAttributeRef = dependency.element.nullable ? newOptionalVariableReference("getAttribute", elementStatement) : new VariableReference("getAttribute", elementStatement);
+                const getAttributeRef = isElementNullable ? newOptionalVariableReference("getAttribute", elementStatement) : new VariableReference("getAttribute", elementStatement);
                 getSource = new Expression({
                     lhs: getAttributeRef,
-                    operation: dependency.element.nullable ? Operation.OptionalCall : Operation.Call,
+                    operation: isElementNullable ? Operation.OptionalCall : Operation.Call,
                     rhs: new ArgumentList([new Value(attribute, Type.string)])
                 });
             }
             break;
         case ValueAspect.Data:
-            getSource = dependency.element.nullable ? newOptionalVariableReference("data", elementStatement) : new VariableReference("data", elementStatement);
+            getSource = isElementNullable ? 
+                newOptionalVariableReference("data", elementStatement) : 
+                new VariableReference("data", elementStatement);
             break;
         case ValueAspect.Conditional:
             getSource = new Expression({
@@ -63,7 +68,7 @@ export function makeGetFromDependency(
                 rhs: new Value(null, Type.object)
             });
         default:
-            throw Error(`Not implemented - get hookup for dependency ${ValueAspect[dependency.aspect]}`)
+            throw Error(`Not implemented - get hookup for binding of type ${ValueAspect[binding.aspect]}`)
     }
 
     let value: IValue
@@ -82,7 +87,7 @@ export function makeGetFromDependency(
     } else if (dataType.name === "boolean") {
         // Temp fix for the fact data attributes (which are not in HTMLElement.booleanAttribute set)
         // will be rendered out like data-post-liked="true" or data-post-liked="false"
-        if (dependency.aspect === ValueAspect.Attribute && !HTMLElement.booleanAttributes.has(dependency.attribute!)) {
+        if (binding.aspect === ValueAspect.Attribute && !HTMLElement.booleanAttributes.has(binding.attribute!)) {
             value = new Expression({
                 lhs: getSource,
                 operation: Operation.StrictEqual,
@@ -98,16 +103,16 @@ export function makeGetFromDependency(
     } else if (dataType.name === "string" && !settings.minify) {
         value = new Expression({
             lhs: new VariableReference("trim", getSource),
-            operation: dependency.element.nullable ? Operation.OptionalCall : Operation.Call
+            operation: isElementNullable ? Operation.OptionalCall : Operation.Call
         });
     } else {
         value = getSource;
     }
 
     // If not a variable reference try build a reverser for the value
-    if (!(dependency.expression instanceof VariableReference) && !(dependency.expression instanceof ForIteratorExpression)) {
+    if (!(binding.expression instanceof VariableReference) && !(binding.expression instanceof ForIteratorExpression)) {
         // "buildReverseFunction" will throw error if the expression cannot be reversed 
-        const reversedExpressionFunction = buildReverseFunction(dependency.expression as IValue);
+        const reversedExpressionFunction = buildReverseFunction(binding.expression as IValue);
 
         // Invoke the reverseFunction with the evaluate output (which is value)
         const iife = new Expression({
@@ -126,14 +131,14 @@ export function makeGetFromDependency(
 /**
  * Returns a expression that will be used to get the length of array using
  */
-export function getLengthFromIteratorDependency(dependency: IDependency): IValue {
-    if (dependency.aspect !== ValueAspect.Iterator) throw Error();
+export function getLengthFromIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): IValue {
+    if (binding.aspect !== ValueAspect.Iterator) throw Error("Expected iterator binding");
 
-    const getElemExpression = getChildrenStatement(dependency.element as PrismHTMLElement);
+    const getElemExpression = getElement(binding.element, nodeData);
 
     // TODO this a temp fix for some conditionals being based on empty arrays but
     // makes the assumption that if parent component is not rendered due to #if="someArr.length > 0"
-    if (dependency.element.nullable) {
+    if (nodeData.get(binding.element)?.nullable) {
         return new Expression({
             lhs: new Expression({
                 lhs: new Expression({

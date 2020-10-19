@@ -14,14 +14,18 @@ const scriptFileExtensions = ["js", "ts"];
  * @param outputFolder 
  * @returns Array of module and stylesheets found in /scripts or /styles folder
  */
-export function moveStaticAssets(assetsFolder: string, outputFolder: string, renderSettings: Partial<IRenderSettings>): Array<Module | Stylesheet> {
+export async function moveStaticAssets(
+    assetsFolder: string, 
+    outputFolder: string, 
+    renderSettings: Partial<IRenderSettings>
+): Promise<Array<Module | Stylesheet>> {
     const modulesAndStylesheets: Array<Module | Stylesheet> = [];
 
     for (const file of filesInFolder(assetsFolder)) {
         let moduleOrStylesheet: Module | Stylesheet | null = null;
         const folder = dirname(relative(assetsFolder, file));
         if (styleFileExtensions.some(ext => file.endsWith(ext))) {
-            const stylesheet = Stylesheet.fromFile(file);
+            const stylesheet = await Stylesheet.fromFile(file);
             if (folder.startsWith("styles")) {
                 modulesAndStylesheets.push(stylesheet);
                 continue;
@@ -29,7 +33,7 @@ export function moveStaticAssets(assetsFolder: string, outputFolder: string, ren
                 moduleOrStylesheet = stylesheet;
             }
         } else if (scriptFileExtensions.some(ext => file.endsWith(ext))) {
-            const module = Module.fromFile(file);
+            const module = await Module.fromFile(file);
             if (folder.startsWith("scripts")) {
                 modulesAndStylesheets.push(module);
                 continue;

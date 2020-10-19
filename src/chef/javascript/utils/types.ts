@@ -29,7 +29,7 @@ const inbuiltTypes: Map<string, IType> = new Map(
  * @param module Module it can find type declarations and imports from
  * @param name Optional name of interface etc...
  */
-export function typeSignatureToIType(typeSignature: TypeSignature, module: ModuleWithResolvedTypes, name?: string): IType {
+export async function typeSignatureToIType(typeSignature: TypeSignature, module: ModuleWithResolvedTypes, name?: string): Promise<IType> {
     if (typeSignature.name) {
         if (typeSignature.name === "Union") {
             if (typeSignature.typeArguments!.every(typeArg => typeArg.value?.type === Type.string)) {
@@ -43,14 +43,15 @@ export function typeSignatureToIType(typeSignature: TypeSignature, module: Modul
     }
 
     if (typeSignature.mappedTypes) {
-        return {
-            name,
-            properties: new Map(
-                Array.from(typeSignature.mappedTypes).map(([name, signature]) =>
-                    [name, typeSignatureToIType(signature, module)]
-                )
-            )
-        }
+        const mappedTypePromiseArray =
+            Array.from(typeSignature.mappedTypes).map(([name, signature]) =>
+                typeSignatureToIType(signature, module).then((result) => {
+                    return [name, result] as [string, IType]
+                })
+            );
+        const resolvedTypes = await Promise.all(mappedTypePromiseArray);
+
+        return { name, properties: new Map(resolvedTypes) }
     }
 
     // TODO 
@@ -63,12 +64,12 @@ export function typeSignatureToIType(typeSignature: TypeSignature, module: Modul
  * @param typeArguments 
  * @param imported 
  */
-function typeFromName(
-    name: string, 
-    module: ModuleWithResolvedTypes, 
+async function typeFromName(
+    name: string,
+    module: ModuleWithResolvedTypes,
     typeArguments?: Array<TypeSignature>,
     imported: boolean = false
-): IType {
+): Promise<IType> {
     if (inbuiltTypes.has(name)) return inbuiltTypes.get(name)!;
 
     // TODO replace hardcoded array implementation
@@ -76,7 +77,7 @@ function typeFromName(
         return {
             name: "Array",
             properties: new Map([["length", { name: "number" }]]),
-            indexed: typeSignatureToIType(typeArguments![0]!, module)
+            indexed: await typeSignatureToIType(typeArguments![0]!, module)
         }
     }
 
@@ -91,21 +92,21 @@ function typeFromName(
 
         // TODO does not take into account generics 
         if (statement instanceof TypeStatement && statement.name!.name! === name) {
-            type = typeSignatureToIType(statement.value, module, name);
+            type = await typeSignatureToIType(statement.value, module, name);
         } else if (statement instanceof InterfaceDeclaration && statement.name!.name! === name) {
-            type = {
-                name,
-                properties: new Map(
-                    Array.from(statement.members).map(
-                        ([key, typeSig]) => [key, typeSignatureToIType(typeSig, module, name)]
-                    )
-                )
-            }
+            const mappedTypePromiseArray =
+                Array.from(statement.members).map(([name, signature]) =>
+                    typeSignatureToIType(signature, module).then((result) => {
+                        return [name, result] as [string, IType]
+                    })
+                );
+            const resolvedTypes = await Promise.all(mappedTypePromiseArray);
+            type = { name, properties: new Map(resolvedTypes) }
 
             // If extends type
             if (statement.extendsType) {
                 // Get the type
-                const extendsType = typeSignatureToIType(statement.extendsType, module);
+                const extendsType = await typeSignatureToIType(statement.extendsType, module);
 
                 // Add the declarations to the existing type
                 for (const [key, value] of extendsType.properties!) {
@@ -119,8 +120,8 @@ function typeFromName(
             } else if (!importedModuleFilename.endsWith(".ts")) {
                 importedModuleFilename += ".ts";
             }
-            const importedModule = Module.fromFile(importedModuleFilename);
-            type = typeFromName(name, importedModule, typeArguments, true);
+            const importedModule = await Module.fromFile(importedModuleFilename);
+            type = await typeFromName(name, importedModule, typeArguments, true);
         } else if (statement instanceof EnumDeclaration && statement.name === name) {
             // Lets say its a string enum if first value is string
             if ((statement.members.values().next().value as Value).type === Type.string) {
