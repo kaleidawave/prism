@@ -75,14 +75,17 @@ function buildServerTemplateLiteralShards(
         }
 
         // If node
-        if (elementData?.conditionalRoot && !skipOverServerExpression) {
+        if (elementData?.conditionalExpression && !skipOverServerExpression) {
             // TODO very temp removal of the elements clientExpression to not clash 
             const renderTruthyChild = serverRenderPrismNode(element, nodeData, serverRenderSettings, locals, true);
             const renderFalsyChild = serverRenderPrismNode(elementData.elseElement!, nodeData, serverRenderSettings, locals);
 
+            const serverAliasedExpression = cloneAST(elementData.conditionalExpression);
+            aliasVariables(serverAliasedExpression, dataVariable, locals);
+
             return [
                 new Expression({
-                    lhs: elementData.serverExpression as IValue,
+                    lhs: serverAliasedExpression as IValue,
                     operation: Operation.Ternary,
                     rhs: new ArgumentList([renderTruthyChild, renderFalsyChild])
                 })
@@ -153,23 +156,25 @@ function buildServerTemplateLiteralShards(
 
         if (HTMLElement.selfClosingTags.has(element.tagName) || element.closesSelf) return entries;
 
-        if (elementData?.iteratorRoot) {
-            const expression = elementData.serverExpression as ForIteratorExpression;
+        if (elementData?.iteratorExpression) {
+            const serverAliasedExpression = cloneAST(elementData.iteratorExpression);
+            aliasVariables(serverAliasedExpression, dataVariable, locals);
+            
             entries.push(
                 new Expression({
                     lhs: new VariableReference("join", new Expression({
-                        lhs: new VariableReference("map", expression.subject),
+                        lhs: new VariableReference("map", serverAliasedExpression.subject),
                         operation: Operation.Call,
                         rhs: new FunctionDeclaration(
                             null,
-                            [expression.variable],
+                            [serverAliasedExpression.variable],
                             [new ReturnStatement(
                                 new TemplateLiteral(
                                     buildServerTemplateLiteralShards(
                                         element.children[0],
                                         nodeData,
                                         serverRenderSettings,
-                                        [expression.variable.toReference(), ...locals]
+                                        [serverAliasedExpression.variable.toReference(), ...locals]
                                     )
                                 )
                             )],

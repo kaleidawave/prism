@@ -243,7 +243,7 @@ export function parseHTMLElement(
                         break;
                     case "if":
                         childrenParsed = true;
-                        parseIfNode(element, templateData, templateConfig, locals, localData, nullable, multiple);
+                        parseIfNode(element, templateData, templateConfig, locals, localData, multiple);
                         break;
                     default:
                         throw Error(`Unknown / unsupported construct "#${subject}"`);

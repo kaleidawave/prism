@@ -124,15 +124,16 @@ export function clientRenderPrismNode(
 
         // TODO explain
         let childrenArgument: Array<IValue>;
-        if ((elementData?.conditionalRoot || elementData?.iteratorRoot) && !skipOverClientExpression) {
+        if ((elementData?.conditionalExpression || elementData?.iteratorExpression) && !skipOverClientExpression) {
             if (elementData.clientRenderMethod) {
-                if (elementData?.iteratorRoot) {
-                    const expression = elementData.clientExpression! as ForIteratorExpression;
+                if (elementData.iteratorExpression) {
+                    const clientExpression = cloneAST(elementData.iteratorExpression) as ForIteratorExpression;
+                    aliasVariables(clientExpression, thisDataVariable, locals);
                     childrenArgument = [
                         new Expression({
                             operation: Operation.Spread,
                             lhs: new Expression({
-                                lhs: new VariableReference("map", expression.subject),
+                                lhs: new VariableReference("map", clientExpression.subject),
                                 operation: Operation.Call,
                                 rhs: VariableReference.fromChain("this", elementData.clientRenderMethod.name?.name!)
                             })
@@ -145,17 +146,20 @@ export function clientRenderPrismNode(
                     });
                 }
             } else {
-                if (elementData?.iteratorRoot) {
-                    const expression = elementData.clientExpression! as ForIteratorExpression;
+                // Produce a map expression:
+                // *subject*.map(*variable* => *clientRenderChildren*)
+                if (elementData.iteratorExpression) {
+                    const clientExpression = cloneAST(elementData.iteratorExpression);
+                    aliasVariables(clientExpression, thisDataVariable, locals);
                     childrenArgument = [
                         new Expression({
                             operation: Operation.Spread,
                             lhs: new Expression({
-                                lhs: new VariableReference("map", expression.subject),
+                                lhs: new VariableReference("map", clientExpression.subject),
                                 operation: Operation.Call,
                                 rhs: new FunctionDeclaration(
                                     null,
-                                    [expression.variable],
+                                    [clientExpression.variable],
                                     [new ReturnStatement(
                                         clientRenderPrismNode(element.children[0], nodeData, aliasDataToThis, locals)
                                     )],
@@ -164,13 +168,19 @@ export function clientRenderPrismNode(
                             })
                         })
                     ];
-                } else {
+                } 
+                // Produce a ternary expression:
+                // *conditionExpression* ? *renderTruthyNode* : *renderFalsyChild*
+                else {
                     const renderTruthyChild = clientRenderPrismNode(element, nodeData, aliasDataToThis, locals, true);
-                    const { elseElement, clientExpression } = nodeData.get(element)!;
+                    const { elseElement, conditionalExpression } = nodeData.get(element)!;
                     const renderFalsyChild = clientRenderPrismNode(elseElement!, nodeData, aliasDataToThis, locals);
 
+                    const clientConditionExpression = cloneAST(conditionalExpression!);
+                    aliasVariables(clientConditionExpression, thisDataVariable, locals);
+
                     return new Expression({
-                        lhs: clientExpression as IValue,
+                        lhs: clientConditionExpression as IValue,
                         operation: Operation.Ternary,
                         rhs: new ArgumentList([
                             renderTruthyChild,

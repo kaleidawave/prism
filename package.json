@@ -1,12 +1,12 @@
 {
   "name": "@kaleidawave/prism",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Isomorphic web app compiler",
-  "main": "node-out/index.js",
+  "main": "out/index.js",
   "scripts": {
     "test": "jest",
     "build-web": "echo \"TODO npm run build-web\"",
-    "build": "tsc && npm run copy-bundle",
+    "build": "tsc",
     "build-bundle": "node inject-bundle.js"
   },
   "repository": {

@@ -1,34 +1,30 @@
 import { BindingAspect, Locals, PartialBinding, ITemplateConfig, ITemplateData } from "../template";
 import { Expression } from "../../chef/javascript/components/value/expression";
-import { addIdentifierToElement, addBinding, createNullElseElement, thisDataVariable } from "../helpers";
+import { addIdentifierToElement, addBinding, createNullElseElement } from "../helpers";
 import { parseNode } from "../template";
 import { HTMLElement } from "../../chef/html/html";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
-import { cloneAST, aliasVariables } from "../../chef/javascript/utils/variables";
 import { assignToObjectMap } from "../../helpers";
 
 export function parseIfNode(
     element: HTMLElement,
     templateData: ITemplateData,
     templateConfig: ITemplateConfig,
-    globals: Array<VariableReference>, // TODO eventually remove
+    globals: Array<VariableReference>,
     locals: Locals,
-    nullable: boolean,
-    multiple = false,
+    multiple: boolean,
 ) {
-    const value = element.attributes!.get("#if");
+    if (multiple) {
+        throw Error("Not implemented - #if node under a #for element")
+    }
 
+    const value = element.attributes!.get("#if");
     if (!value) {
         throw Error("Expected value for #if construct")
     }
 
-    assignToObjectMap(templateData.nodeData, element, "conditionalRoot", true);
-
     const expression = Expression.fromString(value);
-
-    if (multiple) {
-        throw Error("Not implemented - #if node under a #for element")
-    }
+    assignToObjectMap(templateData.nodeData, element, "conditionalExpression", expression);
 
     const identifier = addIdentifierToElement(element, templateData.nodeData);
     assignToObjectMap(templateData.nodeData, element, "nullable", true);
@@ -79,16 +75,4 @@ export function parseIfNode(
 
     // TODO is elseElement used???
     assignToObjectMap(templateData.nodeData, element, "elseElement", elseElement);
-
-    const clientAliasedExpression = cloneAST(expression);
-    aliasVariables(clientAliasedExpression, thisDataVariable, globals);
-
-    assignToObjectMap(templateData.nodeData, element, "clientExpression", clientAliasedExpression);
-    
-    if (templateConfig.ssrEnabled) {
-        const serverAliasedExpression = cloneAST(expression);
-        // TODO do aliasing during server part
-        aliasVariables(serverAliasedExpression, new VariableReference("data"), globals);
-        assignToObjectMap(templateData.nodeData, element, "serverExpression", serverAliasedExpression);
-    }
 }

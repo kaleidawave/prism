@@ -30,15 +30,16 @@ export interface NodeData {
     slotFor?: string // If slot the key of content that should be there
     nullable?: boolean // True if the element is not certain to exist in the DOM
     multiple?: boolean // If the element can exist multiple times in the DOM
-    // elseElement?: PrismHTMLElement,
-    // Client and server are aliased different
-    clientExpression?: IValue | ForIteratorExpression,
-    serverExpression?: IValue | ForIteratorExpression,
+
+    // A expression that has to return a truthy value to render (also used for determine that it was a #if node)
+    conditionalExpression?: IValue,
+    // A expression that is used for iteration over children (also used for determine that it was a #for node)
+    iteratorExpression?:  ForIteratorExpression,
+
+    // A method that renders itself or its children, used for #if and #for node
     clientRenderMethod?: FunctionDeclaration,
 
-    conditionalRoot?: boolean, // If #if
     elseElement?: HTMLElement, // If #if points to the #else element
-    iteratorRoot?: boolean, // If #for
 
     // For TextNodes:
     textNodeValue?: IValue; // A expression value for its text content

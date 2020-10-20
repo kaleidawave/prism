@@ -7,7 +7,6 @@ import { ArgumentList } from "../chef/javascript/components/constructs/function"
 import { cloneAST, findVariables, newOptionalVariableReferenceFromChain } from "../chef/javascript/utils/variables";
 import { assignToObjectMap, findLastIndex } from "../helpers";
 import { IType } from "../chef/javascript/utils/types";
-import { defaultRenderSettings } from "../chef/helpers";
 
 export const thisDataVariable = VariableReference.fromChain("this", "data") as VariableReference;
 
@@ -168,7 +167,7 @@ export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeDat
     const indexes: Array<number | "var"> = [];
     let point = element;
     while (nodeData.get(point)?.multiple) {
-        if (nodeData.get(point.parent as HTMLElement)?.iteratorRoot) {
+        if (nodeData.get(point.parent as HTMLElement)?.iteratorExpression) {
             indexes.push("var");
         } else {
             indexes.push(point.parent!.children.indexOf(point))

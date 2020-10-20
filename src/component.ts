@@ -414,14 +414,17 @@ export class Component {
                 const renderTruthyChild =
                     clientRenderPrismNode(binding.element, templateData.nodeData, true, globals, true);
 
-                const { elseElement, identifier, clientExpression } = templateData.nodeData.get(binding.element)!;
+                const { elseElement, identifier, conditionalExpression } = templateData.nodeData.get(binding.element)!;
                 const renderFalsyChild = clientRenderPrismNode(elseElement!, templateData.nodeData, true, globals);
+
+                const clientAliasedConditionExpression = cloneAST(conditionalExpression!);
+                aliasVariables(clientAliasedConditionExpression, thisDataVariable, globals);
 
                 const renderMethod = new FunctionDeclaration(
                     "render" + identifier!,
                     [],
                     [
-                        new IfStatement(clientExpression! as IValue, [
+                        new IfStatement(clientAliasedConditionExpression as IValue, [
                             new ReturnStatement(renderTruthyChild)
                         ], new ElseStatement(null, [
                             new ReturnStatement(renderFalsyChild)
