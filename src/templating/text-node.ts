@@ -1,4 +1,4 @@
-import { ValueAspect, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
+import { BindingAspect, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
 import { IValue } from "../chef/javascript/components/value/value";
 import { Expression } from "../chef/javascript/components/value/expression";
 import { HTMLComment, TextNode } from "../chef/html/html";
@@ -66,7 +66,7 @@ export function parseTextNode(
             assignToObjectMap(templateData.nodeData, dynamicTextNode, "textNodeValue", fragment)
 
             const bindings: PartialBinding = {
-                aspect: ValueAspect.InnerText,
+                aspect: BindingAspect.InnerText,
                 element: textNode.parent,
                 expression: fragment,
                 // Under SSR comments are needed to create text nodes,

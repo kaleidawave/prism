@@ -1,4 +1,4 @@
-import { TokenReader, IRenderSettings, IConstruct, getSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, IConstruct, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { commentTokens, JSToken, stringToTokens } from "../../javascript";
 import { TypeSignature } from "../types/type-signature";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./function";
@@ -128,18 +128,16 @@ export class ClassDeclaration implements IConstruct, IClassSettings {
      * @param member 
      */
     addMember(member: ClassMember) {
+        this.members.push(member);
         if (member instanceof Comment) {
-            this.members.push(member);
             return;
         }
 
         // Ensure member knows its part of a class declaration
         if (member instanceof VariableDeclaration) {
             member.context = VariableContext.Parameter;
-            this.members.unshift(member);
         } else {
             member.parent = this;
-            this.members.push(member);
         }
 
         if (member.isStatic && member instanceof FunctionDeclaration) {
@@ -164,7 +162,7 @@ export class ClassDeclaration implements IConstruct, IClassSettings {
     }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
-        settings = getSettings(settings);
+        settings = makeRenderSettings(settings);
         let acc = "";
         if (this.isAbstract && settings.scriptLanguage ===   ScriptLanguages.Typescript) acc += "abstract ";
         acc += "class ";

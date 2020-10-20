@@ -1,10 +1,10 @@
 import { Component } from "../component";
-import { getPrismClient } from "./prism-client";
+import { getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { join } from "path";
-import { ScriptLanguages } from "../chef/helpers";
-import { IPrismSettings, getSettings } from "../settings";
+import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
+import { IPrismSettings, makePrismSettings } from "../settings";
 import { fileBundle } from "../bundled-files";
 
 /**
@@ -12,17 +12,25 @@ import { fileBundle } from "../bundled-files";
  * @param componentPath 
  */
 export async function compileSingleComponent(
-    componentPath: string, 
-    cwd: string, 
+    componentPath: string,
+    cwd: string,
     partialSettings: Partial<IPrismSettings>
 ): Promise<void> {
-    const settings = getSettings(cwd, partialSettings);
+    const settings = makePrismSettings(cwd, partialSettings);
+    const features: IRuntimeFeatures = { 
+        conditionals: false, 
+        isomorphic: settings.context === "isomorphic", 
+        observableArrays: false,
+        subObjects: false,
+        svg: false
+    }
 
     if (settings.buildTimings) console.time("Parse component file and its imports");
-    const component = await Component.registerComponent(componentPath, settings);
+    const component = await Component.registerComponent(componentPath, settings, features);
     if (settings.buildTimings) console.timeEnd("Parse component file and its imports");
 
     const bundledClientModule = await getPrismClient(false);
+    treeShakeBundle(features, bundledClientModule);
     const bundledStylesheet = new Stylesheet();
 
     // This bundles all the components together into a single client module, single stylesheet
@@ -33,8 +41,14 @@ export async function compileSingleComponent(
 
     if (settings.buildTimings) console.time("Render and write script & style bundle");
 
-    bundledClientModule.writeToFile({ minify: settings.minify }, join(settings.absoluteOutputPath, "component.js"));
-    bundledStylesheet.writeToFile({ minify: settings.minify }, join(settings.absoluteOutputPath, "component.css"));
+    const clientRenderSettings: Partial<IRenderSettings> = {
+        minify: settings.minify,
+        moduleFormat: ModuleFormat.ESM,
+        comments: settings.comments
+    };
+
+    bundledClientModule.writeToFile(clientRenderSettings, join(settings.absoluteOutputPath, "component.js"));
+    bundledStylesheet.writeToFile(clientRenderSettings, join(settings.absoluteOutputPath, "component.css"));
 
     if (settings.context === "isomorphic") {
         const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!);

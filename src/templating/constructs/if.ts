@@ -1,4 +1,4 @@
-import { ValueAspect, Locals, PartialBinding, ITemplateConfig, ITemplateData } from "../template";
+import { BindingAspect, Locals, PartialBinding, ITemplateConfig, ITemplateData } from "../template";
 import { Expression } from "../../chef/javascript/components/value/expression";
 import { addIdentifierToElement, addBinding, createNullElseElement, thisDataVariable } from "../helpers";
 import { parseNode } from "../template";
@@ -34,7 +34,7 @@ export function parseIfNode(
     assignToObjectMap(templateData.nodeData, element, "nullable", true);
 
     const binding: PartialBinding = {
-        aspect: ValueAspect.Conditional,
+        aspect: BindingAspect.Conditional,
         expression,
         element
     }

@@ -20,6 +20,13 @@ export function conditionalSwap(this: Component<any>, predicate: boolean, id: st
 }
 
 /**
+ * Luckily CharacterData and Component have a assignable data property
+ */
+export function tryAssignData(elem: CharacterData | Component<any> | null, value: any) {
+    if (elem) elem.data = value;
+}
+
+/**
  * Given a element, cut out old children and for each old one call its remove function to remove it from the DOM.
  * This is when called by observable arrays
  * @param parent
@@ -34,11 +41,4 @@ export function isArrayHoley<T>(array: Array<T>): boolean {
         if (array[i] === undefined) return true;
     }
     return false;
-}
-
-/**
- * Luckily CharacterData and Component have a assignable data property
- */
-export function tryAssignData(elem: CharacterData | Component<any> | null, value: any) {
-    if (elem) elem.data = value;
 }

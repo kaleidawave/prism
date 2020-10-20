@@ -3,7 +3,7 @@ import { join, isAbsolute } from "path";
 export interface IPrismSettings {
     minify: boolean, // Removes whitespace for space saving in output
     backendLanguage: "js" | "ts", // The languages to output server templates in
-    comments: boolean | "docstring" | "info", // Leave comments in TODO comment levels
+    comments: boolean, // Leave comments in TODO comment levels
     projectPath: string, // The path to the components folder OR a single component
     assetPath: string | null, // The path to the assets folder
     outputPath: string, // The path to the output folder
@@ -52,19 +52,23 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteTemplatePath: string,
 }
 
-export function getSettings(cwd: string, partialSettings: Partial<IPrismSettings>): IFinalPrismSettings {
+export function makePrismSettings(cwd: string, partialSettings: Partial<IPrismSettings>): IFinalPrismSettings {
     return {
         ...defaultSettings,
         ...partialSettings,
         get absoluteProjectPath() {
-            this.projectPath ??= partialSettings.projectPath ?? defaultSettings.projectPath;
+            if (!this.projectPath) {
+                this.projectPath = partialSettings.projectPath ?? defaultSettings.projectPath;
+            }
             if (isAbsolute(this.projectPath)) {
                 return this.projectPath;
             }
             return join(cwd, this.projectPath);
         },
         get absoluteOutputPath() {
-            this.outputPath ??= partialSettings.outputPath ?? defaultSettings.outputPath;
+            if (!this.outputPath) {
+                this.outputPath = partialSettings.outputPath ?? defaultSettings.outputPath;
+            }
             if (isAbsolute(this.outputPath)) {
                 return this.outputPath;
             }
@@ -89,7 +93,9 @@ export function getSettings(cwd: string, partialSettings: Partial<IPrismSettings
             return join(cwd, this.actualServerOutputPath);
         },
         get absoluteTemplatePath() {
-            this.templatePath ??= partialSettings.templatePath ?? defaultSettings.templatePath;
+            if (!this.templatePath) {
+                this.templatePath = partialSettings.templatePath ?? defaultSettings.templatePath;
+            }
             if (isAbsolute(this.templatePath) || this.templatePath === defaultTemplateHTML) {
                 return this.templatePath;
             }

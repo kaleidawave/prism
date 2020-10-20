@@ -1,4 +1,4 @@
-import { TokenReader, IConstruct, getSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
+import { TokenReader, IConstruct, makeRenderSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
 import { JSToken, stringToTokens } from "../javascript";
 import { Decorator, ClassDeclaration } from "./constructs/class";
 import { IStatement, ParseStatement } from "./statements/statement";
@@ -112,7 +112,7 @@ export class Module implements IConstruct {
     }
 
     render(settings: Partial<IRenderSettings> = {}): string {
-        return renderBlock(this.statements, getSettings(settings), false);
+        return renderBlock(this.statements, makeRenderSettings(settings), false);
     }
 
     /**

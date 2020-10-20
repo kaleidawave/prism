@@ -1,4 +1,4 @@
-import { IEvent, ValueAspect, parseNode, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
+import { IEvent, BindingAspect, parseNode, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
 import { addIdentifierToElement, addEvent, addBinding } from "./helpers";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { IValue } from "../chef/javascript/components/value/value";
@@ -21,7 +21,7 @@ export function parseHTMLElement(
     nullable = false,
     multiple = false,
 ) {
-    assignToObjectMap(templateData.nodeData, element, "nullable", true);
+    assignToObjectMap(templateData.nodeData, element, "nullable", nullable);
     assignToObjectMap(templateData.nodeData, element, "multiple", multiple);
 
     // If imported element:
@@ -50,7 +50,11 @@ export function parseHTMLElement(
         element.tagName = component.tag;
         // Used for binding ssr function call to component render function
         assignToObjectMap(templateData.nodeData, element, "component", component);
-    }        
+    }     
+    
+    if (element.tagName === "svg") {
+        templateData.hasSVG = true;
+    }
 
     // If element is slot 
     if (element.tagName === "slot") {
@@ -132,7 +136,7 @@ export function parseHTMLElement(
                     parts.push(key + ":", expression, ";");
 
                     const binding: PartialBinding = {
-                        aspect: ValueAspect.Style,
+                        aspect: BindingAspect.Style,
                         expression,
                         element: element,
                         styleKey: key
@@ -168,13 +172,13 @@ export function parseHTMLElement(
                 let binding: PartialBinding;
                 if (templateData.nodeData.get(element)?.component && subject === "data") {
                     binding = {
-                        aspect: ValueAspect.Data,
+                        aspect: BindingAspect.Data,
                         expression,
                         element,
                     }
                 } else {
                     binding = {
-                        aspect: ValueAspect.Attribute,
+                        aspect: BindingAspect.Attribute,
                         attribute: subject,
                         expression,
                         element,

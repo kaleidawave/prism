@@ -12,5 +12,5 @@
 <script>
     import {IComment, Comment} from "./comment.prism";
 
-    class CommentsPage extends Component<{comments: Array<IComment>>, title: string} {}
+    class CommentsPage extends Component<{comments: Array<IComment>, title: string}> {}
 </script>

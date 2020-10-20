@@ -1,4 +1,4 @@
-import { TextNode, HTMLElement, HTMLComment, Node } from "../chef/html/html";
+import { TextNode, HTMLElement, Node } from "../chef/html/html";
 import type { IValue } from "../chef/javascript/components/value/value";
 import type { VariableReference } from "../chef/javascript/components/value/variable";
 import type { ForLoopExpression, ForIteratorExpression } from "../chef/javascript/components/statements/for";
@@ -47,7 +47,7 @@ export interface NodeData {
 }
 
 // Explains what a variable affects
-export enum ValueAspect {
+export enum BindingAspect {
     Attribute, // Affects a specific attribute of a node
     Data, // A components data
     InnerText, // Affects the inner text value of a node
@@ -62,7 +62,7 @@ export enum ValueAspect {
 export interface IBinding {
     element: HTMLElement, // Used to see if the element is multiple or nullable
     expression: IValue | ForLoopExpression, // The expression that is the mutation of the variable
-    aspect: ValueAspect, // The aspect the variable affects
+    aspect: BindingAspect, // The aspect the variable affects
     fragmentIndex?: number, // The index of the fragment to edit
     attribute?: string, // If aspect is a attribute then the name of the attribute
     styleKey?: string, // 
@@ -85,6 +85,7 @@ export interface ITemplateData {
     nodeData: WeakMap<Node, Partial<NodeData>>
     bindings: Array<IBinding>,
     events: Array<IEvent>,
+    hasSVG: boolean
 }
 
 export interface ITemplateConfig {
@@ -111,7 +112,8 @@ export function parseTemplate(
         slots: new Map(),
         bindings: [],
         events: [],
-        nodeData: new WeakMap()
+        nodeData: new WeakMap(),
+        hasSVG: false
     }
 
     for (const child of templateElement.children) {

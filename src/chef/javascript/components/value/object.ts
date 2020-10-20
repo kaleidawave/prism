@@ -1,5 +1,5 @@
 import { IValue } from "./value";
-import { TokenReader, IRenderSettings, getSettings, IRenderOptions, defaultRenderSettings, IConstruct } from "../../../helpers";
+import { TokenReader, IRenderSettings, makeRenderSettings, IRenderOptions, defaultRenderSettings, IConstruct } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
 import { Expression } from "./expression";
 import { VariableReference, tokenAsIdent } from "./variable";
@@ -21,7 +21,7 @@ export class ObjectLiteral implements IConstruct {
     }
 
     render(settings: IRenderSettings = defaultRenderSettings, options: Partial<IRenderOptions> = {}): string {
-        settings = getSettings(settings);
+        settings = makeRenderSettings(settings);
         let acc = "{";
         // @ts-ignore ts does not like null as value for object literal key BUT I want 
         const values = Array.from(this.values).concat(Array.from(this.spreadValues).map(v => [null, v]));

@@ -1,4 +1,4 @@
-import { TokenReader, IRenderSettings, getSettings } from "../helpers";
+import { TokenReader, IRenderSettings, makeRenderSettings } from "../helpers";
 import { CSSToken, stringToTokens } from "./css";
 import { Rule } from "./rule";
 import { readFile, writeFile } from "../filesystem";
@@ -28,7 +28,7 @@ export class Stylesheet {
     }
 
     render(partialSettings: Partial<IRenderSettings> = {}): string {
-        const settings = getSettings(partialSettings);
+        const settings = makeRenderSettings(partialSettings);
         let acc = "";
         for (let i = 0; i < this.rules.length; i++) {
             acc += this.rules[i].render(settings);

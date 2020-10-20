@@ -1,6 +1,6 @@
 import { HTMLElement, HTMLDocument, TextNode } from "./chef/html/html";
 import { ClassDeclaration } from "./chef/javascript/components/constructs/class";
-import { parseTemplate, IBinding, ITemplateData, ValueAspect } from "./templating/template";
+import { parseTemplate, IBinding, ITemplateData, BindingAspect } from "./templating/template";
 import { Module } from "./chef/javascript/components/module";
 import { buildClientRenderMethod, clientRenderPrismNode } from "./templating/builders/client-render";
 import { buildEventBindings } from "./templating/builders/server-event-bindings";
@@ -24,7 +24,7 @@ import { getElement, randomPrismId, thisDataVariable } from "./templating/helper
 import { ImportStatement, ExportStatement } from "./chef/javascript/components/statements/import-export";
 import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings } from "./chef/helpers";
-import { IType, typeSignatureToIType } from "./chef/javascript/utils/types";
+import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
 import { Rule } from "./chef/css/rule";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";
@@ -34,7 +34,7 @@ import { ForIteratorExpression } from "./chef/javascript/components/statements/f
 import { cloneAST, aliasVariables } from "./chef/javascript/utils/variables";
 import { assignToObjectMap } from "./helpers";
 import { IFinalPrismSettings } from "./settings";
-import { settings } from "cluster";
+import { IRuntimeFeatures } from "./builders/prism-client";
 
 export class Component {
     static registeredTags: Set<string> = new Set()
@@ -87,7 +87,7 @@ export class Component {
      * Returns a component under a filename
      * If a component has been parsed will return it from the register and not re parse it
      */
-    static async registerComponent(filepath: string, settings: IFinalPrismSettings): Promise<Component> {
+    static async registerComponent(filepath: string, settings: IFinalPrismSettings, features: IRuntimeFeatures): Promise<Component> {
         if (Component.parsingComponents.has(filepath)) {
             throw Error(`Cyclic import ${filepath}`); // TODO test and better error message
         }
@@ -96,7 +96,7 @@ export class Component {
             return Component.registeredComponents.get(filepath)!;
         } else {
             const component = await Component.fromFile(filepath);
-            await component.processComponent(settings)
+            await component.processComponent(settings, features)
             Component.registeredComponents.set(filepath, component);
             return component;
         }
@@ -140,7 +140,7 @@ export class Component {
         this.stylesheet = styleElement?.stylesheet;
     }
 
-    async processComponent(settings: IFinalPrismSettings) {
+    async processComponent(settings: IFinalPrismSettings, runtimeFeatures: IRuntimeFeatures) {
         this.relativeFilename = relative(settings.projectPath, this.filename);
 
         // Find component class
@@ -171,7 +171,7 @@ export class Component {
         for (const import_ of this.clientModule.imports) {
             // TODO other imports such as css etc
             if (import_.from.endsWith(".prism")) {
-                const component = await Component.registerComponent(resolve(dirname(this.filename), import_.from), settings);
+                const component = await Component.registerComponent(resolve(dirname(this.filename), import_.from), settings, runtimeFeatures);
                 this.importedComponents.set(component.className, component);
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
                 import_.from = relativePath + ".js";
@@ -342,7 +342,8 @@ export class Component {
             }));
         }
 
-        const componentDataTypeSignature = componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
+        const componentDataTypeSignature = 
+            componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
 
         let templateData: ITemplateData;
         try {
@@ -355,6 +356,10 @@ export class Component {
             // Append the component filename to the error message
             error.message += ` in component "${this.filename}"`;
             throw error;
+        }
+
+        if (templateData.hasSVG) {
+            runtimeFeatures.svg = true;
         }
 
         // Add dynamic title and dependencies
@@ -388,7 +393,7 @@ export class Component {
         }
 
         for (const binding of templateData.bindings) {
-            if (binding.aspect === ValueAspect.Iterator) {
+            if (binding.aspect === BindingAspect.Iterator) {
                 const expression = binding.expression as ForIteratorExpression;
                 const renderChildren = clientRenderPrismNode(
                     binding.element.children[0],
@@ -404,7 +409,7 @@ export class Component {
                 );
                 componentClass.addMember(renderMethod);
                 assignToObjectMap(templateData.nodeData, binding.element, "clientRenderMethod", renderMethod);
-            } else if (binding.aspect === ValueAspect.Conditional) {
+            } else if (binding.aspect === BindingAspect.Conditional) {
                 // Final true is important here to make sure 
                 const renderTruthyChild =
                     clientRenderPrismNode(binding.element, templateData.nodeData, true, globals, true);
@@ -426,6 +431,10 @@ export class Component {
                 componentClass.addMember(renderMethod);
                 assignToObjectMap(templateData.nodeData, binding.element, "clientRenderMethod", renderMethod);
             }
+        }
+
+        if (templateData.bindings.some(binding => binding.aspect === BindingAspect.Conditional)) {
+            runtimeFeatures.conditionals = true;
         }
 
         if (templateData.slots.size > 1) {
@@ -512,6 +521,25 @@ export class Component {
                 error.message += ` in component "${this.filename}"`;
                 throw error;
             }
+        }
+
+        /**
+         * Recursively detects if some part of the the type has an Array
+         * @param type 
+         */
+        const hasArrayProperty = function hasArrayProperty(type: IType): boolean {
+            if (type.name === "Array") return true;
+            if (type.properties?.has("Array")) return true;
+            if (type.properties && Array.from(type.properties).some(([,property]) => hasArrayProperty(property))) return true;
+            return false;
+        }
+
+        if (!runtimeFeatures.observableArrays && componentDataType && hasArrayProperty(componentDataType)) {
+            runtimeFeatures.observableArrays = true;
+        }
+
+        if (!runtimeFeatures.subObjects && componentDataType && Array.from(componentDataType.properties!).some(([,property]) => !inbuiltTypes.has(property.name!))) {
+            runtimeFeatures.subObjects = true;
         }
 
         // Build the render method

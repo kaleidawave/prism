@@ -1,4 +1,4 @@
-import { TokenReader, ITokenizationSettings, IRenderSettings, getSettings, defaultRenderSettings, IConstruct, IRenderOptions, IPosition, IParseSettings, defaultParseSettings } from "../helpers";
+import { TokenReader, ITokenizationSettings, IRenderSettings, makeRenderSettings, defaultRenderSettings, IConstruct, IRenderOptions, IPosition, IParseSettings, defaultParseSettings } from "../helpers";
 import { Module } from "../javascript/components/module";
 import { Stylesheet } from "../css/stylesheet";
 import { readFile, writeFile } from "../filesystem";
@@ -294,7 +294,7 @@ export class HTMLDocument {
     }
 
     render(settings: Partial<IRenderSettings> = {}) {
-        const completeSettings = getSettings(settings);
+        const completeSettings = makeRenderSettings(settings);
         let acc = "";
         for (let i = 0; i < this.children.length; i++) {
             acc += this.children[i].render(completeSettings);

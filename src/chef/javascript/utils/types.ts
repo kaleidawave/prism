@@ -19,7 +19,7 @@ interface ModuleWithResolvedTypes extends Module {
 }
 
 // TODO hardcoded, doesn't contain any properties, needs to read from lib.d.ts
-const inbuiltTypes: Map<string, IType> = new Map(
+export const inbuiltTypes: Map<string, IType> = new Map(
     ["number", "boolean", "string", "Date"].map(t => [t, { name: t }])
 );
 

@@ -59,8 +59,8 @@ export const defaultParseSettings = Object.freeze<IParseSettings>({
     comments: true
 });
 
-export function getSettings(settings: Partial<IRenderSettings>): IRenderSettings {
-    return { ...defaultRenderSettings, ...settings };
+export function makeRenderSettings(partialSettings: Partial<IRenderSettings>): IRenderSettings {
+    return { ...defaultRenderSettings, ...partialSettings };
 }
 
 export interface IConstruct {

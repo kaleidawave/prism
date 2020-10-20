@@ -2,7 +2,7 @@ import { registerFSReadCallback, registerFSWriteCallback } from "./filesystem";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, isAbsolute, join } from "path";
 import { getArguments } from "./helpers";
-import { IFinalPrismSettings, getSettings } from "./settings";
+import { IFinalPrismSettings, makePrismSettings } from "./settings";
 
 registerFSReadCallback((filename) => readFileSync(filename).toString());
 registerFSWriteCallback((filename, content) => {
@@ -43,7 +43,7 @@ export function registerSettings(cwd: string): IFinalPrismSettings {
         }
     }
 
-    return getSettings(cwd, settings);
+    return makePrismSettings(cwd, settings);
 }
 
 export { compileApplication } from "./builders/compile-app";

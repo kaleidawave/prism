@@ -2,7 +2,7 @@ import { FunctionDeclaration } from "../../chef/javascript/components/constructs
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";
 import { ReturnStatement, IStatement } from "../../chef/javascript/components/statements/statement";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
-import { IBinding, ValueAspect, VariableReferenceArray, ForLoopVariable, NodeData } from "../template";
+import { IBinding, BindingAspect, VariableReferenceArray, ForLoopVariable, NodeData } from "../template";
 import { makeGetFromBinding, getLengthFromIteratorBinding } from "./get-value";
 import { makeSetFromBinding, setLengthForIteratorBinding } from "./set-value";
 import { getTypeFromVariableReferenceArray } from "../helpers";
@@ -19,8 +19,6 @@ interface IDataPoint {
     setStatements: Array<IStatement>,
     pushStatements?: Array<IStatement>
 }
-
-
 
 /**
  * Creates the object literal structure that runtime observables use
@@ -56,7 +54,7 @@ export function constructBindings(
             // TODO if binding.aspect === ValueTypes.data or binding.aspect === ValueTypes.reference add some data to the tree so the runtime observable can do stuff
 
             // Add getters and setters for length of the array
-            if (binding.aspect === ValueAspect.Iterator) {
+            if (binding.aspect === BindingAspect.Iterator) {
                 const lengthVariableChain = [...variableChain, "length"];
                 let lengthDataPoint = findDataPoint(dataMap, lengthVariableChain);
 
@@ -79,17 +77,17 @@ export function constructBindings(
             }
 
             const isomorphicContext = settings.context === "isomorphic";
-            const isReversibleBinding = binding.aspect !== ValueAspect.Iterator;
+            const isReversibleBinding = binding.aspect !== BindingAspect.Iterator;
             const alreadyHasReturnValue = Boolean(dataPoint.getReturnValue);
 
-            if ((isomorphicContext && isReversibleBinding && !alreadyHasReturnValue) || binding.aspect === ValueAspect.Data) {
+            if ((isomorphicContext && isReversibleBinding && !alreadyHasReturnValue) || binding.aspect === BindingAspect.Data) {
                 try {
                     dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings)
                 } catch (error) { 
                 }
             }   
 
-            if (binding.aspect === ValueAspect.Iterator) {
+            if (binding.aspect === BindingAspect.Iterator) {
                 if (!dataPoint.pushStatements) dataPoint.pushStatements = [];
                 dataPoint.pushStatements.push(...makeSetFromBinding(binding, nodeData, variableChain, globals));
             } else {

@@ -1,4 +1,4 @@
-import { TokenReader, IRenderSettings, IConstruct, getSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, IConstruct, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { JSToken, stringToTokens } from "../../javascript";
 import { IValue } from "../value/value";
 import { TypeSignature } from "../types/type-signature";
@@ -139,7 +139,7 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
     }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
-        settings = getSettings(settings);
+        settings = makeRenderSettings(settings);
         let acc = "";
 
         if (this.isAbstract && settings.scriptLanguage !== ScriptLanguages.Typescript) return acc;

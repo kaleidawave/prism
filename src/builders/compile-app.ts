@@ -2,7 +2,7 @@ import { filesInFolder } from "../helpers";
 import { Component } from "../component";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
-import { buildIndexHtml, getPrismClient } from "./prism-client";
+import { buildIndexHtml, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
 import { spawn } from "child_process";
 import { join } from "path";
 import { generateServerModule } from "./prism-server";
@@ -23,12 +23,20 @@ import { IFinalPrismSettings } from "../settings";
  * - Write out scripts, stylesheets and shell.html
  */
 export async function compileApplication(settings: IFinalPrismSettings) {
+    const features: IRuntimeFeatures = { 
+        conditionals: false, 
+        isomorphic: settings.context === "isomorphic", 
+        observableArrays: false,
+        subObjects: false,
+        svg: false
+    }
+
     if (settings.buildTimings) console.time("Parse component files");
     for (const filepath of filesInFolder(settings.absoluteProjectPath)) {
         // Only .prism files that not skipped
         // TODO what about css, js and other assets in component paths
         if (filepath.endsWith(".prism") && !filepath.endsWith(".skip.prism")) {
-            await Component.registerComponent(filepath, settings);
+            await Component.registerComponent(filepath, settings, features);
         }
     }
     if (settings.buildTimings) console.timeEnd("Parse component files");
@@ -36,7 +44,7 @@ export async function compileApplication(settings: IFinalPrismSettings) {
     const clientRenderSettings: Partial<IRenderSettings> = {
         minify: settings.minify,
         moduleFormat: ModuleFormat.ESM,
-        comments: false
+        comments: settings.comments
     };
 
     const serverRenderSettings: Partial<IRenderSettings> = {
@@ -55,6 +63,7 @@ export async function compileApplication(settings: IFinalPrismSettings) {
     clientStyleBundle.filename = join(settings.absoluteOutputPath, "bundle.css");
 
     const prismClient = await getPrismClient(settings.clientSideRouting);
+    treeShakeBundle(features, prismClient);
     clientScriptBundle.combine(prismClient);
 
     if (existsSync(settings.absoluteAssetPath)) {
@@ -62,7 +71,7 @@ export async function compileApplication(settings: IFinalPrismSettings) {
         // Static styles and scripts come before any component declarations
         // TODO bad that functions does side effects and returns stuff
         const modulesAndStylesheets = await moveStaticAssets(
-            settings.absoluteAssetPath, 
+            settings.absoluteAssetPath,
             settings.absoluteOutputPath,
             clientRenderSettings
         );
@@ -74,7 +83,7 @@ export async function compileApplication(settings: IFinalPrismSettings) {
                 clientStyleBundle.combine(x);
             }
         }
-        
+
         if (settings.buildTimings) console.timeEnd("Move static assets");
     }
 

@@ -212,6 +212,10 @@ for (const [str, token] of symbols.concat(keywords)) {
 
 }
 export function stringToTokens(javascript: string, settings: ITokenizationSettings = {}): TokenReader<JSToken> {
+    if (!javascript) {
+        throw Error("Cannot tokenize empty string");
+    }
+
     const reader = new TokenReader<JSToken>({
         combinations: combineMap,
         reverse: tokenToKeywordMap,

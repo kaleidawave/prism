@@ -5,7 +5,7 @@ import { ArgumentList } from "../../chef/javascript/components/constructs/functi
 import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
 import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVariableReferenceFromChain, aliasVariables } from "../../chef/javascript/utils/variables";
 import { getSlice, getElement, thisDataVariable } from "../helpers";
-import { ValueAspect, IBinding, VariableReferenceArray, NodeData } from "../template";
+import { BindingAspect, IBinding, VariableReferenceArray, NodeData } from "../template";
 import { HTMLElement, Node } from "../../chef/html/html";
 
 export function makeSetFromBinding(
@@ -31,7 +31,7 @@ export function makeSetFromBinding(
     }
 
     switch (binding.aspect) {
-        case ValueAspect.InnerText:
+        case BindingAspect.InnerText:
             // Gets the index of the fragment and alters the data property of the 
             // fragment (which exists on CharacterData) to the string value
             if (isElementNullable) {
@@ -60,7 +60,7 @@ export function makeSetFromBinding(
                 }));
             }
             break;
-        case ValueAspect.Conditional: {
+        case BindingAspect.Conditional: {
             const clientRenderFunction = nodeData.get(binding.element)!.clientRenderMethod!;
 
             const callConditionalSwapFunction = new Expression({
@@ -76,7 +76,7 @@ export function makeSetFromBinding(
             statements.push(callConditionalSwapFunction);
             break;
         }
-        case ValueAspect.Iterator: {
+        case BindingAspect.Iterator: {
             const clientRenderFunction = nodeData.get(binding.element)!.clientRenderMethod!;
 
             const renderNewElement = new Expression({
@@ -96,7 +96,7 @@ export function makeSetFromBinding(
             statements.push(addNewElementToTheParent);
             break;
         }
-        case ValueAspect.Attribute:
+        case BindingAspect.Attribute:
             const attribute = binding.attribute!;
             if (HTMLElement.booleanAttributes.has(attribute)) {
                 statements.push(new Expression({
@@ -116,7 +116,7 @@ export function makeSetFromBinding(
                 }));
             }
             break;
-        case ValueAspect.Data:
+        case BindingAspect.Data:
             if (isElementNullable) {
                 statements.push(new Expression({
                     lhs: new VariableReference("tryAssignData"),
@@ -134,14 +134,14 @@ export function makeSetFromBinding(
                 }));
             }
             break;
-        case ValueAspect.DocumentTitle:
+        case BindingAspect.DocumentTitle:
             statements.push(new Expression({
                 lhs: VariableReference.fromChain("document", "title"),
                 operation: Operation.Assign,
                 rhs: newValue!
             }));
             break;
-        case ValueAspect.Style:
+        case BindingAspect.Style:
             const styleObject = new VariableReference("style", elementStatement);
             // Converts background-color -> backgroundColor which is the key JS uses
             const styleKey = binding.styleKey!.replace(/(?:-)([a-z])/g, (_, m) => m.toUpperCase());
@@ -152,14 +152,14 @@ export function makeSetFromBinding(
             }));
             break;
         default:
-            throw Error(`Unknown aspect ${ValueAspect[binding.aspect]}`)
+            throw Error(`Unknown aspect ${BindingAspect[binding.aspect]}`)
     }
 
     return statements;
 }
 
 export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): IStatement {
-    if (binding.aspect !== ValueAspect.Iterator) throw Error("Expected iterator binding");
+    if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
     const getElemExpression = getElement(binding.element, nodeData);
 
     // Uses the setLength helper to assist with sorting cache and removing from DOM

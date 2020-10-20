@@ -1,4 +1,4 @@
-import { ValueAspect, Locals, VariableReferenceArray, PartialBinding, ITemplateData, ITemplateConfig } from "../template";
+import { BindingAspect, Locals, VariableReferenceArray, PartialBinding, ITemplateData, ITemplateConfig } from "../template";
 import { ForStatement, ForStatementExpression } from "../../chef/javascript/components/statements/for";
 import { addIdentifierToElement, addBinding, thisDataVariable } from "../helpers";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
@@ -63,7 +63,7 @@ export function parseForNode(
         }
     ];
 
-    const binding: PartialBinding = { aspect: ValueAspect.Iterator, element, expression, }
+    const binding: PartialBinding = { aspect: BindingAspect.Iterator, element, expression, }
 
     addBinding(binding, localData, globals, templateData.bindings);
 

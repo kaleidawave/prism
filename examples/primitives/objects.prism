@@ -1,0 +1,19 @@
+<template>
+    <h1>
+        {obj1.propA}
+    </h1>
+    <h1>
+        {obj2.propB}
+    </h1>
+</template>
+
+<script>
+    interface ObjectComponentData {
+        obj1: {propA: string}
+        obj2: {propB: number}
+    }
+
+    class ObjectComponent extends Component<ObjectComponentData> {
+
+    }
+</script>

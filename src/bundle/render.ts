@@ -7,30 +7,35 @@ export function createComment(comment: string = ""): Comment {
 }
 
 // TODO temp
-const svgElements = ["svg", "g", "line", "rect", "path", "ellipse", "circle"];
+const svgElems = new Set(["svg", "g", "line", "rect", "path", "ellipse", "circle"]);
+export const oE = (a, b) => Object.entries(a).forEach(b);
 
 /** 
  * JSX minified render function 
  * O's is used as a falsy value if the element does not have any attribute or events
+ * @param tN (tagName)
+ * @param a (attributes)
+ * @param e (events)
+ * @param c (children)
 */
-export function h(tagName: string, attribute: Object | 0 = 0, events: Object | 0 = 0, ...children: Array<HTMLElement>): HTMLElement | SVGElement {
-    const isSvgElem = svgElements.includes(tagName);
-    const elem = isSvgElem ? document.createElementNS("http://www.w3.org/2000/svg", tagName) : document.createElement(tagName);
-    if (attribute) {
-        Object.entries(attribute).forEach(([k, v]) => {
+export function h(tn: string, a: Object | 0 = 0, e: Object | 0 = 0, ...c: Array<HTMLElement>): HTMLElement | SVGElement {
+    const isSvg = svgElems.has(tn);
+    const elem = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tn) : document.createElement(tn);
+    if (a) {
+        oE(a, ([k, v]) => {
             // TODO temp, haven't figured the weird characteristics of IDL attributes and SVG
-            if (k in elem && !isSvgElem) {
+            if (k in elem && !isSvg) {
                 elem[k] = v;
             } else {
                 elem.setAttribute(k, v);
             }
         });
     }
-    if (events) {
-        Object.entries(events).forEach(([e, h]) => {
-            elem.addEventListener(e, h);
+    if (e) {
+        oE(e, ([eN, h]) => {
+            elem.addEventListener(eN, h);
         });
     }
-    elem.append(...children);
+    elem.append(...c);
     return elem;
 }

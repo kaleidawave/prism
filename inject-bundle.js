@@ -12,7 +12,7 @@ const {VariableReference} = require("./out/chef/javascript/components/value/vari
 const {ArrayLiteral} = require("./out/chef/javascript/components/value/array");
 const {Value, Type} = require("./out/chef/javascript/components/value/value");
 const {VariableDeclaration} = require("./out/chef/javascript/components/statements/variable");
-const {getSettings, ScriptLanguages} = require("./out/chef/helpers");
+const {makeRenderSettings, ScriptLanguages} = require("./out/chef/helpers");
 
 const infoComment = new Comment("Automatically generated from inject-bundle.js", true);
 const bundledFilesDotTS = new Module([infoComment]);
@@ -38,4 +38,4 @@ bundledFilesDotTS.addExport(new VariableDeclaration("fileBundle", {
     })
 }));
 
-bundledFilesDotTS.writeToFile(getSettings({scriptLanguage: ScriptLanguages.Typescript}));
+bundledFilesDotTS.writeToFile(makeRenderSettings({scriptLanguage: ScriptLanguages.Typescript}));

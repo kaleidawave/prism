@@ -1,5 +1,5 @@
 import { JSToken, stringToTokens, tokenToKeywordMap } from "../../javascript";
-import { TokenReader, IRenderSettings, getSettings, IConstruct } from "../../../helpers";
+import { TokenReader, IRenderSettings, makeRenderSettings, IConstruct } from "../../../helpers";
 import { VariableReference, tokenAsIdent } from "./variable";
 import { IValue, Value, Type, nullValue } from "./value";
 import { ArgumentList } from "../constructs/function";
@@ -216,7 +216,7 @@ export class Expression implements IStatement, IConstruct {
     }
 
     render(partialSettings: Partial<IRenderSettings> = {}): string {
-        const settings = getSettings(partialSettings);
+        const settings = makeRenderSettings(partialSettings);
         if (otherOperators.has(this.operation) || this.operation === Operation.Ternary) {
             switch (this.operation) {
                 case Operation.Call:

@@ -1,4 +1,4 @@
-import { IBinding, NodeData, ValueAspect, VariableReferenceArray } from "../template";
+import { IBinding, NodeData, BindingAspect, VariableReferenceArray } from "../template";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { buildReverseFunction, compileIIFE } from "../../chef/javascript/utils/reverse";
@@ -26,7 +26,7 @@ export function makeGetFromBinding(
 
     let getSource: IValue;
     switch (binding.aspect) {
-        case ValueAspect.InnerText:
+        case BindingAspect.InnerText:
             if (isElementNullable) {
                 getSource = newOptionalVariableReferenceFromChain(
                     elementStatement,
@@ -43,7 +43,7 @@ export function makeGetFromBinding(
                 );
             }
             break;
-        case ValueAspect.Attribute:
+        case BindingAspect.Attribute:
             const attribute = binding.attribute!;
             if (HTMLElement.booleanAttributes.has(attribute)) {
                 getSource = isElementNullable ? newOptionalVariableReference("data", elementStatement) : new VariableReference("data", elementStatement);
@@ -56,19 +56,19 @@ export function makeGetFromBinding(
                 });
             }
             break;
-        case ValueAspect.Data:
+        case BindingAspect.Data:
             getSource = isElementNullable ? 
                 newOptionalVariableReference("data", elementStatement) : 
                 new VariableReference("data", elementStatement);
             break;
-        case ValueAspect.Conditional:
+        case BindingAspect.Conditional:
             getSource = new Expression({
                 lhs: elementStatement,
                 operation: Operation.NotEqual,
                 rhs: new Value(null, Type.object)
             });
         default:
-            throw Error(`Not implemented - get hookup for binding of type ${ValueAspect[binding.aspect]}`)
+            throw Error(`Not implemented - get hookup for binding of type ${BindingAspect[binding.aspect]}`)
     }
 
     let value: IValue
@@ -87,7 +87,7 @@ export function makeGetFromBinding(
     } else if (dataType.name === "boolean") {
         // Temp fix for the fact data attributes (which are not in HTMLElement.booleanAttribute set)
         // will be rendered out like data-post-liked="true" or data-post-liked="false"
-        if (binding.aspect === ValueAspect.Attribute && !HTMLElement.booleanAttributes.has(binding.attribute!)) {
+        if (binding.aspect === BindingAspect.Attribute && !HTMLElement.booleanAttributes.has(binding.attribute!)) {
             value = new Expression({
                 lhs: getSource,
                 operation: Operation.StrictEqual,
@@ -132,7 +132,7 @@ export function makeGetFromBinding(
  * Returns a expression that will be used to get the length of array using
  */
 export function getLengthFromIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): IValue {
-    if (binding.aspect !== ValueAspect.Iterator) throw Error("Expected iterator binding");
+    if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
 
     const getElemExpression = getElement(binding.element, nodeData);
 
