@@ -795,7 +795,7 @@ export class Component {
                     // Create a link back to the component
                     description += `[${this.className}](file:///${this.filename?.replace(/\\/g, "/")})`
                 } else {
-                    description += name;
+                    description += this.className;
                 }
 
                 // Generate a docstring for the function

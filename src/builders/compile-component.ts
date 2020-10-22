@@ -63,6 +63,7 @@ export async function compileSingleComponent(
     }
     if (settings.buildTimings) console.timeEnd("Render and write script & style bundle");
 
+    console.log(`Wrote out component.js and component.css to ${settings.outputPath}`);
     console.log(`Built web component, use with "<${component.tag}></${component.tag}>" or "document.createElement("${component.tag}")"`);
 }
 

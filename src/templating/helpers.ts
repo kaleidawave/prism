@@ -90,9 +90,6 @@ export function addBinding(
 
     // Parse all referenced variables 
     for (const variable of variablesInExpression) {
-        // Skip globals
-        if (globals.some(global => global.isEqual(variable, true))) continue;
-
         let inLocals = false;
         for (const { name, path } of locals) {
             if ((variable.tail as VariableReference).name === name) {
@@ -101,6 +98,10 @@ export function addBinding(
                 referencesVariables.push(path.concat(variable.toChain().slice(1)));
             }
         }
+
+        // Skip globals
+        // !inLocals is there to support variable shadowing
+        if (!inLocals && globals.some(global => global.isEqual(variable, true))) continue;
 
         if (!inLocals) {
             const thisVariableArr = variable.toChain();

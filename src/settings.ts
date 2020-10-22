@@ -22,20 +22,20 @@ export const defaultTemplateHTML = "bundle/template.html";
 
 const defaultSettings: IPrismSettings = {
     minify: false,
-    backendLanguage: "js",
     comments: false,
     projectPath: "./src",
     outputPath: "./out",
-    disableEventElements: true,
     // These two are both null because they relate to project path and output path. There "defaults" are encoded in the respective actual getters in exported setters:
     assetPath: null,
     serverOutputPath: null,
     templatePath: defaultTemplateHTML,
-    context: "isomorphic",
     staticSrc: "/",
+    backendLanguage: "js",
+    context: "isomorphic",
     clientSideRouting: true,
-    buildTimings: false,
+    disableEventElements: true,
     run: false,
+    buildTimings: false,
     deno: false
 };
 
@@ -53,53 +53,18 @@ export interface IFinalPrismSettings extends IPrismSettings {
 }
 
 export function makePrismSettings(cwd: string, partialSettings: Partial<IPrismSettings>): IFinalPrismSettings {
+    const projectPath = partialSettings.projectPath ?? defaultSettings.projectPath;
+    const outputPath = partialSettings.outputPath ?? defaultSettings.outputPath;
+    const assetPath = partialSettings.assetPath ?? join(outputPath, "assets");
+    const serverOutputPath = partialSettings.serverOutputPath ?? join(outputPath, "server");
+    const templatePath = partialSettings.templatePath ?? defaultSettings.templatePath;
     return {
         ...defaultSettings,
         ...partialSettings,
-        get absoluteProjectPath() {
-            if (!this.projectPath) {
-                this.projectPath = partialSettings.projectPath ?? defaultSettings.projectPath;
-            }
-            if (isAbsolute(this.projectPath)) {
-                return this.projectPath;
-            }
-            return join(cwd, this.projectPath);
-        },
-        get absoluteOutputPath() {
-            if (!this.outputPath) {
-                this.outputPath = partialSettings.outputPath ?? defaultSettings.outputPath;
-            }
-            if (isAbsolute(this.outputPath)) {
-                return this.outputPath;
-            }
-            return join(cwd, this.outputPath);
-        },
-        get actualAssetPath() {
-            return this.assetPath ?? join(this.projectPath, "assets");
-        },
-        get absoluteAssetPath() {
-            if (isAbsolute(this.actualAssetPath)) {
-                return this.actualAssetPath;
-            }
-            return join(cwd, this.actualAssetPath);
-        },
-        get actualServerOutputPath() {
-            return this.serverOutputPath ?? join(this.outputPath, "server");
-        },
-        get absoluteServerOutputPath() {
-            if (isAbsolute(this.actualServerOutputPath)) {
-                return this.actualServerOutputPath;
-            }
-            return join(cwd, this.actualServerOutputPath);
-        },
-        get absoluteTemplatePath() {
-            if (!this.templatePath) {
-                this.templatePath = partialSettings.templatePath ?? defaultSettings.templatePath;
-            }
-            if (isAbsolute(this.templatePath) || this.templatePath === defaultTemplateHTML) {
-                return this.templatePath;
-            }
-            return join(cwd, this.templatePath);
-        },
+        absoluteProjectPath: isAbsolute(projectPath) ? projectPath : join(cwd, projectPath),
+        absoluteOutputPath: isAbsolute(outputPath) ? outputPath : join(cwd, outputPath),
+        absoluteAssetPath: isAbsolute(assetPath) ? assetPath : join(cwd, assetPath),
+        absoluteServerOutputPath: isAbsolute(serverOutputPath) ? serverOutputPath : join(cwd, serverOutputPath),
+        absoluteTemplatePath: isAbsolute(templatePath) ? templatePath : join(cwd, templatePath),
     };
 }

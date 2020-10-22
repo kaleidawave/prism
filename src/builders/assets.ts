@@ -1,9 +1,9 @@
-import { copyFileSync, existsSync, mkdirSync } from "fs";
 import { relative, resolve, dirname } from "path";
 import { filesInFolder } from "../helpers";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { IRenderSettings } from "../chef/helpers";
+import { copyFile } from "../filesystem";
 
 const styleFileExtensions = ["css", "scss"];
 const scriptFileExtensions = ["js", "ts"];
@@ -45,12 +45,6 @@ export async function moveStaticAssets(
         const relativePath = relative(assetsFolder, file);
         let outputPath = resolve(outputFolder, relativePath);
 
-        // If directory does not exist create it
-        const dir = dirname(outputPath);
-        if (!existsSync(dir)) {
-            mkdirSync(dir, { recursive: true });
-        }
-
         if (moduleOrStylesheet) {
             if (outputPath.endsWith(".ts")) {
                 outputPath = outputPath.substring(0, outputPath.length - 3) + ".js";
@@ -59,7 +53,7 @@ export async function moveStaticAssets(
             }
             moduleOrStylesheet.writeToFile(renderSettings, outputPath);
         } else {
-            copyFileSync(file, outputPath);
+            copyFile(file, outputPath);
         }
     }
     return modulesAndStylesheets;

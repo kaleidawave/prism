@@ -3,26 +3,33 @@
 import { Component } from "./component";
 import { oE } from "./render";
 
-// Minified h render function + no svg support
-function h(tn: string, a: Object | 0 = 0, e: Object | 0 = 0, ...c: Array<HTMLElement>): HTMLElement {
-    const elem = document.createElement(tn);
+/**
+ * Minified h render function + no svg support
+ * @param tn 
+ * @param a 
+ * @param v 
+ * @param c 
+ */
+function h(tn: string, a: Object | 0 = 0, v: Object | 0 = 0, ...c: Array<HTMLElement>): HTMLElement {
+    // (e)lement
+    const e = document.createElement(tn);
     if (a) {
         oE(a, ([k, v]) => {
             // TODO temp, haven't figured the weird characteristics of IDL attributes and SVG
-            if (k in elem) {
-                elem[k] = v;
+            if (k in e) {
+                e[k] = v;
             } else {
-                elem.setAttribute(k, v);
+                e.setAttribute(k, v);
             }
         });
     }
-    if (e) {
-        oE(e, ([eN, h]) => {
-            elem.addEventListener(eN, h);
+    if (v) {
+        oE(v, ([eN, h]) => {
+            e.addEventListener(eN, h);
         });
     }
-    elem.append(...c);
-    return elem;
+    e.append(...c);
+    return e;
 }
 
 function createObservableObject<T>(

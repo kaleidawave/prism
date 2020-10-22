@@ -3,15 +3,15 @@ import { Component } from "../component";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
 import { buildIndexHtml, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
-import { spawn } from "child_process";
 import { join } from "path";
 import { generateServerModule } from "./prism-server";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { moveStaticAssets } from "./assets";
-import { existsSync, readFileSync } from "fs";
 import { IFinalPrismSettings } from "../settings";
+import { exists } from "../filesystem";
+import type { runApplication } from "../node";
 
 /**
  * - Registers all components
@@ -22,10 +22,10 @@ import { IFinalPrismSettings } from "../settings";
  * - Generate server module
  * - Write out scripts, stylesheets and shell.html
  */
-export async function compileApplication(settings: IFinalPrismSettings) {
-    const features: IRuntimeFeatures = { 
-        conditionals: false, 
-        isomorphic: settings.context === "isomorphic", 
+export async function compileApplication(settings: IFinalPrismSettings, runFunction?: typeof runApplication) {
+    const features: IRuntimeFeatures = {
+        conditionals: false,
+        isomorphic: settings.context === "isomorphic",
         observableArrays: false,
         subObjects: false,
         svg: false
@@ -66,7 +66,7 @@ export async function compileApplication(settings: IFinalPrismSettings) {
     treeShakeBundle(features, prismClient);
     clientScriptBundle.combine(prismClient);
 
-    if (existsSync(settings.absoluteAssetPath)) {
+    if (exists(settings.absoluteAssetPath)) {
         if (settings.buildTimings) console.time("Move static assets");
         // Static styles and scripts come before any component declarations
         // TODO bad that functions does side effects and returns stuff
@@ -130,64 +130,10 @@ export async function compileApplication(settings: IFinalPrismSettings) {
     buildIndexHtml(settings)
         .then(indexHTML => indexHTML.writeToFile(clientRenderSettings, indexHTMLPath));
 
-    if (settings.run) {
-        runApplication(settings.run === "open", settings);
-    }
-}
+    console.log(`Wrote out bundle.js and bundle.css to ${settings.outputPath}${settings.context === "isomorphic" ? ` and wrote out server templates to ${settings.serverOutputPath}` : ""}`);
+    console.log("Built Prism application");
 
-/**
- * Runs a prism application 
- * @param openBrowser 
- */
-export function runApplication(openBrowser: boolean = false, settings: IFinalPrismSettings): Promise<void> {
-    if (settings.context === "client") {
-        console.log("Starting client side with ws. Close with ctrl+c");
-
-        // Uses ws to spin up a SPA server
-        return new Promise((res, rej) => {
-            try {
-                const shell = spawn("ws", [
-                    "--directory", settings.outputPath + "/client",
-                    "-f", "tiny",
-                    "--spa", "index.html",
-                    openBrowser ? "--open" : "",
-                    "", ""
-                ], { shell: true, stdio: "pipe" });
-                shell.stdout.pipe(process.stdout);
-                shell.on("close", res);
-                shell.on("error", rej);
-            } catch (error) {
-                rej(error);
-            }
-        });
-    } else {
-        // Run some server module
-        let command: string;
-        const pkgJSON = join(process.cwd(), "package.json");
-        if (existsSync(pkgJSON)) {
-            const pkg = JSON.parse(readFileSync(pkgJSON).toString());
-            if (pkg.scripts?.start) {
-                command = "npm start";
-            } else if (pkg.main) {
-                command = `node ${pkg.main}`;
-            } else {
-                command = `node index.js`;
-            }
-        } else {
-            command = `node index.js`;
-        }
-
-        console.log(`Running "${command}"`);
-
-        return new Promise((res, rej) => {
-            try {
-                const shell = spawn(command, { shell: true, stdio: "pipe" });
-                shell.stdout.pipe(process.stdout);
-                shell.on("close", res);
-                shell.on("error", rej);
-            } catch (error) {
-                rej(error);
-            }
-        });
+    if (runFunction && settings.run) {
+        runFunction(settings.run === "open", settings);
     }
 }

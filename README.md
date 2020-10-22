@@ -12,6 +12,8 @@ Install with:
 ```
 > npm install -g @kaleidawave/prism 
 > prism info
+or
+> npx @kaleidawave/prism info
 ```
 
 *(not to be confused with highlighting library [prismjs](https://github.com/PrismJS/prism) and database toolkit [prisma](https://github.com/prisma/prisma))*
@@ -28,13 +30,23 @@ Prism compiles a tree ahead of time onto the component definition. The tree cont
 
 #### Server side data hydration from markup:
 
-As well as compiling client bundles Prism can also compile functions for generating the markup on the server. The design of the reactive tree also can react to set events and *get* events. This means that Prism components can replicate the data used to the generate the markup on the client. Other approaches normally send down a JSON blob to handle the client state being up to date with server markup. This approach should reduce payload size. This system is completely lazy and getting the data is a on a single property basis. The server functions are fast string concatenations. The hope is that Prism could soon output backend languages than just JavaScript & TypeScript 👀. 
+As well as compiling client bundles Prism can also compile functions for generating the markup on the server. The design of the reactive tree also can react to set events and *get* events. This means that Prism components can replicate the data used to the generate the markup on the client. Other approaches normally send down a JSON blob to handle the client state being up to date with server markup. This approach should reduce payload size. This system is completely lazy and getting the data is a on a single property basis. The server functions are fast string concatenations. The hope is that Prism could soon output backend languages than just [JavaScript & TypeScript 👀](https://github.com/kaleidawave/prism/issues/19). 
 
 #### Size comparisons:
 
-Prism [counter example](https://gist.github.com/kaleidawave/82974b6973280c03706519ad94ab84ff) compiles to 5.35kb (1.72kb gzip). According to [webcomponents.dev](https://webcomponents.dev/blog/all-the-ways-to-make-a-web-component/) this places Prism just above Svelte but way below Preact and LitElement in terms of bundle size. Of that bundle size 4.34kb of that is the backing library (not inc router).
+Prism [counter example](https://github.com/kaleidawave/prism/blob/d91d3e7b0bd21715f6ee9b4cdc4dc3bc3c156613/examples/primitives/counter.prism) compiles to 1.87kb (891b gzip). According to [webcomponents.dev](https://webcomponents.dev/blog/all-the-ways-to-make-a-web-component/) this makes Prism the smallest framework. Of that bundle size 1.41kb is prism runtime library. Thanks to [a recent commit](https://github.com/kaleidawave/prism/commit/92a1fbb3e24d544f099179e33a5c048ee946e887) the compiler will remove parts of the runtime library that are not needed.
 
-However if you were to use Svelte for a isomorphic site every server rendered non cached request you get has the additional JSON blob. So although your `bundle.js` may be smaller factoring in possible large JSON blobs will mean there is a greater net payload size than a Prism site.
+There is also the benefit that Prism does not need as JSON blob to do hydration on the client side. So for other frameworks, even if your `bundle.js` is 10kb you may have another 6kb of preload data sent down with each request as well that needs to be parsed, loaded etc. With Prism the _only_ JS that is needed is the bundle.
+
+#### Development:
+
+Prism does not have any editor plugins. However association `.prism` files to be interpreted as HTML works well as Prism is a extension of HTML. Although it does not provide full intellisense you get all the syntax highlighting and emmet.
+
+```json
+"files.associations": {
+    "*.prism": "html"
+}
+```
 
 ### Single file components and templating syntax:
 

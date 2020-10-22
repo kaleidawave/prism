@@ -8,7 +8,7 @@ export function registerFSReadCallback(cb: fsReadCallback) {
     __fileSystemReadCallback = cb;
 }
 
-export type fsWriteCallback = (filename: string, content: string) => void | Promise<void>;
+export type fsWriteCallback = (filename: string, content: string) => void;
 
 let __fileSystemWriteCallback: fsWriteCallback | null = null;
 export function registerFSWriteCallback(cb: fsWriteCallback) {
@@ -27,6 +27,7 @@ export async function readFile(filename: string): Promise<string> {
     if (__fileSystemReadCallback) {
         return __fileSystemReadCallback(filename);
     } else {
+        // @ts-ignore ts does not like window
         if (typeof window !== "undefined") {
             throw Error("Cannot read file without fs callback");
         } else {
@@ -34,7 +35,7 @@ export async function readFile(filename: string): Promise<string> {
                 nodeReadFileSync = require("fs").readFileSync;
             }
             return nodeReadFileSync!(filename).toString();
-        }
+}
     }
 }
 
@@ -46,6 +47,7 @@ export function writeFile(filename: string, content: string): void {
     if (__fileSystemWriteCallback) {
         __fileSystemWriteCallback(filename, content);
     } else {
+        // @ts-ignore ts does not like window
         if (typeof window !== "undefined") {
             throw Error("Cannot write file without fs callback");
         } else {

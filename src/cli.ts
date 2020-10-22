@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
-import { registerSettings } from "./node";
 import { lstatSync, existsSync } from "fs";
-import { compileApplication, compileSingleComponent } from "./node";
+import { registerSettings, compileApplication, compileSingleComponent, runApplication } from "./node";
 import { printHelpScreen, printInfoScreen, printWarningBanner } from "./others/banners";
-import { runApplication } from "./builders/compile-app";
 
 switch (process.argv[2]) {
     case "version":
@@ -38,7 +36,7 @@ switch (process.argv[2]) {
         if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
             throw Error(`Output path must be a directory`);
         }
-        compileApplication(settings).then(() => {
+        compileApplication(settings, runApplication).then(() => {
             if (settings.buildTimings) console.timeEnd("Building application");
         });
         break;

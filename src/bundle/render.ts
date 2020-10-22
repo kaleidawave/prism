@@ -15,27 +15,27 @@ export const oE = (a, b) => Object.entries(a).forEach(b);
  * O's is used as a falsy value if the element does not have any attribute or events
  * @param tN (tagName)
  * @param a (attributes)
- * @param e (events)
+ * @param v (events)
  * @param c (children)
 */
-export function h(tn: string, a: Object | 0 = 0, e: Object | 0 = 0, ...c: Array<HTMLElement>): HTMLElement | SVGElement {
+export function h(tn: string, a: Object | 0 = 0, v: Object | 0 = 0, ...c: Array<HTMLElement>): HTMLElement | SVGElement {
     const isSvg = svgElems.has(tn);
-    const elem = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tn) : document.createElement(tn);
+    const e = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tn) : document.createElement(tn);
     if (a) {
         oE(a, ([k, v]) => {
             // TODO temp, haven't figured the weird characteristics of IDL attributes and SVG
-            if (k in elem && !isSvg) {
-                elem[k] = v;
+            if (k in e && !isSvg) {
+                e[k] = v;
             } else {
-                elem.setAttribute(k, v);
+                e.setAttribute(k, v);
             }
         });
     }
-    if (e) {
-        oE(e, ([eN, h]) => {
-            elem.addEventListener(eN, h);
+    if (v) {
+        oE(v, ([eN, h]) => {
+            e.addEventListener(eN, h);
         });
     }
-    elem.append(...c);
-    return elem;
+    e.append(...c);
+    return e;
 }

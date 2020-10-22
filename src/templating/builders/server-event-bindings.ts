@@ -61,8 +61,8 @@ export function buildEventBindings(
             if (event.required && disableEventElements) {
                 const enableComponent = new Expression({
                     lhs: nullable ?
-                        newOptionalVariableReferenceFromChain(getElementExpression, "addEventListener") :
-                        VariableReference.fromChain(getElementExpression, "addEventListener"),
+                        newOptionalVariableReferenceFromChain(getElementExpression, "removeAttribute") :
+                        VariableReference.fromChain(getElementExpression, "removeAttribute"),
                     operation: nullable ? Operation.OptionalCall : Operation.Call,
                     rhs: new ArgumentList([new Value("disabled", Type.string)])
                 });
