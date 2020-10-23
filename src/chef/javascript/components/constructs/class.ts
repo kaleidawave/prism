@@ -3,7 +3,6 @@ import { commentTokens, JSToken, stringToTokens } from "../../javascript";
 import { TypeSignature } from "../types/type-signature";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./function";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
-import { IStatement } from "../statements/statement";
 import { Comment } from "../statements/comments";
 import { IValue } from "../value/value";
 
@@ -20,7 +19,7 @@ interface ClassContextSettings {
 }
 
 // TODO better place for decorators?
-export class Decorator implements IStatement {
+export class Decorator {
     private _argumentList?: ArgumentList; // Arguments sent to decorator
 
     constructor(

@@ -3,7 +3,7 @@ import { TokenReader, IRenderSettings, makeRenderSettings, IConstruct } from "..
 import { VariableReference, tokenAsIdent } from "./variable";
 import { IValue, Value, Type, nullValue } from "./value";
 import { ArgumentList } from "../constructs/function";
-import { IStatement } from "../statements/statement";
+import { Statements } from "../statements/statement";
 import { ObjectLiteral } from "./object";
 import { FunctionDeclaration } from "../constructs/function";
 import { ArrayLiteral } from "./array";
@@ -187,7 +187,7 @@ const operationPrecedence = new Map([
  * Represents a expression with a LHS, operation (and a possible RHS)
  * Note than the LHS is not always left hand side visually. E.g for `!x` -> lhs = x
  */
-export class Expression implements IStatement, IConstruct {
+export class Expression implements IConstruct {
 
     public lhs: IValue;
     public operation: Operation;

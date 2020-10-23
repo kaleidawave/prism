@@ -1,5 +1,5 @@
 import { JSToken, stringToTokens } from "../../javascript";
-import { IStatement } from "./statement";
+import { Statements } from "./statement";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { Expression, Operation } from "../value/expression";
 import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
@@ -90,11 +90,11 @@ export class ForIteratorExpression {
     }
 }
 
-export class ForStatement implements IStatement {
+export class ForStatement {
 
     constructor(
         public expression: ForLoopExpression,
-        public statements: Array<IStatement>
+        public statements: Array<Statements>
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

@@ -1,0 +1,254 @@
+import { dirname, relative, join, resolve } from "path";
+import { getImportPath } from "../../chef/helpers";
+import { HTMLElement, TextNode } from "../../chef/html/html";
+import { ClassDeclaration } from "../../chef/javascript/components/constructs/class";
+import { ArgumentList, FunctionDeclaration } from "../../chef/javascript/components/constructs/function";
+import { Module } from "../../chef/javascript/components/module";
+import { GenerateDocString } from "../../chef/javascript/components/statements/comments";
+import { ExportStatement, ImportStatement } from "../../chef/javascript/components/statements/import-export";
+import { ReturnStatement } from "../../chef/javascript/components/statements/statement";
+import { VariableDeclaration } from "../../chef/javascript/components/statements/variable";
+import { TypeSignature } from "../../chef/javascript/components/types/type-signature";
+import { Expression, Operation } from "../../chef/javascript/components/value/expression";
+import { TemplateLiteral } from "../../chef/javascript/components/value/template-literal";
+import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
+import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { Component } from "../../component";
+import { assignToObjectMap } from "../../helpers";
+import { buildMetaTags } from "../../metatags";
+import { IFinalPrismSettings } from "../../settings";
+import { IServerRenderSettings, serverRenderPrismNode } from "../../templating/builders/server-render";
+
+export function moduleFromServerRenderedChunks(comp: Component, settings: IFinalPrismSettings): void {
+    comp.serverModule = new Module(join(settings.absoluteServerOutputPath,
+        comp.relativeFilename));
+
+    const componentDataTypeSignature =
+        comp.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
+
+    for (const statement of comp.clientModule.statements) {
+        if (statement instanceof ClassDeclaration) {
+            // Don't copy the front side component definition
+            if (statement !== comp.componentClass) comp.serverModule!.statements.push(statement);
+        } else if (statement instanceof ExportStatement) {
+            if (statement.exported !== comp.componentClass) comp.serverModule!.statements.push(statement);
+        } else if (statement instanceof ImportStatement) {
+            // .js is added during parsing imported components
+            if (statement.from.endsWith(".prism.js")) {
+                const newImports: Array<string> = [];
+                let importedComponent: Component | null = null;
+                for (const [key] of statement.variable?.entries!) {
+                    if (comp.importedComponents.has(key as string)) {
+                        importedComponent = comp.importedComponents.get(key as string)!;
+                        newImports.push(importedComponent.serverRenderFunction!.actualName!)
+                    } else {
+                        newImports.push(key as string);
+                    }
+                }
+                const newPath = getImportPath(
+                    comp.serverModule!.filename!,
+                    importedComponent!.serverModule!.filename!
+                );
+                const newImport = new ImportStatement(newImports, newPath, statement.as, statement.typeOnly);
+                comp.serverModule!.statements.push(newImport);
+            } else {
+                const newPath = getImportPath(
+                    comp.serverModule!.filename!,
+                    resolve(dirname(comp.filename), statement.from)
+                );
+                const newImport = new ImportStatement(statement.variable, newPath, statement.as, statement.typeOnly);
+                comp.serverModule!.statements.push(newImport);
+            }
+        } else if (statement !== comp.customElementDefineStatement) {
+            comp.serverModule!.statements.push(statement);
+        }
+    }
+
+    // Construct ssr function parameters
+    const parameters: Array<VariableDeclaration> = [];
+    if (comp.needsData && !comp.noSSRData) {
+        const dataParameter = new VariableDeclaration(
+            comp.isLayout ? "layoutData" : "data",
+            { typeSignature: componentDataTypeSignature }
+        );
+        if (comp.defaultData) {
+            dataParameter.value = comp.defaultData;
+        }
+        parameters.push(dataParameter);
+    }
+
+    // Push client globals
+    parameters.push(
+        ...comp.clientGlobals.map(clientGlobal =>
+            new VariableDeclaration(((clientGlobal[0] as VariableReference).name), { typeSignature: clientGlobal[1] }))
+    );
+
+    // Whether to generate a argument to add a slot to the tag for attribute. Not needed on pages as they cannot be instantiated directly and thus no way user can add attribute set to component
+    const generateAttributeArgument: boolean = !comp.isPage;
+
+    if (generateAttributeArgument) {
+        parameters.push(new VariableDeclaration("attributes", {
+            typeSignature: new TypeSignature({ name: "string" }),
+            value: new Value("", Type.string)
+        }));
+    }
+
+    if (comp.hasSlots) {
+        for (const slot of comp.templateData.slots.keys()) {
+            parameters.push(new VariableDeclaration(`${slot}Slot`, { typeSignature: new TypeSignature({ name: "string" }) }));
+        }
+    }
+
+    const renderFunction = new FunctionDeclaration(`render${comp.className}Component`, parameters, []);
+
+    if (comp.defaultData && comp.noSSRData) {
+        renderFunction.statements.push(new VariableDeclaration("data", {
+            value: comp.defaultData,
+            typeSignature: componentDataTypeSignature
+        }));
+    }
+
+    // Append "data-ssr" to the server rendered component. Used at runtime.
+    const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
+
+    // Generate a tag of self (instead of using template) (reuses template.element.children)
+    const componentHtmlTag = new HTMLElement(comp.tag, componentAttributes, comp.templateElement.children, comp.templateElement.parent);
+
+    const ssrSettings: IServerRenderSettings = {
+        dynamicAttribute: generateAttributeArgument,
+        minify: settings.minify,
+        addDisableToElementWithEvents: settings.disableEventElements
+    }
+
+    // Final argument is to add a entry onto the component that is sent attributes 
+    const renderTemplateLiteral = serverRenderPrismNode(componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
+
+    // TODO would comp work just using the existing slot functionality?
+    // TODO could do in the page render function
+    if (comp.usesLayout) {
+        // Generate comp components markup and then pass it to the layout render function to be injected
+        const innerContent = new VariableDeclaration("content", {
+            isConstant: true,
+            value: renderTemplateLiteral
+        });
+
+        renderFunction.statements.push(innerContent);
+
+        // TODO layout data is different to component data. Should be interpreted in same way as client global
+        const renderArgs = new Map([
+            ["attributes", new Value("", Type.string)],
+            ["data", new VariableReference("data")],
+            ["contentSlot", innerContent.toReference()]
+        ] as Array<[string, IValue]>);
+
+        for (const clientGlobal of comp.clientGlobals) {
+            renderArgs.set((clientGlobal[0].tail as VariableReference).name, clientGlobal[0]);
+        }
+
+        let argumentList: ArgumentList;
+        try {
+            argumentList = comp.usesLayout.serverRenderFunction!.buildArgumentListFromArgumentsMap(renderArgs)
+        } catch (error) {
+            throw Error(`Layout "${comp.usesLayout.filename}" has a client global not present in "${comp.filename}"`);
+        }
+        const callLayoutSSRFunction = new Expression({
+            lhs: new VariableReference(comp.usesLayout.serverRenderFunction!.actualName!),
+            operation: Operation.Call,
+            rhs: argumentList
+        });
+
+        renderFunction.statements.push(new ReturnStatement(callLayoutSSRFunction));
+    } else {
+        renderFunction.statements.push(new ReturnStatement(renderTemplateLiteral));
+    }
+
+    comp.serverModule!.addExport(renderFunction);
+    comp.serverRenderFunction = renderFunction;
+
+    // If has page decorator, add another function that renders the page into full document with head
+    if (comp.isPage) {
+        const pageRenderArgs: Array<IValue> = comp.needsData ? [new VariableReference("data")] : [];
+        pageRenderArgs.push(...comp.clientGlobals.map(cG => cG[0]));
+
+        const pageRenderCall: IValue = new Expression({
+            lhs: new VariableReference(renderFunction.name!.name!),
+            operation: Operation.Call,
+            rhs: new ArgumentList(pageRenderArgs)
+        });
+
+        // Build the metadata
+        let metadataString = new TemplateLiteral();
+        if (comp.title) {
+            const title = new HTMLElement("title");
+            const titleTextNode = new TextNode("", title);
+            assignToObjectMap(comp.templateData.nodeData, titleTextNode, "textNodeValue", comp.title);
+            title.children.push(titleTextNode);
+            metadataString.addEntry(
+                ...serverRenderPrismNode(title, comp.templateData.nodeData, ssrSettings).entries
+            );
+        }
+
+        if (comp.metadata) {
+            const { metadataTags, nodeData: metaDataNodeData } = buildMetaTags(comp.metadata)
+            for (const metaTag of metadataTags) {
+                metadataString.addEntry(...serverRenderPrismNode(metaTag, metaDataNodeData, ssrSettings, comp.globals).entries);
+                metadataString.addEntry("\n");
+            }
+        }
+
+        const metaDataArg: IValue = (comp.title || comp.metadata) ? metadataString : new Value("", Type.string);
+
+        // Creates "return renderHTML(renderComponent(***))"
+        const renderAsPage = new ReturnStatement(
+            new Expression({
+                lhs: new VariableReference("renderHTML"),
+                operation: Operation.Call,
+                rhs: new ArgumentList([pageRenderCall, metaDataArg])
+            })
+        );
+
+        const renderPageFunction = new FunctionDeclaration(
+            `render${comp.className}Page`,
+            parameters,
+            [renderAsPage]
+        );
+
+        let description = "Server render function for ";
+        if (comp.filename) {
+            // Create a link back to the component
+            description += `[${comp.className}](file:///${comp.filename?.replace(/\\/g, "/")})`
+        } else {
+            description += comp.className;
+        }
+
+        // Generate a docstring for the function
+        const functionDocumentationString = GenerateDocString({
+            text: description,
+            remarks: "Built using [Prism](https://github.com/kaleidawave/prism)",
+        });
+        comp.serverModule!.statements.push(functionDocumentationString);
+        comp.pageServerRenderFunction = renderPageFunction;
+        comp.serverModule!.addExport(renderPageFunction);
+    }
+
+    // Add imports from the server module
+    const imports: Array<VariableDeclaration> = [];
+
+    if (comp.isPage) {
+        imports.push(new VariableDeclaration("renderHTML")); // Renders the component around the HTML document
+    }
+    if (comp.needsData) {
+        imports.push(new VariableDeclaration("escape")); // Escapes HTML values
+    }
+
+    if (imports.length > 0) {
+        comp.serverModule!.addImport(
+            imports,
+            "./" +
+            relative(
+                dirname(comp.serverModule!.filename ?? ""),
+                join(settings.absoluteServerOutputPath, "prism")
+            ).replace(/\\/g, "/")
+        );
+    }
+}

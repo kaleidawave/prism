@@ -1,4 +1,4 @@
-import { IStatement } from "../../chef/javascript/components/statements/statement";
+import { Statements } from "../../chef/javascript/components/statements/statement";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
@@ -13,8 +13,8 @@ export function makeSetFromBinding(
     nodeData: WeakMap<Node, NodeData>,
     variable: VariableReferenceArray,
     globals: Array<VariableReference> = []
-): Array<IStatement> {
-    const statements: Array<IStatement> = [];
+): Array<Statements> {
+    const statements: Array<Statements> = [];
     const elementStatement = getElement(binding.element, nodeData);
     const isElementNullable = nodeData.get(binding.element)?.nullable ?? false;
 
@@ -158,7 +158,7 @@ export function makeSetFromBinding(
     return statements;
 }
 
-export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): IStatement {
+export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): Statements {
     if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
     const getElemExpression = getElement(binding.element, nodeData);
 

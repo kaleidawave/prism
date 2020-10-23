@@ -1,7 +1,6 @@
 import { IValue } from "../value/value";
 import { TypeSignature } from "./type-signature";
 import { IRenderSettings, defaultRenderSettings, ScriptLanguages, TokenReader, IConstruct } from "../../../helpers";
-import { IStatement } from "../statements/statement";
 import { JSToken } from "../../javascript";
 
 export class AsExpression implements IConstruct {
@@ -21,7 +20,7 @@ export class AsExpression implements IConstruct {
     }
 }
 
-export class TypeStatement implements IStatement {
+export class TypeStatement {
     constructor(
         public name: TypeSignature,
         public value: TypeSignature,

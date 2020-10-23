@@ -1,15 +1,15 @@
-import { IStatement } from "./statement";
+import { Statements } from "./statement";
 import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { IValue } from "../value/value";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "../constructs/block";
 
-export class WhileStatement implements IStatement {
+export class WhileStatement {
 
     constructor(
         public expression: IValue,
-        public statements: Array<IStatement>
+        public statements: Array<Statements>
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -35,11 +35,11 @@ export class WhileStatement implements IStatement {
     }
 }
 
-export class DoWhileStatement implements IStatement {
+export class DoWhileStatement {
 
     constructor(
         public expression: IValue,
-        public statements: Array<IStatement>
+        public statements: Array<Statements>
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

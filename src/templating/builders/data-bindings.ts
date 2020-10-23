@@ -1,6 +1,6 @@
 import { FunctionDeclaration } from "../../chef/javascript/components/constructs/function";
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";
-import { ReturnStatement, IStatement } from "../../chef/javascript/components/statements/statement";
+import { ReturnStatement, Statements } from "../../chef/javascript/components/statements/statement";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
 import { IBinding, BindingAspect, VariableReferenceArray, ForLoopVariable, NodeData } from "../template";
 import { makeGetFromBinding, getLengthFromIteratorBinding } from "./get-value";
@@ -16,8 +16,8 @@ interface IDataPoint {
     variable: VariableReferenceArray, // The variable it references
     type: IType,
     getReturnValue: IValue | null,
-    setStatements: Array<IStatement>,
-    pushStatements?: Array<IStatement>
+    setStatements: Array<Statements>,
+    pushStatements?: Array<Statements>
 }
 
 /**

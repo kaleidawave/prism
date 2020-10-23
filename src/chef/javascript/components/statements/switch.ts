@@ -1,14 +1,14 @@
-import { IStatement } from "./statement";
+import { Statements } from "./statement";
 import { IValue } from "../value/value";
 import { IRenderSettings, TokenReader, defaultRenderSettings } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "../constructs/block";
 
-export class SwitchStatement implements IStatement {
+export class SwitchStatement {
     constructor(
         public expression: IValue,
-        public cases: Array<[IValue | null, Array<IStatement>]>, // TODO should LHS be of type IValue ???
+        public cases: Array<[IValue | null, Array<Statements>]>, // TODO should LHS be of type IValue ???
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -39,7 +39,7 @@ export class SwitchStatement implements IStatement {
         return acc;
     }
 
-    get defaultCase(): IStatement[] {
+    get defaultCase(): Statements[] {
         return this.cases.find(([condition]) => condition === null)?.[1] || [];
     }
 
@@ -49,7 +49,7 @@ export class SwitchStatement implements IStatement {
         const expr = Expression.fromTokens(reader);
         reader.expectNext(JSToken.CloseBracket);
         reader.expectNext(JSToken.OpenCurly);
-        const cases: Array<[IValue | null, Array<IStatement>]> = [];
+        const cases: Array<[IValue | null, Array<Statements>]> = [];
         while (reader.current.type !== JSToken.CloseCurly) {
             if (reader.current.type === JSToken.Case) {
                 reader.move();

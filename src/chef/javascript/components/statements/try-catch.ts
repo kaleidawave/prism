@@ -2,7 +2,7 @@
  * Contains declarations for "throw" and "try...catch...finally"
  */
 
-import { IStatement } from "./statement";
+import { Statements } from "./statement";
 import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { parseBlock, renderBlock } from "../constructs/block";
@@ -10,7 +10,7 @@ import { IValue } from "../value/value";
 import { Expression } from "../value/expression";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 
-export class ThrowStatement implements IStatement {
+export class ThrowStatement {
 
     constructor(
         public value: IValue
@@ -28,10 +28,10 @@ export class ThrowStatement implements IStatement {
     }
 }
 
-export class TryBlock implements IStatement {
+export class TryBlock {
 
     constructor (
-        public statements: Array<IStatement>,
+        public statements: Array<Statements>,
         public catchBlock: CatchBlock | null = null,
         public finallyBlock: FinallyBlock | null = null,
     ) {}
@@ -67,11 +67,11 @@ export class TryBlock implements IStatement {
     }   
 }
 
-export class CatchBlock implements IStatement {
+export class CatchBlock {
 
     constructor (
         public errorVariable: VariableDeclaration | null,
-        public statements: Array<IStatement>,
+        public statements: Array<Statements>,
     ) {
         if (errorVariable) errorVariable.context = VariableContext.Parameter;
     }
@@ -103,10 +103,10 @@ export class CatchBlock implements IStatement {
     }
 }
 
-export class FinallyBlock implements IStatement {
+export class FinallyBlock {
 
     constructor (
-        public statements: Array<IStatement>,
+        public statements: Array<Statements>,
     ) {}
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

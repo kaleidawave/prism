@@ -1,14 +1,14 @@
 import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
 import { JSToken } from "../../javascript";
-import { IStatement } from "./statement";
+import { Statements } from "./statement";
 import { Expression } from "../value/expression";
 import { IValue } from "../value/value";
 import { parseBlock, renderBlock } from "../constructs/block";
 
-export class IfStatement implements IStatement {
+export class IfStatement {
     constructor(
         public condition: IValue, 
-        public statements: Array<IStatement> = [], 
+        public statements: Array<Statements> = [], 
         public consequent: ElseStatement | null = null
     ) { }
 
@@ -45,10 +45,10 @@ export class IfStatement implements IStatement {
     }
 }
 
-export class ElseStatement implements IStatement {
+export class ElseStatement {
     constructor(
         public condition: IValue | null = null,
-        public statements: Array<IStatement>,
+        public statements: Array<Statements>,
         public consequent: ElseStatement | null = null
     ) {}
 

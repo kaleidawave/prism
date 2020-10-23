@@ -1,10 +1,9 @@
 import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
 import { TypeSignature } from "./type-signature";
-import { IStatement } from "../statements/statement";
 import { tokenAsIdent } from "../value/variable";
 
-export class InterfaceDeclaration implements IStatement {
+export class InterfaceDeclaration {
 
     name: TypeSignature;
 

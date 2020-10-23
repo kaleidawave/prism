@@ -1,3 +1,10 @@
+import { IRenderSettings } from "./helpers";
+
+export interface IFile {
+    filename: string;
+    writeToFile(settings: Partial<IRenderSettings>): void;
+}
+
 /**
  * Given a filename returns the result 
  */

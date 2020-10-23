@@ -1,4 +1,4 @@
-import { IStatement } from "../statements/statement";
+import { Statements } from "../statements/statement";
 import { TokenReader, IRenderSettings, defaultRenderSettings, ScriptLanguages } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
 import { tokenAsIdent, VariableReference } from "../value/variable";
@@ -7,7 +7,7 @@ import { VariableDeclaration } from "../statements/variable";
 import { ObjectLiteral } from "../value/object";
 import { Expression, Operation } from "../value/expression";
 
-export class EnumDeclaration implements IStatement {
+export class EnumDeclaration {
 
     constructor(
         public name: string,

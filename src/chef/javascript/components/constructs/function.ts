@@ -2,13 +2,14 @@ import { TokenReader, IRenderSettings, IConstruct, makeRenderSettings, ScriptLan
 import { JSToken, stringToTokens } from "../../javascript";
 import { IValue } from "../value/value";
 import { TypeSignature } from "../types/type-signature";
-import { IStatement, ReturnStatement } from "../statements/statement";
+import { Statements, ReturnStatement } from "../statements/statement";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "./block";
 import { ClassDeclaration, Decorator } from "./class";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ObjectLiteral } from "../value/object";
 import { Module } from "../module";
+import { AbstractFunctionDeclaration } from "../../../abstract-asts";
 
 export const functionPrefixes = [JSToken.Get, JSToken.Set, JSToken.Async];
 
@@ -71,10 +72,10 @@ interface FunctionOptions {
     isAbstract: boolean, // TODO implement on IClassMember
 }
 
-export class FunctionDeclaration implements IConstruct, FunctionOptions {
+export class FunctionDeclaration extends AbstractFunctionDeclaration implements IConstruct, FunctionOptions {
     name?: TypeSignature; // Null signifies anonymous function 
     returnType?: TypeSignature;
-    statements: Array<IStatement>;
+    statements: Array<Statements>;
     parameters: Array<VariableDeclaration>;
     parent: ClassDeclaration | ObjectLiteral | Module;
 
@@ -87,12 +88,17 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
     isStatic: boolean = false;
     isAbstract: boolean = false;
 
+    get actualName() {
+        return this.name?.name ?? null;
+    }
+
     constructor(
         name: TypeSignature | string | null = null,
         parameters: string[] | VariableDeclaration[] = [],
-        statements: Array<IStatement> = [],
+        statements: Array<Statements> = [],
         options: Partial<FunctionOptions> = {}
     ) {
+        super();
         if (name) {
             if (typeof name === "string") {
                 this.name = new TypeSignature({ name });
@@ -122,7 +128,7 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
      * Helper method for generating a argument list for calling this function. Basically implements named named parameters by generating a in order list of arguments
      * @param argumentMap 
      */
-    buildArgumentListFromArguments(argumentMap: Map<string, IValue>): ArgumentList {
+    buildArgumentListFromArgumentsMap(argumentMap: Map<string, IValue>): ArgumentList {
         const args: Array<IValue> = [];
         for (const param of this.parameters) {
             const arg = argumentMap.get(param.name);
@@ -314,7 +320,7 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
                 params = parseFunctionParams(reader);
             }
             reader.expectNext(JSToken.ArrowFunction);
-            let statements: IStatement[];
+            let statements: Statements[];
             if (reader.current.type as JSToken !== JSToken.OpenCurly) {
                 // If next token is void assume it is not meant to return
                 if (reader.peek()?.type === JSToken.Void) {

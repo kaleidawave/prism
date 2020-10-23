@@ -3,7 +3,6 @@ import { TemplateLiteral } from "../../chef/javascript/components/value/template
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
-import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { ReturnStatement } from "../../chef/javascript/components/statements/statement";
 import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables";
@@ -126,15 +125,15 @@ function buildServerTemplateLiteralShards(
 
             if (component.clientGlobals) {
                 for (const clientGlobal of component.clientGlobals) {
-                    renderArgs.set((clientGlobal.tail as VariableReference).name, clientGlobal);
+                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, clientGlobal[0]);
                 }
             }
 
             // buildArgumentListFromArguments means that the order of arguments does not matter
             const renderComponentFunction = new Expression({
-                lhs: new VariableReference(component.serverRenderFunction!.name!.name!),
+                lhs: new VariableReference(component.serverRenderFunction?.actualName!),
                 operation: Operation.Call,
-                rhs: component.serverRenderFunction!.buildArgumentListFromArguments(renderArgs)
+                rhs: component.serverRenderFunction!.buildArgumentListFromArgumentsMap(renderArgs)
             });
 
             entries.push(renderComponentFunction);

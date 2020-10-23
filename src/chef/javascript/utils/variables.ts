@@ -1,5 +1,5 @@
 import { ClassDeclaration } from "../components/constructs/class";
-import { IStatement, ReturnStatement } from "../components/statements/statement";
+import { Statements, ReturnStatement } from "../components/statements/statement";
 import { Expression, Operation } from "../components/value/expression";
 import { IfStatement, ElseStatement } from "../components/statements/if";
 import { IValue, Type, Value } from "../components/value/value";
@@ -33,7 +33,7 @@ export function getVariablesInClass(cls: ClassDeclaration): Array<VariableRefere
  * Lot of "as" here as TypeScript does not like switching on the constructor
  * @param cloneStructure Will clone structure while walking. TODO maybe implement this separately
  */
-export function* variableReferenceWalker(statement: IStatement): Generator<VariableReference> {
+export function* variableReferenceWalker(statement: Statements): Generator<VariableReference> {
     if (statement instanceof VariableReference) {
         yield statement;
     } else if (statement instanceof Expression) {
@@ -148,7 +148,7 @@ export function variableReferenceFromOptionalChain(expr: Expression): VariableRe
  * Returns variables in a statement
  * @param allVariables whether to return 
 */
-export function findVariables(statement: IStatement, allVariables: boolean = false): Array<VariableReference> {
+export function findVariables(statement: Statements, allVariables: boolean = false): Array<VariableReference> {
     const variables: Array<VariableReference> = [];
     for (const variable of variableReferenceWalker(statement)) {
         // Check variable has not already been registered

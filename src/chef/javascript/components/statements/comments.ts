@@ -1,7 +1,6 @@
-import { IStatement } from "./statement";
 import { IRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 
-export class Comment implements IStatement {
+export class Comment {
 
     constructor(
         public comment: string,

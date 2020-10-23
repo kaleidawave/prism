@@ -1,4 +1,4 @@
-import { IStatement, ParseStatement } from "./statement";
+import { Statements, ParseStatement } from "./statement";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ClassDeclaration } from "../constructs/class";
 import { FunctionDeclaration } from "../constructs/function";
@@ -8,7 +8,7 @@ import { InterfaceDeclaration } from "../types/interface";
 
 const extensions = [".ts", ".js"];
 
-export class ImportStatement implements IStatement {
+export class ImportStatement {
 
     variable: VariableDeclaration | null;
 
@@ -117,10 +117,10 @@ export class ImportStatement implements IStatement {
     }
 }
 
-export class ExportStatement implements IStatement {
+export class ExportStatement {
 
     constructor(
-        public exported: IStatement,
+        public exported: Statements,
         public isDefault: boolean = false,
     ) { }
 
