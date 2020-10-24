@@ -70,7 +70,7 @@ export function makeSetFromBinding(
                     new VariableReference("this"),
                     newValue!, // TODO temp non null
                     new Value(nodeData.get(binding.element)!.identifier!, Type.string),
-                    VariableReference.fromChain("this", clientRenderFunction.name?.name!)
+                    VariableReference.fromChain("this", clientRenderFunction.actualName!)
                 ])
             });
             statements.push(callConditionalSwapFunction);
@@ -80,7 +80,7 @@ export function makeSetFromBinding(
             const clientRenderFunction = nodeData.get(binding.element)!.clientRenderMethod!;
 
             const renderNewElement = new Expression({
-                lhs: VariableReference.fromChain("this", clientRenderFunction.name?.name!),
+                lhs: VariableReference.fromChain("this", clientRenderFunction.actualName!),
                 operation: Operation.Call,
                 rhs: new VariableReference("value")
             });

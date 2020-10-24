@@ -1,9 +1,9 @@
-import { TokenReader, ITokenizationSettings, IRenderSettings, makeRenderSettings, defaultRenderSettings, IConstruct, IRenderOptions, IPosition, IParseSettings, defaultParseSettings } from "../helpers";
+import { TokenReader, ITokenizationSettings, IRenderSettings, makeRenderSettings, defaultRenderSettings, IRenderable, IRenderOptions, IPosition, IParseSettings, defaultParseSettings } from "../helpers";
 import { Module } from "../javascript/components/module";
 import { Stylesheet } from "../css/stylesheet";
 import { readFile, writeFile, IFile } from "../filesystem";
 
-export abstract class Node implements IConstruct {
+export abstract class Node implements IRenderable {
     abstract parent: HTMLElement | HTMLDocument | null;
     abstract render(settings: IRenderSettings): string;
 
@@ -47,7 +47,7 @@ export abstract class Node implements IConstruct {
     }
 }
 
-export class TextNode extends Node implements IConstruct {
+export class TextNode extends Node implements IRenderable {
     constructor(
         public text = '',
         public parent: HTMLElement | null = null,
@@ -65,7 +65,7 @@ export class TextNode extends Node implements IConstruct {
     }
 }
 
-export class HTMLElement extends Node implements IConstruct {
+export class HTMLElement extends Node implements IRenderable {
     // Tags that don't require </...>
     static selfClosingTags = new Set(["area", "base", "br", "embed", "hr", "iframe", "img", "input", "link", "meta", "param", "source", "track", "!DOCTYPE"]);
 
@@ -236,7 +236,7 @@ export class HTMLElement extends Node implements IConstruct {
     }
 }
 
-export class HTMLComment extends Node implements IConstruct {
+export class HTMLComment extends Node implements IRenderable {
     constructor(
         public parent: HTMLElement | HTMLDocument,
         public comment: string = "",

@@ -1,6 +1,6 @@
 import { JSToken, stringToTokens } from "../../javascript";
 import { IValue, Type, Value } from "./value";
-import { IRenderSettings, TokenReader, IConstruct, defaultRenderSettings } from "../../../helpers";
+import { IRenderSettings, TokenReader, IRenderable, defaultRenderSettings } from "../../../helpers";
 import { Expression, Operation } from "./expression";
 
 // TODO use the reverse tokens map from the tokenizer and complete list
@@ -36,7 +36,7 @@ export function tokenAsIdent(token: JSToken) {
 /**
  * Class that represents a variable reference
  */
-export class VariableReference implements IConstruct {
+export class VariableReference implements IRenderable {
 
     parent?: IValue;
     name: string;

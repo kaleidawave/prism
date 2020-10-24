@@ -1,4 +1,4 @@
-import { IRenderSettings, defaultRenderSettings, IConstruct, TokenReader } from "../../../helpers";
+import { IRenderSettings, defaultRenderSettings, IRenderable, TokenReader } from "../../../helpers";
 import type { TemplateLiteral } from "./template-literal";
 import type { Expression } from "./expression";
 import type { ObjectLiteral } from "./object";
@@ -38,7 +38,7 @@ export const literalTypes = new Set([JSToken.NumberLiteral, JSToken.StringLitera
 /**
  * Represents string literals, number literals (inc bigint), boolean literals, "null" and "undefined"
  */
-export class Value implements IConstruct {
+export class Value implements IRenderable {
     value: string | null; // TODO value is null if value is undefined
 
     constructor(

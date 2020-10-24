@@ -1,5 +1,5 @@
 import { IValue } from "./value";
-import { TokenReader, IRenderSettings, makeRenderSettings, IRenderOptions, defaultRenderSettings, IConstruct } from "../../../helpers";
+import { TokenReader, IRenderSettings, makeRenderSettings, IRenderOptions, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
 import { Expression } from "./expression";
 import { VariableReference, tokenAsIdent } from "./variable";
@@ -7,7 +7,7 @@ import { FunctionDeclaration, functionPrefixes } from "../constructs/function";
 
 type ObjectLiteralKey = string | IValue;
 
-export class ObjectLiteral implements IConstruct {
+export class ObjectLiteral implements IRenderable {
 
     constructor(
         public values: Map<ObjectLiteralKey, IValue> = new Map(),
@@ -100,8 +100,7 @@ export class ObjectLiteral implements IConstruct {
             // If function
             if (reader.peek()?.type === JSToken.OpenBracket) {
                 const func = FunctionDeclaration.fromTokens(reader, objectLiteral, funcModifiers);
-                key = func.name!.name!;
-                values.set(key, func);
+                values.set(func.actualName!, func);
 
                 if (reader.current.type as JSToken === JSToken.CloseCurly) break;
                 reader.expectNext(JSToken.Comma);

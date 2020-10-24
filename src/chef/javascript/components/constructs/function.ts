@@ -1,4 +1,4 @@
-import { TokenReader, IRenderSettings, IConstruct, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, IRenderable, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { JSToken, stringToTokens } from "../../javascript";
 import { IValue } from "../value/value";
 import { TypeSignature } from "../types/type-signature";
@@ -9,7 +9,7 @@ import { ClassDeclaration, Decorator } from "./class";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ObjectLiteral } from "../value/object";
 import { Module } from "../module";
-import { AbstractFunctionDeclaration } from "../../../abstract-asts";
+import { IFunctionDeclaration } from "../../../abstract-asts";
 
 export const functionPrefixes = [JSToken.Get, JSToken.Set, JSToken.Async];
 
@@ -29,7 +29,7 @@ export function parseFunctionParams(reader: TokenReader<JSToken>): Array<Variabl
     return params;
 }
 
-export class ArgumentList implements IConstruct {
+export class ArgumentList implements IRenderable {
     constructor(public args: IValue[] = []) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -72,7 +72,7 @@ interface FunctionOptions {
     isAbstract: boolean, // TODO implement on IClassMember
 }
 
-export class FunctionDeclaration extends AbstractFunctionDeclaration implements IConstruct, FunctionOptions {
+export class FunctionDeclaration implements IFunctionDeclaration, FunctionOptions {
     name?: TypeSignature; // Null signifies anonymous function 
     returnType?: TypeSignature;
     statements: Array<Statements>;
@@ -98,7 +98,6 @@ export class FunctionDeclaration extends AbstractFunctionDeclaration implements 
         statements: Array<Statements> = [],
         options: Partial<FunctionOptions> = {}
     ) {
-        super();
         if (name) {
             if (typeof name === "string") {
                 this.name = new TypeSignature({ name });

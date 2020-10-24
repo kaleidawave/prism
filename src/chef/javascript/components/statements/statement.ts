@@ -1,4 +1,4 @@
-import { TokenReader, IConstruct, IRenderSettings, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderable, IRenderSettings, defaultRenderSettings } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { IfStatement } from "./if";
 import { SwitchStatement } from "./switch";

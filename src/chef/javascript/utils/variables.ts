@@ -4,7 +4,7 @@ import { Expression, Operation } from "../components/value/expression";
 import { IfStatement, ElseStatement } from "../components/statements/if";
 import { IValue, Type, Value } from "../components/value/value";
 import { ArgumentList, FunctionDeclaration } from "../components/constructs/function";
-import { IConstruct } from "../../helpers";
+import { IRenderable } from "../../helpers";
 import { TemplateLiteral } from "../components/value/template-literal";
 import { ObjectLiteral } from "../components/value/object";
 import { VariableReference } from "../components/value/variable";
@@ -169,7 +169,7 @@ export function findVariables(statement: Statements, allVariables: boolean = fal
  * @param locals A set of variables to not alias
  */
 export function aliasVariables(
-    value: IConstruct,
+    value: IRenderable,
     parent: VariableReference,
     locals: Array<VariableReference> = []
 ): void {
@@ -189,7 +189,7 @@ export function aliasVariables(
  * Replaces variable in expression inline
  */
 export function replaceVariables(
-    value: IConstruct,
+    value: IRenderable,
     replacer: IValue | ((intercepted: VariableReference) => IValue),
     targets: Array<VariableReference>
 ): void {
@@ -220,7 +220,7 @@ export function replaceVariables(
  * TODO temp
  * Could do by rendering out ast and re parsing lol
  */
-export function cloneAST(part: IConstruct) {
+export function cloneAST(part: IRenderable) {
     if (part === null) return null;
 
     if (part instanceof VariableReference) {

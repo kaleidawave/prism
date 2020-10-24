@@ -1,12 +1,12 @@
 import { HTMLElement, TextNode, HTMLDocument, HTMLComment, Node } from "../../chef/html/html";
-import { TemplateLiteral } from "../../chef/javascript/components/value/template-literal";
 import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
-import { ReturnStatement } from "../../chef/javascript/components/statements/statement";
 import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables";
 import { NodeData } from "../template";
+import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
+import { IFunctionDeclaration } from "../../chef/abstract-asts";
 
 const dataVariable = new VariableReference("data");
 
@@ -16,10 +16,37 @@ export interface IServerRenderSettings {
     addDisableToElementWithEvents: boolean
 }
 
+export interface ServerRenderExpression {
+    value: IValue
+}
+
+export interface FunctionCallServerRenderExpression {
+    func: IFunctionDeclaration,
+    args: Map<string, ServerRenderedChunks>
+}
+
+export interface ConditionalServerRenderExpression {
+    condition: IValue,
+    truthyRenderExpression: ServerRenderedChunks,
+    falsyRenderExpression: ServerRenderedChunks
+}
+
+export interface LoopServerRenderExpression {
+    subject: IValue,
+    variable: string,
+    childRenderExpression: ServerRenderedChunks
+}
+
+export type ServerRenderedChunks = Array<
+    string
+    | ConditionalServerRenderExpression
+    | LoopServerRenderExpression
+    | ServerRenderExpression
+    | FunctionCallServerRenderExpression
+>;
+
 /**
  * Generates a template literal with relevant interpolation of variables that when run will generate ssr html
- * TODO maybe combine with buildPartsFromNode
- * TODO indention for map and stuff
  * @param template The <template> prism node to render
  * @param minify Will not prettify the output in the template literal
  * @param dynamicAttribute If true will add a ${attributes} onto the top tag attribute. Kinda temp but doing it later breaks because template literal collapsation 
@@ -30,25 +57,12 @@ export function serverRenderPrismNode(
     serverRenderSettings: IServerRenderSettings,
     locals: Array<VariableReference> = [],
     skipOverServerExpression: boolean = false
-): TemplateLiteral {
+): ServerRenderedChunks {
     const parts = buildServerTemplateLiteralShards(template, nodeData, serverRenderSettings, locals, skipOverServerExpression);
     if (serverRenderSettings.minify) {
-        parts.splice(1, 0, new VariableReference("attributes"));
+        parts.splice(1, 0, { value: new VariableReference("attributes") });
     }
-    return new TemplateLiteral(parts);
-}
-
-/**
- * Wraps IValue in a escapeValue function. The escape value function escapes html
- * @param value 
- * @example `abc` -> `escape(abc)`
- */
-function wrapWithEscapeValue(value: IValue): Expression {
-    return new Expression({
-        lhs: new VariableReference("escape"),
-        operation: Operation.Call,
-        rhs: value
-    });
+    return parts;
 }
 
 /**
@@ -61,34 +75,31 @@ function buildServerTemplateLiteralShards(
     serverRenderSettings: IServerRenderSettings,
     locals: Array<VariableReference>,
     skipOverServerExpression: boolean = false
-): Array<string | IValue> {
+): ServerRenderedChunks {
 
-    const entries: Array<string | IValue> = []; // Entries is unique for each execution for indentation benefits
+    const entries: ServerRenderedChunks = []; // Entries is unique for each execution for indentation benefits
     if (element instanceof HTMLElement) {
 
         const elementData = nodeData.get(element);
 
         if (elementData?.slotFor) {
-            entries.push(new VariableReference(`${elementData?.slotFor}Slot`));
+            entries.push({ value: new VariableReference(`${elementData?.slotFor}Slot`) });
             return entries;
         }
 
         // If node
         if (elementData?.conditionalExpression && !skipOverServerExpression) {
-            // TODO very temp removal of the elements clientExpression to not clash 
-            const renderTruthyChild = serverRenderPrismNode(element, nodeData, serverRenderSettings, locals, true);
-            const renderFalsyChild = serverRenderPrismNode(elementData.elseElement!, nodeData, serverRenderSettings, locals);
+            const truthyRenderExpression = serverRenderPrismNode(element, nodeData, serverRenderSettings, locals, true);
+            const falsyRenderExpression = serverRenderPrismNode(elementData.elseElement!, nodeData, serverRenderSettings, locals);
 
             const serverAliasedExpression = cloneAST(elementData.conditionalExpression);
             aliasVariables(serverAliasedExpression, dataVariable, locals);
 
-            return [
-                new Expression({
-                    lhs: serverAliasedExpression as IValue,
-                    operation: Operation.Ternary,
-                    rhs: new ArgumentList([renderTruthyChild, renderFalsyChild])
-                })
-            ];
+            return [{
+                condition: serverAliasedExpression,
+                truthyRenderExpression,
+                falsyRenderExpression,
+            }];
         }
 
         if (elementData?.component) {
@@ -99,12 +110,14 @@ function buildServerTemplateLiteralShards(
 
             // A render function for a component goes attributes, componentData, contentSlot, ...context. With all of those being optional apart from contentSlot
 
-            const renderArgs: Map<string, IValue> = new Map();
+            const renderArgs: Map<string, ServerRenderedChunks> = new Map();
 
-            renderArgs.set("attributes", new TemplateLiteral(serverRenderNodeAttribute(element, nodeData, locals)));
+            if (element.attributes) {
+                renderArgs.set("attributes", serverRenderNodeAttribute(element, nodeData, locals));
+            }
 
             if (component.hasSlots) {
-                const slotRenderFunction: Array<string | IValue> = [];
+                const slotRenderFunction: ServerRenderedChunks = [];
                 if (element.children.length > 0) {
                     for (let i = 0; i < element.children.length; i++) {
                         const child = element.children[i];
@@ -114,7 +127,7 @@ function buildServerTemplateLiteralShards(
                         if (!serverRenderSettings.minify && i !== element.children.length - 1) entries.push("\n");
                     }
                 }
-                renderArgs.set("contentSlot", new TemplateLiteral(slotRenderFunction));
+                renderArgs.set("contentSlot", slotRenderFunction);
             }
 
             if (componentsData) {
@@ -125,18 +138,15 @@ function buildServerTemplateLiteralShards(
 
             if (component.clientGlobals) {
                 for (const clientGlobal of component.clientGlobals) {
-                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, clientGlobal[0]);
+                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, [{ value: clientGlobal[0] }]);
                 }
             }
 
-            // buildArgumentListFromArguments means that the order of arguments does not matter
-            const renderComponentFunction = new Expression({
-                lhs: new VariableReference(component.serverRenderFunction?.actualName!),
-                operation: Operation.Call,
-                rhs: component.serverRenderFunction!.buildArgumentListFromArgumentsMap(renderArgs)
+            entries.push({
+                func: component.serverRenderFunction!,
+                args: renderArgs
             });
 
-            entries.push(renderComponentFunction);
             return entries;
         }
 
@@ -156,34 +166,19 @@ function buildServerTemplateLiteralShards(
         if (HTMLElement.selfClosingTags.has(element.tagName) || element.closesSelf) return entries;
 
         if (elementData?.iteratorExpression) {
-            const serverAliasedExpression = cloneAST(elementData.iteratorExpression);
+            const serverAliasedExpression: ForIteratorExpression = cloneAST(elementData.iteratorExpression);
             aliasVariables(serverAliasedExpression, dataVariable, locals);
-            
-            entries.push(
-                new Expression({
-                    lhs: new VariableReference("join", new Expression({
-                        lhs: new VariableReference("map", serverAliasedExpression.subject),
-                        operation: Operation.Call,
-                        rhs: new FunctionDeclaration(
-                            null,
-                            [serverAliasedExpression.variable],
-                            [new ReturnStatement(
-                                new TemplateLiteral(
-                                    buildServerTemplateLiteralShards(
-                                        element.children[0],
-                                        nodeData,
-                                        serverRenderSettings,
-                                        [serverAliasedExpression.variable.toReference(), ...locals]
-                                    )
-                                )
-                            )],
-                            { bound: false }
-                        )
-                    })),
-                    operation: Operation.Call,
-                    rhs: new Value("", Type.string)
-                })
-            );
+
+            entries.push({
+                subject: serverAliasedExpression.subject,
+                variable: serverAliasedExpression.variable.name,
+                childRenderExpression: buildServerTemplateLiteralShards(
+                    element.children[0],
+                    nodeData,
+                    serverRenderSettings,
+                    [serverAliasedExpression.variable.toReference(), ...locals]
+                )
+            })
         } else {
             for (const child of element.children) {
                 const parts = buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals);
@@ -213,21 +208,9 @@ function buildServerTemplateLiteralShards(
     } else if (element instanceof TextNode) {
         const value = nodeData.get(element)?.textNodeValue;
         if (value) {
-            if (value instanceof TemplateLiteral) {
-                for (const part of value.entries) {
-                    if (typeof part === "string") {
-                        entries.push(part);
-                    } else {
-                        const aliasedPart = cloneAST(part);
-                        aliasVariables(aliasedPart, dataVariable, locals);
-                        entries.push(wrapWithEscapeValue(aliasedPart));
-                    }
-                }
-            } else {
-                const aliasedPart = cloneAST(value);
-                aliasVariables(aliasedPart, dataVariable, locals);
-                entries.push(wrapWithEscapeValue(aliasedPart));
-            }
+            const aliasedPart = cloneAST(value);
+            aliasVariables(aliasedPart, dataVariable, locals);
+            entries.push({ value: aliasedPart });
         } else {
             entries.push(element.text);
         }
@@ -249,7 +232,7 @@ function buildServerTemplateLiteralShards(
 }
 
 export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMap<Node, NodeData>, locals: Array<VariableReference>) {
-    const entries: Array<string | IValue> = [];
+    const entries: ServerRenderedChunks = [];
     if (element.attributes) {
         for (const [name, value] of element.attributes) {
             entries.push(" " + name);
@@ -265,20 +248,17 @@ export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMa
             const aliasedValue = cloneAST(value);
             aliasVariables(aliasedValue, dataVariable, locals);
             if (HTMLElement.booleanAttributes.has(name)) {
-                entries.push(new Expression({
-                    lhs: aliasedValue,
-                    operation: Operation.Ternary,
-                    rhs: new ArgumentList([
-                        new Value(" " + name, Type.string),
-                        new Value("", Type.string)
-                    ])
-                }));
+                entries.push({
+                    condition: aliasedValue,
+                    truthyRenderExpression: [" " + name],
+                    falsyRenderExpression: [""]
+                });
             } else {
                 if (name === "data") continue;
                 entries.push(" " + name);
                 if (value !== null) {
                     entries.push(`="`);
-                    entries.push(wrapWithEscapeValue(aliasedValue));
+                    entries.push({ value: aliasedValue });
                     entries.push(`"`);
                 }
             }

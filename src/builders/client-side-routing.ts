@@ -38,7 +38,7 @@ export function setNotFoundRoute(component: Component) {
 export function injectRoutes(routerModule: Module): void {
 
     // Use the bundled router and get the router component
-    const routerComponent: ClassDeclaration = routerModule.classes.find(cls => cls.name!.name === "Router")!;
+    const routerComponent: ClassDeclaration = routerModule.classes.find(cls => cls.actualName === "Router")!;
 
     // Build up array that map patterns to components and their possible layout
     const routePairArray = new ArrayLiteral();

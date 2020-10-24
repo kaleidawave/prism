@@ -1,9 +1,9 @@
 import { IValue } from "./value";
-import { TokenReader, IRenderSettings, defaultRenderSettings, IConstruct } from "../../../helpers";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { Expression } from "./expression";
 
-export class TemplateLiteral implements IConstruct {
+export class TemplateLiteral implements IRenderable {
 
     entries: Array<string | IValue> = []
 
@@ -20,6 +20,8 @@ export class TemplateLiteral implements IConstruct {
         for (const entry of entries) {
             if (typeof entry === "string" && typeof this.entries[this.entries.length - 1] === "string") {
                 this.entries[this.entries.length - 1] += entry;
+            } else if (entry instanceof TemplateLiteral) {
+                this.entries = this.entries.concat(entry.entries);
             } else {
                 this.entries.push(entry);
             }

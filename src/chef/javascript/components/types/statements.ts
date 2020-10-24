@@ -1,9 +1,9 @@
 import { IValue } from "../value/value";
 import { TypeSignature } from "./type-signature";
-import { IRenderSettings, defaultRenderSettings, ScriptLanguages, TokenReader, IConstruct } from "../../../helpers";
+import { IRenderSettings, defaultRenderSettings, ScriptLanguages, TokenReader, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 
-export class AsExpression implements IConstruct {
+export class AsExpression implements IRenderable {
     constructor(
         public value: IValue, 
         public asType: TypeSignature

@@ -35,7 +35,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && statement.exported.name?.name === "createComment"
         ));
 
-        const otherStatements = Module.fromString(fileBundle.get("others.ts")!).statements;
+        const otherStatements = Module.fromString(fileBundle.get("others.ts")!, "others.ts").statements;
         const componentClass = (bundle.statements.find(statement =>
             statement instanceof ExportStatement && statement.exported instanceof ClassDeclaration && statement.exported.name?.name === "Component"
         ) as ExportStatement).exported as ClassDeclaration;
@@ -53,20 +53,20 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
         componentClass.members = componentClass.members.filter(member => !(
             !(member instanceof Comment) && (
                 member instanceof VariableDeclaration && member.name === "_ifSwapElemCache" ||
-                member instanceof FunctionDeclaration && member.name?.name === "setElem"
+                member instanceof FunctionDeclaration && member.actualName === "setElem"
             )
         ));
 
         // Remove conditionalSwap and tryAssignData
         bundle.statements = bundle.statements.filter(statement => !(
             statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration &&
-            ["conditionalSwap", "tryAssignData"].includes(statement.exported.name?.name!)
+            ["conditionalSwap", "tryAssignData"].includes(statement.exported.actualName!)
         ));
     }
     if (!runtimeFeatures.observableArrays) {
         // Remove createObservableArray, isArrayHoley and setLength function
         bundle.statements = bundle.statements.filter(statement => !(
-            statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && ["createObservableArray", "isArrayHoley", "setLength"].includes(statement.exported.name?.name!)
+            statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && ["createObservableArray", "isArrayHoley", "setLength"].includes(statement.exported.actualName!)
         ));
     }
     if (!runtimeFeatures.svg) {
@@ -82,7 +82,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement.exported.name?.name === "h") as ExportStatement;
 
         (renderFunction.exported as FunctionDeclaration).statements =
-            (Module.fromString(fileBundle.get("others.ts")!).statements
+            (Module.fromString(fileBundle.get("others.ts")!, "others.ts").statements
                 .find(statement =>
                     statement instanceof FunctionDeclaration &&
                     statement.name?.name === "h"
@@ -97,7 +97,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement.exported.name?.name === "createObservable"
         ));
 
-        const createObservableObject = Module.fromString(fileBundle.get("others.ts")!)
+        const createObservableObject = Module.fromString(fileBundle.get("others.ts")!, "others.ts")
             .statements.find(statement =>
                 statement instanceof FunctionDeclaration && statement.name?.name === "createObservableObject"
             );
@@ -115,8 +115,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
  * @param clientSideRouting Include the client router module (including injecting routes)
  */
 export async function getPrismClient(clientSideRouting: boolean = true): Promise<Module> {
-    const bundle = new Module();
-    bundle.filename = "prism.js";
+    const bundle = new Module("prism.js");
     for (const clientLib of clientModuleFilenames) {
         const module = Module.fromString(fileBundle.get(clientLib)!, join("bundle", clientLib));
         if (clientLib.endsWith("router.ts")) {
@@ -135,7 +134,7 @@ export async function buildIndexHtml(settings: IFinalPrismSettings): Promise<HTM
     // Read the included template or one specified by settings
     let document: HTMLDocument;
     if (settings.templatePath === defaultTemplateHTML) {
-        document = HTMLDocument.fromString(fileBundle.get("template.html")!);
+        document = HTMLDocument.fromString(fileBundle.get("template.html")!, "template.html");
     } else {
         document = await HTMLDocument.fromFile(settings.absoluteTemplatePath);
     }

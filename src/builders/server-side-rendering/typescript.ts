@@ -17,7 +17,73 @@ import { Component } from "../../component";
 import { assignToObjectMap } from "../../helpers";
 import { buildMetaTags } from "../../metatags";
 import { IFinalPrismSettings } from "../../settings";
-import { IServerRenderSettings, serverRenderPrismNode } from "../../templating/builders/server-render";
+import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
+
+function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunks): TemplateLiteral {
+    const templateLiteral = new TemplateLiteral();
+    for (const chunk of serverChunks) {
+        if (typeof chunk === "string") {
+            templateLiteral.addEntry(chunk);
+        } else if ("value" in chunk) {
+            templateLiteral.addEntry(wrapWithEscapeCall(chunk.value));
+        } else if ("condition" in chunk) {
+            templateLiteral.addEntry(new Expression({
+                lhs: chunk.condition as IValue,
+                operation: Operation.Ternary,
+                rhs: new ArgumentList([
+                    templateLiteralFromServerRenderChunks(chunk.truthyRenderExpression),
+                    templateLiteralFromServerRenderChunks(chunk.falsyRenderExpression)
+                ])
+            }))
+        } else if ("subject" in chunk) {
+            templateLiteral.addEntry(
+                new Expression({
+                    lhs: new VariableReference("join", new Expression({
+                        lhs: new VariableReference("map", chunk.subject),
+                        operation: Operation.Call,
+                        rhs: new FunctionDeclaration(
+                            null,
+                            [chunk.variable],
+                            [new ReturnStatement(
+                                templateLiteralFromServerRenderChunks(chunk.childRenderExpression)
+                            )],
+                            { bound: false }
+                        )
+                    })),
+                    operation: Operation.Call,
+                    rhs: new Value("", Type.string)
+                })
+            );
+        } else if ("func" in chunk) {
+            // TODO temp fix
+            if (chunk.args.has("attributes")) {
+                // @ts-ignore chunk.args isn't used again so can overwrite value to be in ts base...
+                chunk.args.set("attributes", templateLiteralFromServerRenderChunks(chunk.args.get("attributes")!));
+            }
+            templateLiteral.addEntry(
+                new Expression({
+                    lhs: new VariableReference(chunk.func.actualName!),
+                    operation: Operation.Call,
+                    rhs: chunk.func.buildArgumentListFromArgumentsMap(chunk.args)
+                })
+            );
+        }
+    }
+    return templateLiteral;
+}
+
+/**
+ * Wraps IValue in a escapeValue function. The escape value function escapes html
+ * @param value 
+ * @example `abc` -> `escape(abc)`
+ */
+function wrapWithEscapeCall(value: IValue): Expression {
+    return new Expression({
+        lhs: new VariableReference("escape"),
+        operation: Operation.Call,
+        rhs: value
+    });
+}
 
 export function moduleFromServerRenderedChunks(comp: Component, settings: IFinalPrismSettings): void {
     comp.serverModule = new Module(join(settings.absoluteServerOutputPath,
@@ -121,7 +187,9 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
     }
 
     // Final argument is to add a entry onto the component that is sent attributes 
-    const renderTemplateLiteral = serverRenderPrismNode(componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
+    // TODO do this higher up
+    const serverRenderChunks = serverRenderPrismNode(componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
+    const renderTemplateLiteral = templateLiteralFromServerRenderChunks(serverRenderChunks);
 
     // TODO would comp work just using the existing slot functionality?
     // TODO could do in the page render function
@@ -171,32 +239,32 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
         pageRenderArgs.push(...comp.clientGlobals.map(cG => cG[0]));
 
         const pageRenderCall: IValue = new Expression({
-            lhs: new VariableReference(renderFunction.name!.name!),
+            lhs: new VariableReference(renderFunction.actualName!),
             operation: Operation.Call,
             rhs: new ArgumentList(pageRenderArgs)
         });
 
         // Build the metadata
-        let metadataString = new TemplateLiteral();
+        let metadataString: ServerRenderedChunks = [];
         if (comp.title) {
             const title = new HTMLElement("title");
             const titleTextNode = new TextNode("", title);
             assignToObjectMap(comp.templateData.nodeData, titleTextNode, "textNodeValue", comp.title);
             title.children.push(titleTextNode);
-            metadataString.addEntry(
-                ...serverRenderPrismNode(title, comp.templateData.nodeData, ssrSettings).entries
-            );
+            metadataString = metadataString.concat(serverRenderPrismNode(title, comp.templateData.nodeData, ssrSettings));
         }
 
         if (comp.metadata) {
             const { metadataTags, nodeData: metaDataNodeData } = buildMetaTags(comp.metadata)
             for (const metaTag of metadataTags) {
-                metadataString.addEntry(...serverRenderPrismNode(metaTag, metaDataNodeData, ssrSettings, comp.globals).entries);
-                metadataString.addEntry("\n");
+                metadataString = metadataString.concat(serverRenderPrismNode(metaTag, metaDataNodeData, ssrSettings, comp.globals))
+                if (!settings.minify) {
+                    metadataString.push("\n");
+                }
             }
         }
 
-        const metaDataArg: IValue = (comp.title || comp.metadata) ? metadataString : new Value("", Type.string);
+        const metaDataArg: IValue = (comp.title || comp.metadata) ? templateLiteralFromServerRenderChunks(metadataString) : new Value("", Type.string);
 
         // Creates "return renderHTML(renderComponent(***))"
         const renderAsPage = new ReturnStatement(

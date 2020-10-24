@@ -1,8 +1,8 @@
 import { IValue } from "./value";
-import { IRenderSettings, ScriptLanguages, IConstruct, defaultRenderSettings } from "../../../helpers";
+import { IRenderSettings, ScriptLanguages, IRenderable, defaultRenderSettings } from "../../../helpers";
 import { AsExpression } from "../types/statements";
 
-export class Group implements IConstruct {
+export class Group implements IRenderable {
     constructor(
         public value: IValue
     ) { }

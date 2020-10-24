@@ -1,4 +1,4 @@
-import { TokenReader, IRenderSettings, IConstruct, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, IRenderable, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { commentTokens, JSToken, stringToTokens } from "../../javascript";
 import { TypeSignature } from "../types/type-signature";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./function";
@@ -72,7 +72,7 @@ interface IClassSettings {
 
 type ClassMember = VariableDeclaration | FunctionDeclaration | Comment;
 
-export class ClassDeclaration implements IConstruct, IClassSettings {
+export class ClassDeclaration implements IRenderable, IClassSettings {
     public name?: TypeSignature; // If null is class expression
     public isAbstract: boolean;
     public base?: TypeSignature;
@@ -141,7 +141,7 @@ export class ClassDeclaration implements IConstruct, IClassSettings {
 
         if (member.isStatic && member instanceof FunctionDeclaration) {
             if (!this.staticMethods) this.staticMethods = new Map();
-            this.staticMethods.set(member.name!.name!, member);
+            this.staticMethods.set(member.actualName!, member);
         } else if (member.isStatic && member instanceof VariableDeclaration) {
             if (!this.staticFields) this.staticFields = new Map();
             this.staticFields.set(member.name!, member);
@@ -150,14 +150,18 @@ export class ClassDeclaration implements IConstruct, IClassSettings {
             this.fields.set(member.name, member);
         } else if (member.getSet === GetSet.Get) {
             if (!this.getters) this.getters = new Map();
-            this.getters.set(member.name!.name!, member);
+            this.getters.set(member.actualName!, member);
         } else if (member.getSet === GetSet.Set) {
             if (!this.setters) this.setters = new Map();
-            this.setters.set(member.name!.name!, member);
+            this.setters.set(member.actualName!, member);
         } else {
             if (!this.methods) this.methods = new Map();
-            this.methods.set(member.name!.name!, member);
+            this.methods.set(member.actualName!, member);
         }
+    }
+
+    get actualName() {
+        return this.name?.name;
     }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

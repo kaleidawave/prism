@@ -2,7 +2,7 @@ import { join, isAbsolute } from "path";
 
 export interface IPrismSettings {
     minify: boolean, // Removes whitespace for space saving in output
-    backendLanguage: "js" | "ts", // The languages to output server templates in
+    backendLanguage: "js" | "ts" | "rust", // The languages to output server templates in
     comments: boolean, // Leave comments in TODO comment levels
     projectPath: string, // The path to the components folder OR a single component
     assetPath: string | null, // The path to the assets folder

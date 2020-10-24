@@ -33,7 +33,7 @@ import { cloneAST, aliasVariables } from "./chef/javascript/utils/variables";
 import { assignToObjectMap } from "./helpers";
 import { IFinalPrismSettings } from "./settings";
 import { IRuntimeFeatures } from "./builders/prism-client";
-import { AbstractFunctionDeclaration, AbstractModule } from "./chef/abstract-asts";
+import { IFunctionDeclaration, IModule } from "./chef/abstract-asts";
 
 export class Component {
     static registeredTags: Set<string> = new Set()
@@ -56,10 +56,10 @@ export class Component {
     componentClass: ClassDeclaration;
     clientModule: JSModule;
 
-    serverModule?: AbstractModule<any>; // TODO any
+    serverModule?: IModule; // TODO any
     // TODO language agnostic function type
-    serverRenderFunction?: AbstractFunctionDeclaration;
-    pageServerRenderFunction?: AbstractFunctionDeclaration;
+    serverRenderFunction?: IFunctionDeclaration;
+    pageServerRenderFunction?: IFunctionDeclaration;
 
     usesLayout?: Component; // The layout the component extends (component must be a page to have a layout)
     dataTypes: Map<string, Type>; // TODO merge with some kind of root data
@@ -390,7 +390,7 @@ export class Component {
                     binding.element.children[0],
                     templateData.nodeData,
                     true,
-                    [...this.globals, expression.variable.toReference()]
+                    [...(this.globals ?? []), expression.variable.toReference()]
                 );
                 const elementIdentifer = templateData.nodeData.get(binding.element)?.identifier!;
                 const renderMethod = new FunctionDeclaration(

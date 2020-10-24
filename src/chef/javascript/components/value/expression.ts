@@ -1,5 +1,5 @@
 import { JSToken, stringToTokens, tokenToKeywordMap } from "../../javascript";
-import { TokenReader, IRenderSettings, makeRenderSettings, IConstruct } from "../../../helpers";
+import { TokenReader, IRenderSettings, makeRenderSettings, IRenderable } from "../../../helpers";
 import { VariableReference, tokenAsIdent } from "./variable";
 import { IValue, Value, Type, nullValue } from "./value";
 import { ArgumentList } from "../constructs/function";
@@ -187,7 +187,7 @@ const operationPrecedence = new Map([
  * Represents a expression with a LHS, operation (and a possible RHS)
  * Note than the LHS is not always left hand side visually. E.g for `!x` -> lhs = x
  */
-export class Expression implements IConstruct {
+export class Expression implements IRenderable {
 
     public lhs: IValue;
     public operation: Operation;

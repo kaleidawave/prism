@@ -1,19 +1,20 @@
 import { IFile } from "./filesystem";
-import { IConstruct, IRenderOptions, IRenderSettings } from "./helpers";
+import { IRenderable, IRenderOptions, IRenderSettings } from "./helpers";
 
-export abstract class AbstractModule<T> implements IFile, IConstruct {
-    constructor(public filename: string, public statements: Array<T>) { }
-    abstract render(settings?: Partial<IRenderSettings>, options?: Partial<IRenderOptions>): string;
-
-    abstract writeToFile(settings?: Partial<IRenderSettings>): void;
-
-    abstract addExport(exportable: AbstractFunctionDeclaration | any): void;
-    abstract addImport(importName: any, from: string): void;
-}
-
-export abstract class AbstractFunctionDeclaration {
+export interface IModule extends IFile, IRenderable {
     statements: Array<any>;
 
-    abstract buildArgumentListFromArgumentsMap(argumentMap: Map<string, any>): any;
-    abstract actualName: string | null;
+    render(settings?: Partial<IRenderSettings>, options?: Partial<IRenderOptions>): string;
+
+    writeToFile(settings?: Partial<IRenderSettings>): void;
+
+    addExport(exportable: IFunctionDeclaration | any): void;
+    addImport(importName: any, from: string): void;
+}
+
+export interface IFunctionDeclaration extends IRenderable {
+    statements: Array<any>;
+
+    buildArgumentListFromArgumentsMap(argumentMap: Map<string, any>): any;
+    actualName: string | null;
 }

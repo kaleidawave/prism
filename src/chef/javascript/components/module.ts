@@ -7,9 +7,9 @@ import { IValue } from "./value/value";
 import { VariableDeclaration } from "./statements/variable";
 import { renderBlock } from "./constructs/block";
 import { readFile, writeFile } from "../../filesystem";
-import { AbstractModule } from "../../abstract-asts";
+import { IModule } from "../../abstract-asts";
 
-export class Module extends AbstractModule<Statements> {
+export class Module implements IModule {
 
     name?: string;
     statements: Array<Statements>;
@@ -30,7 +30,6 @@ export class Module extends AbstractModule<Statements> {
         public filename: string,
         statements: Array<Statements> = [],
     ) {
-        super(filename, statements);
         for (const statement of statements) {
             if (statement instanceof ImportStatement) this.imports.push(statement);
             else if (statement instanceof ExportStatement) {

@@ -135,13 +135,13 @@ export function clientRenderPrismNode(
                             lhs: new Expression({
                                 lhs: new VariableReference("map", clientExpression.subject),
                                 operation: Operation.Call,
-                                rhs: VariableReference.fromChain("this", elementData.clientRenderMethod.name?.name!)
+                                rhs: VariableReference.fromChain("this", elementData.clientRenderMethod.actualName!)
                             })
                         })
                     ];
                 } else {
                     return new Expression({
-                        lhs: VariableReference.fromChain("this", elementData.clientRenderMethod.name?.name!),
+                        lhs: VariableReference.fromChain("this", elementData.clientRenderMethod.actualName!),
                         operation: Operation.Call,
                     });
                 }
