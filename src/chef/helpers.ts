@@ -64,7 +64,7 @@ export function makeRenderSettings(partialSettings: Partial<IRenderSettings>): I
 }
 
 export interface IRenderable {
-    render(settings?: Partial<IRenderSettings>, options?: Partial<IRenderOptions>): string;
+    render(settings: IRenderSettings, options?: Partial<IRenderOptions>): string;
 }
 
 /**

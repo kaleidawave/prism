@@ -1,11 +1,11 @@
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { TypeSignature } from "./type-signature";
 import { IRenderSettings, defaultRenderSettings, ScriptLanguages, TokenReader, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 
 export class AsExpression implements IRenderable {
     constructor(
-        public value: IValue, 
+        public value: ValueTypes, 
         public asType: TypeSignature
     ) { }
 
@@ -20,7 +20,7 @@ export class AsExpression implements IRenderable {
     }
 }
 
-export class TypeStatement {
+export class TypeStatement implements IRenderable {
     constructor(
         public name: TypeSignature,
         public value: TypeSignature,

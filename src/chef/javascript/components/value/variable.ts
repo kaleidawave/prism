@@ -1,5 +1,5 @@
 import { JSToken, stringToTokens } from "../../javascript";
-import { IValue, Type, Value } from "./value";
+import { ValueTypes, Type, Value } from "./value";
 import { IRenderSettings, TokenReader, IRenderable, defaultRenderSettings } from "../../../helpers";
 import { Expression, Operation } from "./expression";
 
@@ -38,10 +38,10 @@ export function tokenAsIdent(token: JSToken) {
  */
 export class VariableReference implements IRenderable {
 
-    parent?: IValue;
+    parent?: ValueTypes;
     name: string;
 
-    constructor(name: string, parent?: IValue) {
+    constructor(name: string, parent?: ValueTypes) {
         this.name = name;
         if (parent) this.parent = parent;
     }
@@ -49,7 +49,7 @@ export class VariableReference implements IRenderable {
     render(settings: IRenderSettings = defaultRenderSettings): string {
         let acc = this.name;
         if (this.parent) {
-            acc = this.parent.render(settings) + '.' + acc;
+            acc = this.parent.render(settings) + "." + acc;
         }
         return acc;
     }
@@ -99,8 +99,8 @@ export class VariableReference implements IRenderable {
      * Will return self if no parent
      * @example `a.b.c.d.e` -> `a`
      */
-    get tail(): IValue {
-        let cur: IValue = this;
+    get tail(): ValueTypes {
+        let cur: ValueTypes = this;
         while (cur instanceof VariableReference && cur.parent) {
             cur = cur.parent;
         }
@@ -124,8 +124,8 @@ export class VariableReference implements IRenderable {
      * @param items 
      * @example ["this", "data", "member"] -> {name: "member", parent: {name: "data", parent: {...}}}
      */
-    static fromChain(...items: Array<string | number | IValue>): IValue {
-        let head: IValue;
+    static fromChain(...items: Array<string | number | ValueTypes>): ValueTypes {
+        let head: ValueTypes;
         if (typeof items[0] === "number") { 
             throw Error("First arg to VariableReference.FromChain must be string");
         } else if (typeof items[0] === "string") {

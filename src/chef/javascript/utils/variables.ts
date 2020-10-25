@@ -1,8 +1,8 @@
 import { ClassDeclaration } from "../components/constructs/class";
-import { Statements, ReturnStatement } from "../components/statements/statement";
+import { StatementTypes, ReturnStatement } from "../components/statements/statement";
 import { Expression, Operation } from "../components/value/expression";
 import { IfStatement, ElseStatement } from "../components/statements/if";
-import { IValue, Type, Value } from "../components/value/value";
+import { ValueTypes, Type, Value } from "../components/value/value";
 import { ArgumentList, FunctionDeclaration } from "../components/constructs/function";
 import { IRenderable } from "../../helpers";
 import { TemplateLiteral } from "../components/value/template-literal";
@@ -28,12 +28,14 @@ export function getVariablesInClass(cls: ClassDeclaration): Array<VariableRefere
     return variables;
 }
 
+type astTypes = StatementTypes | ValueTypes | ArgumentList | ForIteratorExpression | ForStatementExpression;
+
 /**
  * Walks through a statement and yields ALL variable references
  * Lot of "as" here as TypeScript does not like switching on the constructor
  * @param cloneStructure Will clone structure while walking. TODO maybe implement this separately
  */
-export function* variableReferenceWalker(statement: Statements): Generator<VariableReference> {
+export function* variableReferenceWalker(statement: astTypes): Generator<VariableReference> {
     if (statement instanceof VariableReference) {
         yield statement;
     } else if (statement instanceof Expression) {
@@ -80,7 +82,7 @@ export function* variableReferenceWalker(statement: Statements): Generator<Varia
 /**
  * Mimic constructor signature of `VariableReference` but uses optional chain
  */
-export function newOptionalVariableReference(name: string, parent: IValue) {
+export function newOptionalVariableReference(name: string, parent: ValueTypes) {
     return new Expression({
         lhs: parent,
         operation: Operation.OptionalChain,
@@ -91,8 +93,8 @@ export function newOptionalVariableReference(name: string, parent: IValue) {
 /**
  * Mimics `VariableReference.fromChain` but uses optional chain and optional index
  */
-export function newOptionalVariableReferenceFromChain(...items: Array<string | number | IValue>): IValue {
-    let head: IValue;
+export function newOptionalVariableReferenceFromChain(...items: Array<string | number | ValueTypes>): ValueTypes {
+    let head: ValueTypes;
     if (typeof items[0] === "number") { 
         throw Error("First arg to newOptionalVariableReferenceFromChain must be string");
     } else if (typeof items[0] === "string") {
@@ -148,7 +150,7 @@ export function variableReferenceFromOptionalChain(expr: Expression): VariableRe
  * Returns variables in a statement
  * @param allVariables whether to return 
 */
-export function findVariables(statement: Statements, allVariables: boolean = false): Array<VariableReference> {
+export function findVariables(statement: astTypes, allVariables: boolean = false): Array<VariableReference> {
     const variables: Array<VariableReference> = [];
     for (const variable of variableReferenceWalker(statement)) {
         // Check variable has not already been registered
@@ -169,7 +171,7 @@ export function findVariables(statement: Statements, allVariables: boolean = fal
  * @param locals A set of variables to not alias
  */
 export function aliasVariables(
-    value: IRenderable,
+    value: astTypes,
     parent: VariableReference,
     locals: Array<VariableReference> = []
 ): void {
@@ -189,8 +191,8 @@ export function aliasVariables(
  * Replaces variable in expression inline
  */
 export function replaceVariables(
-    value: IRenderable,
-    replacer: IValue | ((intercepted: VariableReference) => IValue),
+    value: astTypes,
+    replacer: ValueTypes | ((intercepted: VariableReference) => ValueTypes),
     targets: Array<VariableReference>
 ): void {
     for (const variable of variableReferenceWalker(value)) {
@@ -201,7 +203,7 @@ export function replaceVariables(
                 replaceVariable = variable.parent! as VariableReference;
             }
 
-            let replacerValue: IValue;
+            let replacerValue: ValueTypes;
             if (typeof replacer === "function") {
                 replacerValue = replacer(variable);
             } else {
@@ -220,13 +222,13 @@ export function replaceVariables(
  * TODO temp
  * Could do by rendering out ast and re parsing lol
  */
-export function cloneAST(part: IRenderable) {
+export function cloneAST(part: astTypes) {
     if (part === null) return null;
 
     if (part instanceof VariableReference) {
         return new VariableReference(part.name, part.parent ? cloneAST(part.parent) : undefined);
     } else if (part instanceof Value) {
-        return new Value(part.value, part.type);
+        return new Value(part.type, part.value ?? "");
     } else if (part instanceof Expression) {
         return new Expression({
             lhs: cloneAST(part.lhs),

@@ -1,14 +1,14 @@
-import { Statements } from "./statement";
-import { IValue } from "../value/value";
-import { IRenderSettings, TokenReader, defaultRenderSettings } from "../../../helpers";
+import { StatementTypes } from "./statement";
+import { ValueTypes } from "../value/value";
+import { IRenderSettings, TokenReader, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "../constructs/block";
 
-export class SwitchStatement {
+export class SwitchStatement implements IRenderable {
     constructor(
-        public expression: IValue,
-        public cases: Array<[IValue | null, Array<Statements>]>, // TODO should LHS be of type IValue ???
+        public expression: ValueTypes,
+        public cases: Array<[ValueTypes | null, Array<StatementTypes>]>, // TODO should LHS be of type IValue ???
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -39,7 +39,7 @@ export class SwitchStatement {
         return acc;
     }
 
-    get defaultCase(): Statements[] {
+    get defaultCase(): StatementTypes[] {
         return this.cases.find(([condition]) => condition === null)?.[1] || [];
     }
 
@@ -49,7 +49,7 @@ export class SwitchStatement {
         const expr = Expression.fromTokens(reader);
         reader.expectNext(JSToken.CloseBracket);
         reader.expectNext(JSToken.OpenCurly);
-        const cases: Array<[IValue | null, Array<Statements>]> = [];
+        const cases: Array<[ValueTypes | null, Array<StatementTypes>]> = [];
         while (reader.current.type !== JSToken.CloseCurly) {
             if (reader.current.type === JSToken.Case) {
                 reader.move();

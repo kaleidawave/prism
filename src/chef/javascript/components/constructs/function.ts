@@ -1,8 +1,8 @@
 import { TokenReader, IRenderSettings, IRenderable, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { JSToken, stringToTokens } from "../../javascript";
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { TypeSignature } from "../types/type-signature";
-import { Statements, ReturnStatement } from "../statements/statement";
+import { StatementTypes, ReturnStatement } from "../statements/statement";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "./block";
 import { ClassDeclaration, Decorator } from "./class";
@@ -30,7 +30,7 @@ export function parseFunctionParams(reader: TokenReader<JSToken>): Array<Variabl
 }
 
 export class ArgumentList implements IRenderable {
-    constructor(public args: IValue[] = []) { }
+    constructor(public args: ValueTypes[] = []) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
         const renderedArgs = this.args.map(arg => arg.render(settings, { inline: true }));
@@ -45,7 +45,7 @@ export class ArgumentList implements IRenderable {
     }
 
     static fromTokens(reader: TokenReader<JSToken>): ArgumentList {
-        const args: Array<IValue> = [];
+        const args: Array<ValueTypes> = [];
         reader.expectNext(JSToken.OpenBracket);
         while (reader.current.type !== JSToken.CloseBracket) {
             const arg = Expression.fromTokens(reader);
@@ -75,7 +75,7 @@ interface FunctionOptions {
 export class FunctionDeclaration implements IFunctionDeclaration, FunctionOptions {
     name?: TypeSignature; // Null signifies anonymous function 
     returnType?: TypeSignature;
-    statements: Array<Statements>;
+    statements: Array<StatementTypes>;
     parameters: Array<VariableDeclaration>;
     parent: ClassDeclaration | ObjectLiteral | Module;
 
@@ -95,7 +95,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
     constructor(
         name: TypeSignature | string | null = null,
         parameters: string[] | VariableDeclaration[] = [],
-        statements: Array<Statements> = [],
+        statements: Array<StatementTypes> = [],
         options: Partial<FunctionOptions> = {}
     ) {
         if (name) {
@@ -127,8 +127,8 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
      * Helper method for generating a argument list for calling this function. Basically implements named named parameters by generating a in order list of arguments
      * @param argumentMap 
      */
-    buildArgumentListFromArgumentsMap(argumentMap: Map<string, IValue>): ArgumentList {
-        const args: Array<IValue> = [];
+    buildArgumentListFromArgumentsMap(argumentMap: Map<string, ValueTypes>): ArgumentList {
+        const args: Array<ValueTypes> = [];
         for (const param of this.parameters) {
             const arg = argumentMap.get(param.name);
             // TODO or optional
@@ -319,7 +319,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
                 params = parseFunctionParams(reader);
             }
             reader.expectNext(JSToken.ArrowFunction);
-            let statements: Statements[];
+            let statements: StatementTypes[];
             if (reader.current.type as JSToken !== JSToken.OpenCurly) {
                 // If next token is void assume it is not meant to return
                 if (reader.peek()?.type === JSToken.Void) {

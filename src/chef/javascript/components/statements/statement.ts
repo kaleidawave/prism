@@ -5,7 +5,7 @@ import { SwitchStatement } from "./switch";
 import { Expression } from "../value/expression";
 import { VariableDeclaration } from "../statements/variable";
 import { ClassDeclaration, Decorator } from "../constructs/class";
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { FunctionDeclaration } from "../constructs/function";
 import { ForStatement } from "./for";
 import { WhileStatement, DoWhileStatement } from "./while";
@@ -16,7 +16,7 @@ import { Comment } from "./comments";
 import { ImportStatement, ExportStatement } from "./import-export";
 import { TypeStatement } from "../types/statements";
 
-export type Statements =
+export type StatementTypes =
     VariableDeclaration
     | HashBangStatement
     | ClassDeclaration
@@ -37,7 +37,7 @@ export type Statements =
     | Decorator
     | TypeStatement;
 
-export function ParseStatement(reader: TokenReader<JSToken>): Statements {
+export function ParseStatement(reader: TokenReader<JSToken>): StatementTypes {
     switch (reader.current.type) {
         case JSToken.Const:
         case JSToken.Let:
@@ -85,9 +85,9 @@ export function ParseStatement(reader: TokenReader<JSToken>): Statements {
     }
 }
 
-export class ReturnStatement {
+export class ReturnStatement implements IRenderable {
     constructor(
-        public returnValue: IValue
+        public returnValue: ValueTypes
             | null = null
     ) { }
 
@@ -111,7 +111,7 @@ export class ReturnStatement {
     }
 }
 
-export class BreakStatement {
+export class BreakStatement implements IRenderable {
     constructor(
         public label?: string
     ) { }
@@ -135,7 +135,7 @@ export class BreakStatement {
     }
 }
 
-export class ContinueStatement {
+export class ContinueStatement implements IRenderable {
     constructor(
         public label?: string
     ) { }
@@ -155,7 +155,7 @@ export class ContinueStatement {
     }
 }
 
-export class HashBangStatement {
+export class HashBangStatement implements IRenderable {
     constructor(
         public path: string
     ) { }

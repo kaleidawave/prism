@@ -1,4 +1,4 @@
-import { IValue } from "./value";
+import { ValueTypes } from "./value";
 import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { Expression } from "./expression";
@@ -10,7 +10,7 @@ import { Expression } from "./expression";
 export class ArrayLiteral implements IRenderable {
 
     constructor (
-        public elements: IValue[] = []
+        public elements: ValueTypes[] = []
     ) {}
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -28,7 +28,7 @@ export class ArrayLiteral implements IRenderable {
         return acc + "]"
     }
     
-    static fromTokens(reader: TokenReader<JSToken>): IValue {
+    static fromTokens(reader: TokenReader<JSToken>): ValueTypes {
         const array = new ArrayLiteral();
         reader.expectNext(JSToken.OpenSquare);
         while (reader.current.type !== JSToken.CloseSquare) {

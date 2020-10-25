@@ -1,5 +1,5 @@
 import { HTMLElement, TextNode, HTMLDocument, HTMLComment, Node } from "../../chef/html/html";
-import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
+import { ValueTypes, Value, Type } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
@@ -17,7 +17,7 @@ export interface IServerRenderSettings {
 }
 
 export interface ServerRenderExpression {
-    value: IValue
+    value: ValueTypes
 }
 
 export interface FunctionCallServerRenderExpression {
@@ -26,13 +26,13 @@ export interface FunctionCallServerRenderExpression {
 }
 
 export interface ConditionalServerRenderExpression {
-    condition: IValue,
+    condition: ValueTypes,
     truthyRenderExpression: ServerRenderedChunks,
     falsyRenderExpression: ServerRenderedChunks
 }
 
 export interface LoopServerRenderExpression {
-    subject: IValue,
+    subject: ValueTypes,
     variable: string,
     childRenderExpression: ServerRenderedChunks
 }
@@ -106,7 +106,7 @@ function buildServerTemplateLiteralShards(
             const component = elementData.component;
 
             // Components data
-            const componentsData: IValue | null = elementData.dynamicAttributes?.get("data") ?? null;
+            const componentsData: ValueTypes | null = elementData.dynamicAttributes?.get("data") ?? null;
 
             // A render function for a component goes attributes, componentData, contentSlot, ...context. With all of those being optional apart from contentSlot
 

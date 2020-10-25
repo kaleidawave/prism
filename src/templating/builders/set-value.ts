@@ -1,8 +1,8 @@
-import { Statements } from "../../chef/javascript/components/statements/statement";
+import { StatementTypes } from "../../chef/javascript/components/statements/statement";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
-import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
+import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/value";
 import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVariableReferenceFromChain, aliasVariables } from "../../chef/javascript/utils/variables";
 import { getSlice, getElement, thisDataVariable } from "../helpers";
 import { BindingAspect, IBinding, VariableReferenceArray, NodeData } from "../template";
@@ -13,17 +13,17 @@ export function makeSetFromBinding(
     nodeData: WeakMap<Node, NodeData>,
     variable: VariableReferenceArray,
     globals: Array<VariableReference> = []
-): Array<Statements> {
-    const statements: Array<Statements> = [];
+): Array<StatementTypes> {
+    const statements: Array<StatementTypes> = [];
     const elementStatement = getElement(binding.element, nodeData);
     const isElementNullable = nodeData.get(binding.element)?.nullable ?? false;
 
     // getSlice will return the trailing portion from the for iterator statement thing
     const variableReference = VariableReference.fromChain(...getSlice(variable) as Array<string>) as VariableReference;
 
-    let newValue: IValue | null = null;
+    let newValue: ValueTypes | null = null;
     if (binding.expression) {
-        const clonedExpression = cloneAST(binding.expression) as IValue;
+        const clonedExpression = cloneAST(binding.expression) as ValueTypes;
         const valueParam = new VariableReference("value");
         replaceVariables(clonedExpression, valueParam, [variableReference]);
         aliasVariables(clonedExpression, thisDataVariable, [valueParam, ...globals]);
@@ -61,7 +61,7 @@ export function makeSetFromBinding(
             }
             break;
         case BindingAspect.Conditional: {
-            const clientRenderFunction = nodeData.get(binding.element)!.clientRenderMethod!;
+            const {clientRenderMethod, identifier} = nodeData.get(binding.element) ?? {};
 
             const callConditionalSwapFunction = new Expression({
                 lhs: VariableReference.fromChain("conditionalSwap", "call"),
@@ -69,8 +69,8 @@ export function makeSetFromBinding(
                 rhs: new ArgumentList([
                     new VariableReference("this"),
                     newValue!, // TODO temp non null
-                    new Value(nodeData.get(binding.element)!.identifier!, Type.string),
-                    VariableReference.fromChain("this", clientRenderFunction.actualName!)
+                    new Value(Type.string, identifier!),
+                    VariableReference.fromChain("this", clientRenderMethod!.actualName!)
                 ])
             });
             statements.push(callConditionalSwapFunction);
@@ -110,7 +110,7 @@ export function makeSetFromBinding(
                     lhs: setAttributeRef,
                     operation: isElementNullable ? Operation.OptionalCall : Operation.Call,
                     rhs: new ArgumentList([
-                        new Value(attribute, Type.string),
+                        new Value(Type.string, attribute),
                         newValue!
                     ])
                 }));
@@ -158,7 +158,7 @@ export function makeSetFromBinding(
     return statements;
 }
 
-export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): Statements {
+export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): StatementTypes {
     if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
     const getElemExpression = getElement(binding.element, nodeData);
 

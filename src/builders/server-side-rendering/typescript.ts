@@ -11,7 +11,7 @@ import { VariableDeclaration } from "../../chef/javascript/components/statements
 import { TypeSignature } from "../../chef/javascript/components/types/type-signature";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { TemplateLiteral } from "../../chef/javascript/components/value/template-literal";
-import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
+import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Component } from "../../component";
 import { assignToObjectMap } from "../../helpers";
@@ -28,7 +28,7 @@ function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunk
             templateLiteral.addEntry(wrapWithEscapeCall(chunk.value));
         } else if ("condition" in chunk) {
             templateLiteral.addEntry(new Expression({
-                lhs: chunk.condition as IValue,
+                lhs: chunk.condition as ValueTypes,
                 operation: Operation.Ternary,
                 rhs: new ArgumentList([
                     templateLiteralFromServerRenderChunks(chunk.truthyRenderExpression),
@@ -51,7 +51,7 @@ function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunk
                         )
                     })),
                     operation: Operation.Call,
-                    rhs: new Value("", Type.string)
+                    rhs: new Value(Type.string)
                 })
             );
         } else if ("func" in chunk) {
@@ -77,7 +77,7 @@ function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunk
  * @param value 
  * @example `abc` -> `escape(abc)`
  */
-function wrapWithEscapeCall(value: IValue): Expression {
+function wrapWithEscapeCall(value: ValueTypes): Expression {
     return new Expression({
         lhs: new VariableReference("escape"),
         operation: Operation.Call,
@@ -86,8 +86,7 @@ function wrapWithEscapeCall(value: IValue): Expression {
 }
 
 export function moduleFromServerRenderedChunks(comp: Component, settings: IFinalPrismSettings): void {
-    comp.serverModule = new Module(join(settings.absoluteServerOutputPath,
-        comp.relativeFilename));
+    comp.serverModule = new Module(join(settings.absoluteServerOutputPath, comp.relativeFilename));
 
     const componentDataTypeSignature =
         comp.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
@@ -155,7 +154,7 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
     if (generateAttributeArgument) {
         parameters.push(new VariableDeclaration("attributes", {
             typeSignature: new TypeSignature({ name: "string" }),
-            value: new Value("", Type.string)
+            value: new Value(Type.string)
         }));
     }
 
@@ -165,10 +164,10 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
         }
     }
 
-    const renderFunction = new FunctionDeclaration(`render${comp.className}Component`, parameters, []);
+    comp.serverRenderFunction = new FunctionDeclaration(`render${comp.className}Component`, parameters, []);
 
     if (comp.defaultData && comp.noSSRData) {
-        renderFunction.statements.push(new VariableDeclaration("data", {
+        comp.serverRenderFunction.statements.push(new VariableDeclaration("data", {
             value: comp.defaultData,
             typeSignature: componentDataTypeSignature
         }));
@@ -200,14 +199,14 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
             value: renderTemplateLiteral
         });
 
-        renderFunction.statements.push(innerContent);
+        comp.serverRenderFunction.statements.push(innerContent);
 
         // TODO layout data is different to component data. Should be interpreted in same way as client global
         const renderArgs = new Map([
-            ["attributes", new Value("", Type.string)],
+            ["attributes", new Value(Type.string)],
             ["data", new VariableReference("data")],
             ["contentSlot", innerContent.toReference()]
-        ] as Array<[string, IValue]>);
+        ] as Array<[string, ValueTypes]>);
 
         for (const clientGlobal of comp.clientGlobals) {
             renderArgs.set((clientGlobal[0].tail as VariableReference).name, clientGlobal[0]);
@@ -225,21 +224,20 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
             rhs: argumentList
         });
 
-        renderFunction.statements.push(new ReturnStatement(callLayoutSSRFunction));
+        comp.serverRenderFunction.statements.push(new ReturnStatement(callLayoutSSRFunction));
     } else {
-        renderFunction.statements.push(new ReturnStatement(renderTemplateLiteral));
+        comp.serverRenderFunction.statements.push(new ReturnStatement(renderTemplateLiteral));
     }
 
-    comp.serverModule!.addExport(renderFunction);
-    comp.serverRenderFunction = renderFunction;
+    comp.serverModule!.addExport(comp.serverRenderFunction);
 
     // If has page decorator, add another function that renders the page into full document with head
     if (comp.isPage) {
-        const pageRenderArgs: Array<IValue> = comp.needsData ? [new VariableReference("data")] : [];
+        const pageRenderArgs: Array<ValueTypes> = comp.needsData ? [new VariableReference("data")] : [];
         pageRenderArgs.push(...comp.clientGlobals.map(cG => cG[0]));
 
-        const pageRenderCall: IValue = new Expression({
-            lhs: new VariableReference(renderFunction.actualName!),
+        const pageRenderCall: ValueTypes = new Expression({
+            lhs: new VariableReference(comp.serverRenderFunction.actualName!),
             operation: Operation.Call,
             rhs: new ArgumentList(pageRenderArgs)
         });
@@ -264,7 +262,7 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
             }
         }
 
-        const metaDataArg: IValue = (comp.title || comp.metadata) ? templateLiteralFromServerRenderChunks(metadataString) : new Value("", Type.string);
+        const metaDataArg: ValueTypes = (comp.title || comp.metadata) ? templateLiteralFromServerRenderChunks(metadataString) : new Value(Type.string);
 
         // Creates "return renderHTML(renderComponent(***))"
         const renderAsPage = new ReturnStatement(

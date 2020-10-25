@@ -1,14 +1,14 @@
-import { Statements, ParseStatement } from "./statement";
+import { StatementTypes, ParseStatement } from "./statement";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ClassDeclaration } from "../constructs/class";
 import { FunctionDeclaration } from "../constructs/function";
-import { TokenReader, IRenderSettings, ScriptLanguages, ModuleFormat, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, ScriptLanguages, ModuleFormat, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { InterfaceDeclaration } from "../types/interface";
 
 const extensions = [".ts", ".js"];
 
-export class ImportStatement {
+export class ImportStatement implements IRenderable {
 
     variable: VariableDeclaration | null;
 
@@ -117,10 +117,10 @@ export class ImportStatement {
     }
 }
 
-export class ExportStatement {
+export class ExportStatement implements IRenderable {
 
     constructor(
-        public exported: Statements,
+        public exported: StatementTypes,
         public isDefault: boolean = false,
     ) { }
 

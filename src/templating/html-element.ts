@@ -1,7 +1,7 @@
 import { IEvent, BindingAspect, parseNode, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
 import { addIdentifierToElement, addEvent, addBinding } from "./helpers";
 import { VariableReference } from "../chef/javascript/components/value/variable";
-import { IValue } from "../chef/javascript/components/value/value";
+import { ValueTypes } from "../chef/javascript/components/value/value";
 import { Expression } from "../chef/javascript/components/value/expression";
 import { parseForNode } from "./constructs/for";
 import { parseIfNode } from "./constructs/if";
@@ -126,7 +126,7 @@ export function parseHTMLElement(
             // Dynamic attributes
             if (name === "$style") {
 
-                const parts: Array<string | IValue> = [];
+                const parts: Array<string | ValueTypes> = [];
                 for (const [key, [cssValue]] of parseStylingDeclarationsFromString(value!)) {
                     if (!cssValue || typeof cssValue === "string" || !("value" in cssValue)) {
                         throw Error(`Invalid CSS value around "${element.render(defaultRenderSettings, { inline: true })}"`);
@@ -161,7 +161,7 @@ export function parseHTMLElement(
 
                 element.attributes.delete(name);
             } else if (name[0] === "$") {
-                let expression: IValue;
+                let expression: ValueTypes;
                 if (!value) {
                     // Allows shorthand #src <=> #src="src"
                     expression = new VariableReference(subject);

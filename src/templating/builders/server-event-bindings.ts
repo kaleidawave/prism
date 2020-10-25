@@ -1,7 +1,7 @@
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
-import { Value, Type, IValue } from "../../chef/javascript/components/value/value";
+import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/value";
 import { IEvent, NodeData } from "../template";
 import { Node } from "../../chef/html/html";
 import { newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
@@ -21,11 +21,11 @@ export function buildEventBindings(
         const getElementExpression = new Expression({
             lhs: VariableReference.fromChain("this", "getElem"),
             operation: Operation.Call,
-            rhs: new ArgumentList([new Value(event.nodeIdentifier, Type.string)])
+            rhs: new ArgumentList([new Value(Type.string, event.nodeIdentifier)])
         });
 
         // Bind the cb to "this" so that the data variable exist, rather than being bound the event invoker
-        let callback: IValue;
+        let callback: ValueTypes;
         if (event.existsOnComponentClass) {
             callback = new Expression({
                 lhs: VariableReference.fromChain("this", event.callback.name, "bind"),
@@ -50,7 +50,7 @@ export function buildEventBindings(
                     VariableReference.fromChain(getElementExpression, "addEventListener"),
                 operation: nullable ? Operation.OptionalCall : Operation.Call,
                 rhs: new ArgumentList([
-                    new Value(event.event, Type.string),
+                    new Value(Type.string, event.event),
                     callback
                 ])
             });
@@ -64,7 +64,7 @@ export function buildEventBindings(
                         newOptionalVariableReferenceFromChain(getElementExpression, "removeAttribute") :
                         VariableReference.fromChain(getElementExpression, "removeAttribute"),
                     operation: nullable ? Operation.OptionalCall : Operation.Call,
-                    rhs: new ArgumentList([new Value("disabled", Type.string)])
+                    rhs: new ArgumentList([new Value(Type.string, "disabled")])
                 });
 
                 bindEventListenersFunction.statements.push(enableComponent);
@@ -84,7 +84,7 @@ export function buildEventBindings(
                     VariableReference.fromChain(getElementExpression, "removeEventListener"),
                 operation: nullable ? Operation.OptionalCall : Operation.Call,
                 rhs: new ArgumentList([
-                    new Value(event.event, Type.string),
+                    new Value(Type.string, event.event),
                     callback
                 ])
             });

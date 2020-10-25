@@ -4,7 +4,7 @@ import { TypeSignature } from "../types/type-signature";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./function";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { Comment } from "../statements/comments";
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 
 // Tokens which when prepended to a class member depict modification
 const memberModifiers = new Set([
@@ -24,7 +24,7 @@ export class Decorator {
 
     constructor(
         public name: string,
-        args?: Array<IValue> | ArgumentList
+        args?: Array<ValueTypes> | ArgumentList
     ) {
         if (args) {
             if (args instanceof ArgumentList) {

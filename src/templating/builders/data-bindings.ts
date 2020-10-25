@@ -1,7 +1,7 @@
 import { FunctionDeclaration } from "../../chef/javascript/components/constructs/function";
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";
-import { ReturnStatement, Statements } from "../../chef/javascript/components/statements/statement";
-import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
+import { ReturnStatement, StatementTypes } from "../../chef/javascript/components/statements/statement";
+import { ValueTypes, Value, Type } from "../../chef/javascript/components/value/value";
 import { IBinding, BindingAspect, VariableReferenceArray, ForLoopVariable, NodeData } from "../template";
 import { makeGetFromBinding, getLengthFromIteratorBinding } from "./get-value";
 import { makeSetFromBinding, setLengthForIteratorBinding } from "./set-value";
@@ -15,9 +15,9 @@ import { IFinalPrismSettings } from "../../settings";
 interface IDataPoint {
     variable: VariableReferenceArray, // The variable it references
     type: IType,
-    getReturnValue: IValue | null,
-    setStatements: Array<Statements>,
-    pushStatements?: Array<Statements>
+    getReturnValue: ValueTypes | null,
+    setStatements: Array<StatementTypes>,
+    pushStatements?: Array<StatementTypes>
 }
 
 /**
@@ -143,7 +143,7 @@ function generateBranch(
         } else {
             const subTree = new ObjectLiteral;
             // Set the type
-            subTree.values.set("type", new Value("object", Type.string));
+            subTree.values.set("type", new Value(Type.object));
             variableContainer.values.set(objectLiteralName, subTree);
             variableContainer = subTree;
         }
@@ -170,7 +170,8 @@ function generateBranch(
             // TODO temp for get rid of type: "object"
             variableContainer.values.delete("type");
         } else {
-            variableContainer.values.set("type", new Value(point.type.name ?? "object", Type.string));
+            // TODO point.type.name ?? "object"
+            variableContainer.values.set("type", new Value(Type.string, point.type.name ?? "object"));
         }
     }
 }

@@ -1,9 +1,8 @@
 import { JSToken, stringToTokens, tokenToKeywordMap } from "../../javascript";
 import { TokenReader, IRenderSettings, makeRenderSettings, IRenderable } from "../../../helpers";
 import { VariableReference, tokenAsIdent } from "./variable";
-import { IValue, Value, Type, nullValue } from "./value";
+import { ValueTypes, Value, Type, nullValue } from "./value";
 import { ArgumentList } from "../constructs/function";
-import { Statements } from "../statements/statement";
 import { ObjectLiteral } from "./object";
 import { FunctionDeclaration } from "../constructs/function";
 import { ArrayLiteral } from "./array";
@@ -189,15 +188,15 @@ const operationPrecedence = new Map([
  */
 export class Expression implements IRenderable {
 
-    public lhs: IValue;
+    public lhs: ValueTypes;
     public operation: Operation;
-    public rhs: IValue | ArgumentList | null;
+    public rhs: ValueTypes | ArgumentList | null;
 
     constructor({
         lhs,
         operation,
         rhs = null
-    }: { lhs: IValue, operation: Operation, rhs?: IValue | ArgumentList | null }) {
+    }: { lhs: ValueTypes, operation: Operation, rhs?: ValueTypes | ArgumentList | null }) {
         this.lhs = lhs;
         this.operation = operation;
         this.rhs = rhs;
@@ -286,7 +285,7 @@ export class Expression implements IRenderable {
         return expression;
     }
 
-    static fromTokens(reader: TokenReader<JSToken>, precedence = 0): IValue {
+    static fromTokens(reader: TokenReader<JSToken>, precedence = 0): ValueTypes {
         //@ts-ignore TODO expression requires parameters
         const expression = new Expression({ lhs: null, operation: null });
         switch (reader.current.type) {
@@ -294,9 +293,9 @@ export class Expression implements IRenderable {
             case JSToken.NumberLiteral:
                 const number = reader.current.value!;
                 if (number.endsWith("n")) {
-                    expression.lhs = new Value(number, Type.bigint);
+                    expression.lhs = new Value(Type.bigint, number);
                 } else {
-                    expression.lhs = new Value(number, Type.number);
+                    expression.lhs = new Value(Type.number, number);
                 }
                 reader.move();
                 break;
@@ -313,11 +312,11 @@ export class Expression implements IRenderable {
                 break;
             case JSToken.True:
             case JSToken.False:
-                expression.lhs = new Value(reader.current.type === JSToken.True ? "true" : "false", Type.boolean);
+                expression.lhs = new Value(Type.boolean, reader.current.type === JSToken.True ? "true" : "false");
                 reader.move();
                 break;
             case JSToken.StringLiteral:
-                expression.lhs = new Value(reader.current.value!, Type.string);
+                expression.lhs = new Value(Type.string, reader.current.value!);
                 reader.move();
                 break;
             case JSToken.OpenSquare:
@@ -356,7 +355,7 @@ export class Expression implements IRenderable {
                 return nullValue;
             case JSToken.Undefined:
                 reader.move();
-                return new Value(null, Type.undefined); // TODO return undefinedValue ?
+                return new Value(Type.undefined);
             case JSToken.Async:
             case JSToken.Function:
                 return FunctionDeclaration.fromTokens(reader);

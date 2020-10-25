@@ -1,21 +1,21 @@
-import { IValue } from "./value";
+import { ValueTypes } from "./value";
 import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { Expression } from "./expression";
 
 export class TemplateLiteral implements IRenderable {
 
-    entries: Array<string | IValue> = []
+    entries: Array<string | ValueTypes> = []
 
     constructor(
-        entries: Array<string | IValue> = [],
+        entries: Array<string | ValueTypes> = [],
         public tag: string | null = null // TODO tagging as IValue ???
     ) {
         this.entries = [];
         entries.forEach(entry => this.addEntry(entry));
     }
 
-    addEntry(...entries: Array<string | IValue>): void {
+    addEntry(...entries: Array<string | ValueTypes>): void {
         // Collapses strings 
         for (const entry of entries) {
             if (typeof entry === "string" && typeof this.entries[this.entries.length - 1] === "string") {
@@ -40,7 +40,7 @@ export class TemplateLiteral implements IRenderable {
         return acc + "`";
     }
 
-    static fromTokens(reader: TokenReader<JSToken>): IValue {
+    static fromTokens(reader: TokenReader<JSToken>): TemplateLiteral {
         let tag: string | null = null;
         // If has tag
         if (reader.current.type === JSToken.Identifier) {
@@ -48,7 +48,7 @@ export class TemplateLiteral implements IRenderable {
             reader.move();
         }
         reader.expectNext(JSToken.TemplateLiteralStart);
-        const entries: Array<string | IValue> = [];
+        const entries: Array<string | ValueTypes> = [];
         while (reader.current.type !== JSToken.TemplateLiteralEnd) {
             if (reader.current.type === JSToken.TemplateLiteralString) {
                 if (reader.current.value !== "") {

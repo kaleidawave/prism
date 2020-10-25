@@ -1,5 +1,5 @@
 import { IBinding, NodeData, BindingAspect, VariableReferenceArray } from "../template";
-import { IValue, Value, Type } from "../../chef/javascript/components/value/value";
+import { ValueTypes, Value, Type } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { buildReverseFunction, compileIIFE } from "../../chef/javascript/utils/reverse";
 import { getElement } from "../helpers";
@@ -18,13 +18,13 @@ export function makeGetFromBinding(
     dataType: IType,
     variable: VariableReferenceArray,
     settings: IFinalPrismSettings
-): IValue {
+): ValueTypes {
 
     // If the element is multiple get the "pivot" of that element and building a chain
     const elementStatement = getElement(binding.element, nodeData);
     const isElementNullable: boolean = nodeData.get(binding.element)?.nullable ?? false;
 
-    let getSource: IValue;
+    let getSource: ValueTypes;
     switch (binding.aspect) {
         case BindingAspect.InnerText:
             if (isElementNullable) {
@@ -52,7 +52,7 @@ export function makeGetFromBinding(
                 getSource = new Expression({
                     lhs: getAttributeRef,
                     operation: isElementNullable ? Operation.OptionalCall : Operation.Call,
-                    rhs: new ArgumentList([new Value(attribute, Type.string)])
+                    rhs: new ArgumentList([new Value(Type.string, attribute)])
                 });
             }
             break;
@@ -65,13 +65,13 @@ export function makeGetFromBinding(
             getSource = new Expression({
                 lhs: elementStatement,
                 operation: Operation.NotEqual,
-                rhs: new Value(null, Type.object)
+                rhs: new Value(Type.object)
             });
         default:
             throw Error(`Not implemented - get hookup for binding of type ${BindingAspect[binding.aspect]}`)
     }
 
-    let value: IValue
+    let value: ValueTypes
     if (dataType.name === "number") {
         value = new Expression({
             lhs: new VariableReference("parseFloat"),
@@ -91,13 +91,13 @@ export function makeGetFromBinding(
             value = new Expression({
                 lhs: getSource,
                 operation: Operation.StrictEqual,
-                rhs: new Value("true", Type.string)
+                rhs: new Value(Type.string)
             });
         } else {
             value = new Expression({
                 lhs: getSource,
                 operation: Operation.StrictNotEqual,
-                rhs: new Value(null, Type.object)
+                rhs: new Value(Type.object)
             });
         }
     } else if (dataType.name === "string" && !settings.minify) {
@@ -112,7 +112,7 @@ export function makeGetFromBinding(
     // If not a variable reference try build a reverser for the value
     if (!(binding.expression instanceof VariableReference) && !(binding.expression instanceof ForIteratorExpression)) {
         // "buildReverseFunction" will throw error if the expression cannot be reversed 
-        const reversedExpressionFunction = buildReverseFunction(binding.expression as IValue);
+        const reversedExpressionFunction = buildReverseFunction(binding.expression as ValueTypes);
 
         // Invoke the reverseFunction with the evaluate output (which is value)
         const iife = new Expression({
@@ -131,7 +131,7 @@ export function makeGetFromBinding(
 /**
  * Returns a expression that will be used to get the length of array using
  */
-export function getLengthFromIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): IValue {
+export function getLengthFromIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): ValueTypes {
     if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
 
     const getElemExpression = getElement(binding.element, nodeData);

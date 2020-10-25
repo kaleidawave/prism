@@ -1,15 +1,15 @@
-import { Statements } from "./statement";
-import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
+import { StatementTypes } from "./statement";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "../constructs/block";
 
-export class WhileStatement {
+export class WhileStatement implements IRenderable {
 
     constructor(
-        public expression: IValue,
-        public statements: Array<Statements>
+        public expression: ValueTypes,
+        public statements: Array<StatementTypes>
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -35,11 +35,11 @@ export class WhileStatement {
     }
 }
 
-export class DoWhileStatement {
+export class DoWhileStatement implements IRenderable {
 
     constructor(
-        public expression: IValue,
-        public statements: Array<Statements>
+        public expression: ValueTypes,
+        public statements: Array<StatementTypes>
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

@@ -1,5 +1,5 @@
 import { BindingAspect, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
-import { IValue } from "../chef/javascript/components/value/value";
+import { ValueTypes } from "../chef/javascript/components/value/value";
 import { Expression } from "../chef/javascript/components/value/expression";
 import { HTMLComment, TextNode } from "../chef/html/html";
 import { addIdentifierToElement, addBinding } from "./helpers";
@@ -34,7 +34,7 @@ export function parseTextNode(
         throw Error("Not supported - Interpolated variables alongside elements");
     }
 
-    const fragments: Array<string | IValue> = []
+    const fragments: Array<string | ValueTypes> = []
     for (let i = 0; i < text.length; i++) {
         if (i % 2 === 0) {
             if (text[i] !== "") {

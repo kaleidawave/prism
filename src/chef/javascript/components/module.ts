@@ -1,9 +1,9 @@
 import { TokenReader, makeRenderSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
 import { JSToken, stringToTokens } from "../javascript";
 import { Decorator, ClassDeclaration } from "./constructs/class";
-import { Statements, ParseStatement } from "./statements/statement";
+import { StatementTypes, ParseStatement } from "./statements/statement";
 import { ExportStatement, ImportStatement } from "./statements/import-export";
-import { IValue } from "./value/value";
+import { ValueTypes } from "./value/value";
 import { VariableDeclaration } from "./statements/variable";
 import { renderBlock } from "./constructs/block";
 import { readFile, writeFile } from "../../filesystem";
@@ -12,7 +12,7 @@ import { IModule } from "../../abstract-asts";
 export class Module implements IModule {
 
     name?: string;
-    statements: Array<Statements>;
+    statements: Array<StatementTypes>;
     classes: Array<ClassDeclaration> = []; // TODO lazy
     imports: Array<ImportStatement> = []; // TODO lazy
     exports: Array<ExportStatement> = []; // TODO lazy
@@ -28,7 +28,7 @@ export class Module implements IModule {
 
     constructor(
         public filename: string,
-        statements: Array<Statements> = [],
+        statements: Array<StatementTypes> = [],
     ) {
         for (const statement of statements) {
             if (statement instanceof ImportStatement) this.imports.push(statement);
@@ -151,7 +151,7 @@ export class Module implements IModule {
     /**
      * Helper method that adds value to the module exported members
      */
-    addExport(exported: IValue) {
+    addExport(exported: ValueTypes) {
         const exportStatement = new ExportStatement(exported);
         this.statements.push(exportStatement);
     }

@@ -1,10 +1,10 @@
-import { IValue } from "./value";
+import { ValueTypes } from "./value";
 import { IRenderSettings, ScriptLanguages, IRenderable, defaultRenderSettings } from "../../../helpers";
 import { AsExpression } from "../types/statements";
 
 export class Group implements IRenderable {
     constructor(
-        public value: IValue
+        public value: ValueTypes
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
