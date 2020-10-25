@@ -8,7 +8,7 @@ import { constructBindings } from "./templating/builders/data-bindings";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./chef/javascript/components/constructs/function";
 import { Expression, Operation } from "./chef/javascript/components/value/expression";
 import { VariableDeclaration } from "./chef/javascript/components/statements/variable";
-import { Value, Type, IValue } from "./chef/javascript/components/value/value";
+import { Value, Type, ValueTypes } from "./chef/javascript/components/value/value";
 import { ReturnStatement } from "./chef/javascript/components/statements/statement";
 import { setNotFoundRoute, addRoute } from "./builders/client-side-routing";
 import { DynamicUrl, stringToDynamicUrl } from "./chef/dynamic-url";
@@ -23,7 +23,8 @@ import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
 import { Rule } from "./chef/css/rule";
-import { moduleFromServerRenderedChunks } from "./builders/server-side-rendering/typescript";
+import { moduleFromServerRenderedChunks as tsModuleFromServerRenderedChunks } from "./builders/server-side-rendering/typescript";
+import { moduleFromServerRenderedChunks as rustModuleFromServerRenderedChunks } from "./builders/server-side-rendering/rust";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";
 import { TypeSignature } from "./chef/javascript/components/types/type-signature";
@@ -38,7 +39,7 @@ import { IFunctionDeclaration, IModule } from "./chef/abstract-asts";
 export class Component {
     static registeredTags: Set<string> = new Set()
 
-    title: IValue | null = null; // If page the document title
+    title: ValueTypes | null = null; // If page the document title
 
     isPage: boolean = false;
     routes: Set<DynamicUrl> | null = null; // The url to match the page on
@@ -67,7 +68,7 @@ export class Component {
     filename: string; // The full filename to the component
     relativeFilename: string; // The filename relative to the given src folder
 
-    metadata: Map<string, string | IValue> | null = null; // A set of metadata included during ssr
+    metadata: Map<string, string | ValueTypes> | null = null; // A set of metadata included during ssr
 
     clientGlobals: Array<[VariableReference, TypeSignature]> = [];
     customElementDefineStatement: Expression;
@@ -415,7 +416,7 @@ export class Component {
                     "render" + identifier!,
                     [],
                     [
-                        new IfStatement(clientAliasedConditionExpression as IValue, [
+                        new IfStatement(clientAliasedConditionExpression as ValueTypes, [
                             new ReturnStatement(renderTruthyChild)
                         ], new ElseStatement(null, [
                             new ReturnStatement(renderFalsyChild)
@@ -553,7 +554,7 @@ export class Component {
         this.customElementDefineStatement = new Expression({
             lhs: VariableReference.fromChain("window", "customElements", "define"),
             operation: Operation.Call,
-            rhs: new ArgumentList([new Value(this.tag, Type.string), new VariableReference(this.className)])
+            rhs: new ArgumentList([new Value(Type.string, this.tag), new VariableReference(this.className)])
         });
 
         this.clientModule.statements.push(this.customElementDefineStatement);
@@ -590,12 +591,16 @@ export class Component {
 
         // Used by router to detect layout at runtime from SSR content
         if (settings.context === "isomorphic" && this.isLayout) {
-            componentClass.addMember(new VariableDeclaration("layout", { value: new Value("true", Type.boolean) }));
+            componentClass.addMember(new VariableDeclaration("layout", { value: new Value(Type.boolean, true) }));
         }
 
         // Build the server render module
         if (settings.context === "isomorphic") {
-            moduleFromServerRenderedChunks(this, settings);
+            if (settings.backendLanguage === "rust") {
+                rustModuleFromServerRenderedChunks(this, settings);
+            } else {
+                tsModuleFromServerRenderedChunks(this, settings);
+            }
         }
     }
 }

@@ -37,13 +37,21 @@ export interface LoopServerRenderExpression {
     childRenderExpression: ServerRenderedChunks
 }
 
-export type ServerRenderedChunks = Array<
-    string
+type ServerChunk = string
     | ConditionalServerRenderExpression
     | LoopServerRenderExpression
     | ServerRenderExpression
     | FunctionCallServerRenderExpression
->;
+
+export type ServerRenderedChunks = Array<ServerChunk>;
+
+function addChunk(chunk: ServerChunk, chunks: Array<ServerChunk>) {
+    if (typeof chunk === "string" && chunks.length > 0 && typeof chunks[chunks.length - 1] === "string") {
+        chunks[chunks.length - 1] += chunk;
+    } else {
+        chunks.push(chunk);
+    }
+}
 
 /**
  * Generates a template literal with relevant interpolation of variables that when run will generate ssr html
@@ -77,14 +85,14 @@ function buildServerTemplateLiteralShards(
     skipOverServerExpression: boolean = false
 ): ServerRenderedChunks {
 
-    const entries: ServerRenderedChunks = []; // Entries is unique for each execution for indentation benefits
+    const chunks: ServerRenderedChunks = []; // Entries is unique for each execution for indentation benefits
     if (element instanceof HTMLElement) {
 
         const elementData = nodeData.get(element);
 
         if (elementData?.slotFor) {
-            entries.push({ value: new VariableReference(`${elementData?.slotFor}Slot`) });
-            return entries;
+            addChunk({ value: new VariableReference(`${elementData?.slotFor}Slot`) }, chunks);
+            return chunks;
         }
 
         // If node
@@ -124,7 +132,7 @@ function buildServerTemplateLiteralShards(
                         slotRenderFunction.push(
                             ...buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals)
                         );
-                        if (!serverRenderSettings.minify && i !== element.children.length - 1) entries.push("\n");
+                        if (!serverRenderSettings.minify && i !== element.children.length - 1) chunks.push("\n");
                     }
                 }
                 renderArgs.set("contentSlot", slotRenderFunction);
@@ -142,34 +150,34 @@ function buildServerTemplateLiteralShards(
                 }
             }
 
-            entries.push({
+            chunks.push({
                 func: component.serverRenderFunction!,
                 args: renderArgs
             });
 
-            return entries;
+            return chunks;
         }
 
-        entries.push(`<${element.tagName}`);
+        addChunk(`<${element.tagName}`, chunks);
 
-        entries.push(...serverRenderNodeAttribute(element, nodeData, locals))
+        serverRenderNodeAttribute(element, nodeData, locals).forEach(chunk => addChunk(chunk, chunks));
 
         // If the element has any events disable it by default TODO explain why
         if (serverRenderSettings.addDisableToElementWithEvents && elementData?.events?.some(event => event.required)) {
-            entries.push(" disabled")
+            addChunk(" disabled", chunks)
         }
 
-        if (element.closesSelf) entries.push("/");
-        entries.push(">");
-        if (!serverRenderSettings.minify && element.children.length > 0) entries.push("\n    ");
+        if (element.closesSelf) addChunk("/", chunks);
+        addChunk(">", chunks);
+        if (!serverRenderSettings.minify && element.children.length > 0) addChunk("\n    ", chunks);
 
-        if (HTMLElement.selfClosingTags.has(element.tagName) || element.closesSelf) return entries;
+        if (HTMLElement.selfClosingTags.has(element.tagName) || element.closesSelf) return chunks;
 
         if (elementData?.iteratorExpression) {
             const serverAliasedExpression: ForIteratorExpression = cloneAST(elementData.iteratorExpression);
             aliasVariables(serverAliasedExpression, dataVariable, locals);
 
-            entries.push({
+            addChunk({
                 subject: serverAliasedExpression.subject,
                 variable: serverAliasedExpression.variable.name,
                 childRenderExpression: buildServerTemplateLiteralShards(
@@ -178,7 +186,7 @@ function buildServerTemplateLiteralShards(
                     serverRenderSettings,
                     [serverAliasedExpression.variable.toReference(), ...locals]
                 )
-            })
+            }, chunks)
         } else {
             for (const child of element.children) {
                 const parts = buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals);
@@ -199,45 +207,45 @@ function buildServerTemplateLiteralShards(
                         }
                     }
                 }
-                entries.push(...parts);
+                parts.forEach(part => addChunk(part, chunks));
             }
         }
-        if (!serverRenderSettings.minify && element.children.length > 0) entries.push("\n");
-        entries.push(`</${element.tagName}>`);
+        if (!serverRenderSettings.minify && element.children.length > 0) addChunk("\n", chunks);
+        addChunk(`</${element.tagName}>`, chunks);
 
     } else if (element instanceof TextNode) {
         const value = nodeData.get(element)?.textNodeValue;
         if (value) {
             const aliasedPart = cloneAST(value);
             aliasVariables(aliasedPart, dataVariable, locals);
-            entries.push({ value: aliasedPart });
+            addChunk({ value: aliasedPart }, chunks);
         } else {
-            entries.push(element.text);
+            addChunk(element.text, chunks);
         }
     } else if (element instanceof HTMLComment) {
         // If the comment is used to fragment text nodes:
         if (nodeData.get(element)?.isFragment) {
-            entries.push(`<!--${element.comment}-->`);
+            addChunk(`<!--${element.comment}-->`, chunks);
         }
     } else if (element instanceof HTMLDocument) {
         for (let i = 0; i < element.children.length; i++) {
             const child = element.children[i];
-            entries.push(...buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals));
-            if (!serverRenderSettings.minify && i !== element.children.length - 1) entries.push("\n");
+            buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals).forEach(chunk => addChunk(chunk, chunks));
+            if (!serverRenderSettings.minify && i !== element.children.length - 1) addChunk("\n", chunks);
         }
     } else {
         throw Error(`Cannot build render string from construct ${(element as any).constructor.name}`)
     }
-    return entries;
+    return chunks;
 }
 
 export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMap<Node, NodeData>, locals: Array<VariableReference>) {
-    const entries: ServerRenderedChunks = [];
+    const chunks: ServerRenderedChunks = [];
     if (element.attributes) {
         for (const [name, value] of element.attributes) {
-            entries.push(" " + name);
+            addChunk(" " + name, chunks);
             if (value !== null) {
-                entries.push(`="${value}"`)
+                addChunk(`="${value}"`, chunks)
             }
         }
     }
@@ -248,21 +256,21 @@ export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMa
             const aliasedValue = cloneAST(value);
             aliasVariables(aliasedValue, dataVariable, locals);
             if (HTMLElement.booleanAttributes.has(name)) {
-                entries.push({
+                addChunk({
                     condition: aliasedValue,
                     truthyRenderExpression: [" " + name],
                     falsyRenderExpression: [""]
-                });
+                }, chunks);
             } else {
                 if (name === "data") continue;
-                entries.push(" " + name);
+                addChunk(" " + name, chunks);
                 if (value !== null) {
-                    entries.push(`="`);
-                    entries.push({ value: aliasedValue });
-                    entries.push(`"`);
+                    addChunk(`="`, chunks);
+                    addChunk({ value: aliasedValue }, chunks);
+                    addChunk(`"`, chunks);
                 }
             }
         }
     }
-    return entries;
+    return chunks;
 }
