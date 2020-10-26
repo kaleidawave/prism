@@ -11,6 +11,7 @@ import { VariableReference } from "../components/value/variable";
 import { ForIteratorExpression, ForStatementExpression, ForStatement } from "../components/statements/for";
 import { VariableDeclaration } from "../components/statements/variable";
 import { ArrayLiteral } from "../components/value/array";
+import { astTypes } from "../javascript";
 
 /**
  * Returns variables spanning from "this.*"
@@ -28,53 +29,50 @@ export function getVariablesInClass(cls: ClassDeclaration): Array<VariableRefere
     return variables;
 }
 
-type astTypes = StatementTypes | ValueTypes | ArgumentList | ForIteratorExpression | ForStatementExpression;
-
 /**
  * Walks through a statement and yields ALL variable references
- * Lot of "as" here as TypeScript does not like switching on the constructor
- * @param cloneStructure Will clone structure while walking. TODO maybe implement this separately
+ * TODO parent should maybe have a key of structure
+ * @param parent Used for replacing variables
  */
-export function* variableReferenceWalker(statement: astTypes): Generator<VariableReference> {
+export function* variableReferenceWalker(statement: astTypes, parent?: astTypes): Generator<{ variable: VariableReference, parent: astTypes }> {
     if (statement instanceof VariableReference) {
-        yield statement;
+        yield { variable: statement, parent: parent! };
     } else if (statement instanceof Expression) {
-        // TODO temp catch for optional chain
         if (statement.operation === Operation.OptionalChain) {
-            yield variableReferenceFromOptionalChain(statement);
+            yield { variable: variableReferenceFromOptionalChain(statement), parent: parent! };
         } else {
-            yield* variableReferenceWalker(statement.lhs);
-            if (statement.rhs) yield* variableReferenceWalker(statement.rhs);
+            yield* variableReferenceWalker(statement.lhs, statement);
+            if (statement.rhs) yield* variableReferenceWalker(statement.rhs, statement);
         }
     } else if (statement instanceof ReturnStatement) {
-        if (statement.returnValue) yield* variableReferenceWalker(statement.returnValue);
+        if (statement.returnValue) yield* variableReferenceWalker(statement.returnValue, statement);
     } else if (statement instanceof FunctionDeclaration) {
         for (const statementInFunc of statement.statements) {
-            yield* variableReferenceWalker(statementInFunc);
+            yield* variableReferenceWalker(statementInFunc, statement);
         }
     } else if (statement instanceof ArgumentList) {
         for (const value of statement.args) {
-            yield* variableReferenceWalker(value);
+            yield* variableReferenceWalker(value, statement);
         }
     } else if (statement instanceof TemplateLiteral) {
         for (const value of statement.entries) {
-            if (typeof value !== "string") yield* variableReferenceWalker(value);
+            if (typeof value !== "string") yield* variableReferenceWalker(value, statement);
         }
     } else if (statement instanceof ObjectLiteral) {
         for (const [, value] of statement.values) {
-            yield* variableReferenceWalker(value)
+            yield* variableReferenceWalker(value, statement)
         }
     } else if (statement instanceof ForIteratorExpression) {
-        yield* variableReferenceWalker(statement.subject);
+        yield* variableReferenceWalker(statement.subject, statement);
     } else if (statement instanceof ForStatement) {
-        yield* variableReferenceWalker(statement.expression);
+        yield* variableReferenceWalker(statement.expression, statement);
         for (const s of statement.statements) {
-            yield* variableReferenceWalker(s);
+            yield* variableReferenceWalker(s, statement);
         }
     } else if (statement instanceof IfStatement) {
-        yield* variableReferenceWalker(statement.condition);
+        yield* variableReferenceWalker(statement.condition, statement);
         for (const s of statement.statements) {
-            yield* variableReferenceWalker(s);
+            yield* variableReferenceWalker(s, statement);
         }
     }
 }
@@ -95,7 +93,7 @@ export function newOptionalVariableReference(name: string, parent: ValueTypes) {
  */
 export function newOptionalVariableReferenceFromChain(...items: Array<string | number | ValueTypes>): ValueTypes {
     let head: ValueTypes;
-    if (typeof items[0] === "number") { 
+    if (typeof items[0] === "number") {
         throw Error("First arg to newOptionalVariableReferenceFromChain must be string");
     } else if (typeof items[0] === "string") {
         head = new VariableReference(items[0] as string);
@@ -105,7 +103,7 @@ export function newOptionalVariableReferenceFromChain(...items: Array<string | n
     // Iterator through items appending forming linked list
     for (let i = 1; i < items.length; i++) {
         const currentProp = items[i];
-        if (typeof currentProp === "number") { 
+        if (typeof currentProp === "number") {
             head = new Expression({
                 lhs: head,
                 operation: Operation.OptionalIndex,
@@ -141,7 +139,7 @@ export function variableReferenceFromOptionalChain(expr: Expression): VariableRe
         throw Error(`Expected optional chain received ${Operation[expr.operation]}`);
     }
     return new VariableReference(
-        (expr.rhs as VariableReference).name, 
+        (expr.rhs as VariableReference).name,
         expr.lhs instanceof Expression && expr.lhs.operation === Operation.OptionalChain ? variableReferenceFromOptionalChain(expr.lhs) : expr.lhs
     );
 }
@@ -152,7 +150,7 @@ export function variableReferenceFromOptionalChain(expr: Expression): VariableRe
 */
 export function findVariables(statement: astTypes, allVariables: boolean = false): Array<VariableReference> {
     const variables: Array<VariableReference> = [];
-    for (const variable of variableReferenceWalker(statement)) {
+    for (const {variable} of variableReferenceWalker(statement)) {
         // Check variable has not already been registered
         if (allVariables || !variables.some(regVariable => regVariable.isEqual(variable))) {
             variables.push(variable);
@@ -175,13 +173,12 @@ export function aliasVariables(
     parent: VariableReference,
     locals: Array<VariableReference> = []
 ): void {
-    for (const variable of variableReferenceWalker(value)) {
+    for (const {variable} of variableReferenceWalker(value)) {
         if (!locals.some(local => local.isEqual(variable, true))) {
             let parentVariable: VariableReference = variable;
             while (parentVariable.parent) {
                 parentVariable = parentVariable.parent as VariableReference;
             }
-
             parentVariable.parent = parent;
         }
     }
@@ -195,7 +192,7 @@ export function replaceVariables(
     replacer: ValueTypes | ((intercepted: VariableReference) => ValueTypes),
     targets: Array<VariableReference>
 ): void {
-    for (const variable of variableReferenceWalker(value)) {
+    for (const {variable, parent} of variableReferenceWalker(value)) {
         if (targets.some(targetVariable => targetVariable.isEqual(variable, true))) {
             // TODO Needed for fuzzy match. Redundant and slow otherwise
             let replaceVariable = variable;
@@ -209,7 +206,7 @@ export function replaceVariables(
             } else {
                 replacerValue = replacer;
             }
-            // TODO this is kinda funky:
+            // TODO use parent to not do this:
             // Clear keys, reassign to object, set prototype
             Object.keys(replaceVariable).forEach(key => delete replaceVariable[key]);
             Object.assign(replaceVariable, replacerValue);
@@ -259,7 +256,7 @@ export function cloneAST(part: astTypes) {
         return new VariableDeclaration(part.entries ?? part.name, { ...part });
     } else if (part instanceof ForIteratorExpression) {
         return new ForIteratorExpression(cloneAST(part.variable), part.operation, cloneAST(part.subject));
-    }else if (part instanceof ArrayLiteral) {
+    } else if (part instanceof ArrayLiteral) {
         return new ArrayLiteral(part.elements.map(cloneAST));
     } else if (part instanceof ForStatementExpression) {
         return new ForStatementExpression(cloneAST(part.initializer), cloneAST(part.condition), cloneAST(part.finalExpression));

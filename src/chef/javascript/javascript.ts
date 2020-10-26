@@ -1,4 +1,16 @@
 import { TokenReader, Token, characterIsNumber, ITokenizationSettings, createCombineMap } from "../helpers";
+import { ArgumentList } from "./components/constructs/function";
+import { ForIteratorExpression, ForStatementExpression } from "./components/statements/for";
+import { StatementTypes } from "./components/statements/statement";
+import { TypeSignature } from "./components/types/type-signature";
+import { ValueTypes } from "./components/value/value";
+
+export type astTypes = StatementTypes
+    | ValueTypes
+    | ArgumentList
+    | ForIteratorExpression
+    | ForStatementExpression
+    | TypeSignature;
 
 export enum JSToken {
     Identifier, StringLiteral, NumberLiteral, RegexLiteral, TemplateLiteralString,
@@ -409,9 +421,9 @@ export function stringToTokens(javascript: string, settings: ITokenizationSettin
                 const tokensBeforeDivision = [JSToken.Identifier, JSToken.NumberLiteral, JSToken.CloseBracket];
                 if (
                     (
-                        reader.length === 0 || 
+                        reader.length === 0 ||
                         (tokensBeforeDivision.includes(reader.top.type) === false)
-                    ) && 
+                    ) &&
                     "*/".includes(javascript[index + 1]) === false
                 ) {
                     reader.add({ type: JSToken.RegexLiteral, value: "", column, line });

@@ -1,10 +1,8 @@
 import { IFunctionDeclaration } from "../../abstract-asts";
 import { IRenderSettings, IRenderOptions, IRenderable, defaultRenderSettings } from "../../helpers";
+import { TypeSignature } from "../../javascript/components/types/type-signature";
 import { ValueTypes } from "../values/value";
 import { renderStatements, Statements } from "./block";
-
-// TODO temp
-type TypeSignature = string;
 
 export class ArgumentList implements IRenderable {
     constructor (
@@ -35,10 +33,10 @@ export class FunctionDeclaration implements IFunctionDeclaration {
             acc += "pub "
         }
         acc += "fn " + this.actualName + "(";
-        acc += this.parameters.map(([name, typeSig]) => `${name}: ${typeSig}`).join(", ");
+        acc += this.parameters.map(([name, typeSig]) => `${name}: ${typeSig.render(settings)}`).join(", ");
         acc += ") ";
         if (this.returnType) {
-            acc += `-> ${this.returnType} `;
+            acc += `-> ${this.returnType.render(settings)} `;
         }
         acc += "{\n";
         acc += renderStatements(this.statements, settings);

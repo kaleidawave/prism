@@ -85,11 +85,8 @@ function wrapWithEscapeCall(value: ValueTypes): Expression {
     });
 }
 
-export function moduleFromServerRenderedChunks(comp: Component, settings: IFinalPrismSettings): void {
+export function makeTsComponentServerModule(comp: Component, settings: IFinalPrismSettings): void {
     comp.serverModule = new Module(join(settings.absoluteServerOutputPath, comp.relativeFilename));
-
-    const componentDataTypeSignature =
-        comp.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
 
     for (const statement of comp.clientModule.statements) {
         if (statement instanceof ClassDeclaration) {
@@ -127,52 +124,17 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
         } else if (statement !== comp.customElementDefineStatement) {
             comp.serverModule!.statements.push(statement);
         }
-    }
-
-    // Construct ssr function parameters
-    const parameters: Array<VariableDeclaration> = [];
-    if (comp.needsData && !comp.noSSRData) {
-        const dataParameter = new VariableDeclaration(
-            comp.isLayout ? "layoutData" : "data",
-            { typeSignature: componentDataTypeSignature }
-        );
-        if (comp.defaultData) {
-            dataParameter.value = comp.defaultData;
-        }
-        parameters.push(dataParameter);
-    }
-
-    // Push client globals
-    parameters.push(
-        ...comp.clientGlobals.map(clientGlobal =>
-            new VariableDeclaration(((clientGlobal[0] as VariableReference).name), { typeSignature: clientGlobal[1] }))
-    );
-
-    // Whether to generate a argument to add a slot to the tag for attribute. Not needed on pages as they cannot be instantiated directly and thus no way user can add attribute set to component
-    const generateAttributeArgument: boolean = !comp.isPage;
-
-    if (generateAttributeArgument) {
-        parameters.push(new VariableDeclaration("attributes", {
-            typeSignature: new TypeSignature({ name: "string" }),
-            value: new Value(Type.string)
-        }));
-    }
-
-    if (comp.hasSlots) {
-        for (const slot of comp.templateData.slots.keys()) {
-            parameters.push(new VariableDeclaration(`${slot}Slot`, { typeSignature: new TypeSignature({ name: "string" }) }));
-        }
-    }
-
-    comp.serverRenderFunction = new FunctionDeclaration(`render${comp.className}Component`, parameters, []);
+    }   
+    
+    comp.serverRenderFunction = new FunctionDeclaration(`render${comp.className}Component`, comp.serverRenderParameters, []);
 
     if (comp.defaultData && comp.noSSRData) {
         comp.serverRenderFunction.statements.push(new VariableDeclaration("data", {
             value: comp.defaultData,
-            typeSignature: componentDataTypeSignature
+            typeSignature: comp.dataTypeSignature
         }));
     }
-
+    
     // Append "data-ssr" to the server rendered component. Used at runtime.
     const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
 
@@ -180,13 +142,12 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
     const componentHtmlTag = new HTMLElement(comp.tag, componentAttributes, comp.templateElement.children, comp.templateElement.parent);
 
     const ssrSettings: IServerRenderSettings = {
-        dynamicAttribute: generateAttributeArgument,
+        dynamicAttribute: !comp.isPage,
         minify: settings.minify,
         addDisableToElementWithEvents: settings.disableEventElements
     }
 
     // Final argument is to add a entry onto the component that is sent attributes 
-    // TODO do this higher up
     const serverRenderChunks = serverRenderPrismNode(componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
     const renderTemplateLiteral = templateLiteralFromServerRenderChunks(serverRenderChunks);
 
@@ -275,7 +236,7 @@ export function moduleFromServerRenderedChunks(comp: Component, settings: IFinal
 
         const renderPageFunction = new FunctionDeclaration(
             `render${comp.className}Page`,
-            parameters,
+            comp.serverRenderParameters,
             [renderAsPage]
         );
 

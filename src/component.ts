@@ -23,8 +23,8 @@ import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
 import { Rule } from "./chef/css/rule";
-import { moduleFromServerRenderedChunks as tsModuleFromServerRenderedChunks } from "./builders/server-side-rendering/typescript";
-import { moduleFromServerRenderedChunks as rustModuleFromServerRenderedChunks } from "./builders/server-side-rendering/rust";
+import { makeTsComponentServerModule as tsModuleFromServerRenderedChunks } from "./builders/server-side-rendering/typescript";
+import { makeRustComponentServerModule as rustModuleFromServerRenderedChunks } from "./builders/server-side-rendering/rust";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";
 import { TypeSignature } from "./chef/javascript/components/types/type-signature";
@@ -35,6 +35,7 @@ import { assignToObjectMap } from "./helpers";
 import { IFinalPrismSettings } from "./settings";
 import { IRuntimeFeatures } from "./builders/prism-client";
 import { IFunctionDeclaration, IModule } from "./chef/abstract-asts";
+import { IServerRenderSettings } from "./templating/builders/server-render";
 
 export class Component {
     static registeredTags: Set<string> = new Set()
@@ -90,6 +91,8 @@ export class Component {
     static registeredComponents: Map<string, Component> = new Map();
     passive: boolean;
     globals: VariableReference[];
+    serverRenderParameters: VariableDeclaration[];
+    dataTypeSignature: TypeSignature;
 
     /**
      * Returns a component under a filename
@@ -596,6 +599,43 @@ export class Component {
 
         // Build the server render module
         if (settings.context === "isomorphic") {
+
+            this.dataTypeSignature = this.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
+
+            // Construct ssr function parameters
+            const parameters: Array<VariableDeclaration> = [];
+            if (this.needsData && !this.noSSRData) {
+                const dataParameter = new VariableDeclaration(
+                    this.isLayout ? "layoutData" : "data",
+                    { typeSignature: this.dataTypeSignature }
+                );
+                if (this.defaultData) {
+                    dataParameter.value = this.defaultData;
+                }
+                parameters.push(dataParameter);
+            }
+
+            // Push client globals
+            parameters.push(
+                ...this.clientGlobals.map(clientGlobal =>
+                    new VariableDeclaration(((clientGlobal[0] as VariableReference).name), { typeSignature: clientGlobal[1] }))
+            );
+
+            if (!this.isPage) {
+                parameters.push(new VariableDeclaration("attributes", {
+                    typeSignature: new TypeSignature({ name: "string" }),
+                    value: new Value(Type.string)
+                }));
+            }
+
+            if (this.hasSlots) {
+                for (const slot of this.templateData.slots.keys()) {
+                    parameters.push(new VariableDeclaration(`${slot}Slot`, { typeSignature: new TypeSignature({ name: "string" }) }));
+                }
+            }
+
+            this.serverRenderParameters = parameters;
+
             if (settings.backendLanguage === "rust") {
                 rustModuleFromServerRenderedChunks(this, settings);
             } else {

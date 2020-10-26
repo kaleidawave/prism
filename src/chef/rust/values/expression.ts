@@ -3,7 +3,8 @@ import { ArgumentList } from "../statements/function";
 import { ValueTypes } from "./value";
 
 export enum Operation {
-    Call,       
+    Call, 
+    Borrow, // Not sure whether this is operator but...      
 }
 
 export class Expression implements IRenderable {
@@ -18,6 +19,8 @@ export class Expression implements IRenderable {
         switch (this.operation) {
             case Operation.Call:
                 return this.lhs.render(settings) + (this.rhs?.render?.(settings) ?? "()");
+            case Operation.Borrow:
+                return "&" + this.lhs.render(settings);
             default:
                 throw Error(`Cannot render operation "${Operation[this.operation]}"`);
         }

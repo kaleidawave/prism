@@ -55,12 +55,9 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         includeExtensionsInImports: settings.deno
     };
 
-    const clientScriptBundle = new Module();
-    const clientStyleBundle = new Stylesheet();
-
     // TODO versioning
-    clientScriptBundle.filename = join(settings.absoluteOutputPath, "bundle.js");
-    clientStyleBundle.filename = join(settings.absoluteOutputPath, "bundle.css");
+    const clientScriptBundle = new Module(join(settings.absoluteOutputPath, "bundle.js"));
+    const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, "bundle.css"));
 
     const prismClient = await getPrismClient(settings.clientSideRouting);
     treeShakeBundle(features, prismClient);
@@ -112,6 +109,7 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
     }
 
     if (settings.context === "isomorphic") {
+        // TODO backend language
         generateServerModule(join(settings.absoluteServerOutputPath, "prism"), settings)
             .then(serverModule => serverModule.writeToFile(serverRenderSettings));
     }
