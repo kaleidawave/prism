@@ -1,8 +1,8 @@
-import { Statements } from "../../chef/rust/statements/block";
+import { StatementTypes } from "../../chef/rust/statements/block";
 import { ArgumentList, FunctionDeclaration, ReturnStatement } from "../../chef/rust/statements/function";
 import { VariableDeclaration } from "../../chef/rust/statements/variable";
 import { Expression, Operation } from "../../chef/rust/values/expression";
-import { Type, Value } from "../../chef/rust/values/value";
+import { Type, Value, ValueTypes } from "../../chef/rust/values/value";
 import { VariableReference } from "../../chef/rust/values/variable";
 import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { Value as JSValue, Type as JSType } from "../../chef/javascript/components/value/value";
@@ -18,6 +18,10 @@ import { HTMLElement } from "../../chef/html/html";
 import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
 import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../chef/javascript/components/statements/import-export";
 import { UseStatement } from "../../chef/rust/statements/use";
+import { ElseStatement, IfStatement } from "../../chef/rust/statements/if";
+import { ForStatement } from "../../chef/rust/statements/for";
+import { basename } from "path";
+import { IShellData } from "../template";
 
 const literalTypeMap = new Map([[JSType.number, Type.number], [JSType.string, Type.string]]);
 const typeMap: Map<string, string> = new Map([
@@ -47,8 +51,11 @@ function jsAstToRustAst(jsAst: JSAstTypes) {
         if ("isPublic" in rustAst) rustAst.isPublic = true;
         return rustAst;
     } else if (jsAst instanceof JSImportStatement) {
-        // TODO
-        return new UseStatement(["TODO"]);
+        const path: Array<string | string[]> = [basename(jsAst.from, ".js").replace(/\./g, "_")];
+        if (jsAst.variable) {
+            path.push(Array.from(jsAst.variable.entries!).map(([name]) => name as string));
+        }
+        return new UseStatement(path);
     } else {
         console.warn(`Cannot convert "${jsAst.constructor.name}" "${jsAst.render()}" to Rust`);
     }
@@ -56,15 +63,13 @@ function jsAstToRustAst(jsAst: JSAstTypes) {
 
 const accVariable = new VariableReference("acc");
 
-function statementsFromServerRenderChunks(serverChunks: ServerRenderedChunks): Array<Statements> {
-    const statements: Array<Statements> = [
-        new VariableDeclaration("acc", true,
-            new Expression(
-                new VariableReference("new", new VariableReference("String"), true),
-                Operation.Call
-            )
-        ),
-    ];
+function statementsFromServerRenderChunks(serverChunks: ServerRenderedChunks, includeStringDef = false): Array<StatementTypes> {
+    const statements: Array<StatementTypes> = includeStringDef ? [new VariableDeclaration("acc", true,
+        new Expression(
+            new VariableReference("new", new VariableReference("String"), true),
+            Operation.Call
+        )
+    )] : [];
     for (const chunk of serverChunks) {
         if (typeof chunk === "string") {
             statements.push(new Expression(
@@ -73,24 +78,59 @@ function statementsFromServerRenderChunks(serverChunks: ServerRenderedChunks): A
                 new ArgumentList([new Value(Type.string, chunk)])
             ));
         } else if ("value" in chunk) {
-            // TODO escape()
+            let statement = new Expression(
+                new Expression(
+                    new VariableReference("to_string", jsAstToRustAst(chunk.value),),
+                    Operation.Call
+                ),
+                Operation.Borrow
+            );
+            if (chunk.escape) {
+                statement = new Expression(
+                    new VariableReference("escape"),
+                    Operation.Call,
+                    statement
+                );
+            }
+            statements.push(new Expression(
+                new VariableReference("push_str", accVariable),
+                Operation.Call,
+                statement
+            ));
+        } else if ("condition" in chunk) {
+            statements.push(new IfStatement(
+                jsAstToRustAst(chunk.condition),
+                statementsFromServerRenderChunks(chunk.truthyRenderExpression),
+                new ElseStatement(null, statementsFromServerRenderChunks(chunk.truthyRenderExpression))
+            ));
+        } else if ("subject" in chunk) {
+            statements.push(new ForStatement(
+                chunk.variable,
+                jsAstToRustAst(chunk.subject),
+                statementsFromServerRenderChunks(chunk.childRenderExpression)
+            ));
+        } else if ("func" in chunk) {
+            // TODO temp fix
+            if (chunk.args.has("attributes")) {
+                // @ts-ignore chunk.args isn't used again so can overwrite value to be in ts base...
+                // chunk.args.set("attributes", templateLiteralFromServerRenderChunks(chunk.args.get("attributes")!));
+                chunk.args.set("attributes", new Value(Type.string, ""));
+            }
             statements.push(new Expression(
                 new Expression(
                     new VariableReference("push_str", accVariable),
                     Operation.Call,
                     new ArgumentList([new Expression(
-                        new VariableReference("to_string", jsAstToRustAst(chunk.value),),
-                        Operation.Call
+                        new VariableReference(chunk.func.actualName!),
+                        Operation.Call,
+                        chunk.func.buildArgumentListFromArgumentsMap(chunk.args)
                     )])
                 ),
                 Operation.Borrow
             ));
-        } else {
-            // TODO if, loop & call
-            throw Error();
         }
     }
-    statements.push(new ReturnStatement(accVariable))
+    if (includeStringDef) statements.push(new ReturnStatement(accVariable))
     return statements;
 }
 
@@ -100,7 +140,8 @@ function statementsFromServerRenderChunks(serverChunks: ServerRenderedChunks): A
  * @param settings 
  */
 export function makeRustComponentServerModule(comp: Component, settings: IFinalPrismSettings): void {
-    comp.serverModule = new Module(join(settings.absoluteServerOutputPath, comp.relativeFilename));
+    comp.serverModule = new Module(join(settings.absoluteServerOutputPath, comp.relativeFilename + ".rs"));
+    console.log("Filename:", comp.serverModule.filename);
 
     for (const statement of comp.clientModule.statements) {
         if ((statement instanceof JSExportStatement && statement.exported === comp.componentClass) || statement === comp.componentClass || statement === comp.customElementDefineStatement) {
@@ -116,7 +157,9 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
 
     comp.serverRenderFunction = new FunctionDeclaration(name, comp.serverRenderParameters.map((vD) => [vD.name, jsAstToRustAst(vD.typeSignature!)]), new TypeSignature("String"), [], true);
 
-    const componentHtmlTag = new HTMLElement(comp.tag, new Map(), comp.templateElement.children, comp.templateElement.parent);
+    // Append "data-ssr" to the server rendered component. Used at runtime.
+    const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
+    const componentHtmlTag = new HTMLElement(comp.tag, componentAttributes, comp.templateElement.children, comp.templateElement.parent);
 
     const ssrSettings: IServerRenderSettings = {
         dynamicAttribute: false, // TODO temp
@@ -126,8 +169,44 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
 
     const serverRenderChunks = serverRenderPrismNode(componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
 
-    // TODO page, layout, metadata etc...
-
-    comp.serverRenderFunction.statements = statementsFromServerRenderChunks(serverRenderChunks);
+    comp.serverRenderFunction.statements = statementsFromServerRenderChunks(serverRenderChunks, true);
     comp.serverModule.statements.push(comp.serverRenderFunction);
+}
+
+const escapeMap = [["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ["\"", "&quot;"], ["'", "&#039l"]];
+
+export function buildPrismServerModule(template: IShellData, settings: IFinalPrismSettings): Module {
+    const baseServerModule = new Module(join(settings.absoluteServerOutputPath, "prism.rs"));
+
+    // Escape function
+    let expression: ValueTypes = new VariableReference("unsafe");
+    for (const [character, replacer] of escapeMap) {
+        expression = new Expression(
+            new VariableReference("replace", expression),
+            Operation.Call,
+            new ArgumentList([new Value(Type.string, character), new Value(Type.string, replacer)])
+        )
+    }
+
+    baseServerModule.statements.push(new FunctionDeclaration("escape", [["unsafe", new TypeSignature("String")]], new TypeSignature("String"), [new ReturnStatement(expression)], true));
+
+    // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
+    const renderHTMLStatements = statementsFromServerRenderChunks(
+        serverRenderPrismNode(template.document, template.nodeData, { minify: settings.minify, addDisableToElementWithEvents: false, dynamicAttribute: false })
+        , true);
+
+    // Create function with content and meta slot parameters
+    const pageRenderFunction = new FunctionDeclaration(
+        "renderHTML",
+        [
+            ["contentSlot", new TypeSignature("String")],
+            ["metaSlot", new TypeSignature("String")]
+        ],
+        new TypeSignature("String"),
+        renderHTMLStatements,
+        true
+    );
+    baseServerModule.statements.push(pageRenderFunction);
+
+    return baseServerModule;
 }

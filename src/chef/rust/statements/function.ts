@@ -1,8 +1,8 @@
 import { IFunctionDeclaration } from "../../abstract-asts";
 import { IRenderSettings, IRenderOptions, IRenderable, defaultRenderSettings } from "../../helpers";
-import { TypeSignature } from "../../javascript/components/types/type-signature";
 import { ValueTypes } from "../values/value";
-import { renderStatements, Statements } from "./block";
+import { renderStatements, StatementTypes } from "./block";
+import { TypeSignature } from "./struct";
 
 export class ArgumentList implements IRenderable {
     constructor (
@@ -19,12 +19,12 @@ export class FunctionDeclaration implements IFunctionDeclaration {
         public actualName: string,
         public parameters: Array<[string, TypeSignature]>,
         public returnType: TypeSignature,
-        public statements: Statements[],
+        public statements: StatementTypes[],
         public isPublic: boolean = false,
     ) { }
 
-    buildArgumentListFromArgumentsMap(argumentMap: Map<string, any>) {
-        throw new Error("Method not implemented.");
+    buildArgumentListFromArgumentsMap(argumentMap: Map<string, ValueTypes>): ArgumentList {
+        return new ArgumentList(this.parameters.map(([paramName]) => argumentMap.get(paramName)!));
     }
 
     render(settings: IRenderSettings = defaultRenderSettings, options?: Partial<IRenderOptions>): string {

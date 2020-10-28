@@ -2,9 +2,11 @@ import { filesInFolder } from "../helpers";
 import { Component } from "../component";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
-import { buildIndexHtml, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
+import { getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
+import { parseTemplateShell, writeIndexHTML } from "./template";
+import { buildPrismServerModule as buildTSPrismServerModule } from "./server-side-rendering/typescript";
+import { buildPrismServerModule as buildRustPrismServerModule } from "./server-side-rendering/rust";
 import { join } from "path";
-import { generateServerModule } from "./prism-server";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { VariableReference } from "../chef/javascript/components/value/variable";
@@ -54,6 +56,8 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         comments: true,
         includeExtensionsInImports: settings.deno
     };
+
+    const template = await parseTemplateShell(settings);
 
     // TODO versioning
     const clientScriptBundle = new Module(join(settings.absoluteOutputPath, "bundle.js"));
@@ -109,9 +113,11 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
     }
 
     if (settings.context === "isomorphic") {
-        // TODO backend language
-        generateServerModule(join(settings.absoluteServerOutputPath, "prism"), settings)
-            .then(serverModule => serverModule.writeToFile(serverRenderSettings));
+        if (settings.backendLanguage === "rust") {
+            buildRustPrismServerModule(template, settings).writeToFile(serverRenderSettings);
+        } else {
+            buildTSPrismServerModule(template, settings).writeToFile(serverRenderSettings);
+        }
     }
 
     // Write out files
@@ -124,9 +130,7 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
 
     // Build the index / shell page to serve
     // This is also built under context===isomorphic to allow for offline with service workers
-    const indexHTMLPath = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
-    buildIndexHtml(settings)
-        .then(indexHTML => indexHTML.writeToFile(clientRenderSettings, indexHTMLPath));
+    writeIndexHTML(template, settings, clientRenderSettings);
 
     console.log(`Wrote out bundle.js and bundle.css to ${settings.outputPath}${settings.context === "isomorphic" ? ` and wrote out server templates to ${settings.serverOutputPath}` : ""}`);
     console.log("Built Prism application");

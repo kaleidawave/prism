@@ -1,8 +1,6 @@
 import { HTMLElement, TextNode, HTMLDocument, HTMLComment, Node } from "../../chef/html/html";
-import { ValueTypes, Value, Type } from "../../chef/javascript/components/value/value";
+import { ValueTypes } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
-import { Expression, Operation } from "../../chef/javascript/components/value/expression";
-import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables";
 import { NodeData } from "../template";
 import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
@@ -17,7 +15,8 @@ export interface IServerRenderSettings {
 }
 
 export interface ServerRenderExpression {
-    value: ValueTypes
+    value: ValueTypes,
+    escape: boolean
 }
 
 export interface FunctionCallServerRenderExpression {
@@ -68,7 +67,7 @@ export function serverRenderPrismNode(
 ): ServerRenderedChunks {
     const parts = buildServerTemplateLiteralShards(template, nodeData, serverRenderSettings, locals, skipOverServerExpression);
     if (serverRenderSettings.minify) {
-        parts.splice(1, 0, { value: new VariableReference("attributes") });
+        parts.splice(1, 0, { value: new VariableReference("attributes"), escape: true });
     }
     return parts;
 }
@@ -91,7 +90,7 @@ function buildServerTemplateLiteralShards(
         const elementData = nodeData.get(element);
 
         if (elementData?.slotFor) {
-            addChunk({ value: new VariableReference(`${elementData?.slotFor}Slot`) }, chunks);
+            addChunk({ value: new VariableReference(`${elementData?.slotFor}Slot`), escape: false }, chunks);
             return chunks;
         }
 
@@ -146,7 +145,7 @@ function buildServerTemplateLiteralShards(
 
             if (component.clientGlobals) {
                 for (const clientGlobal of component.clientGlobals) {
-                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, [{ value: clientGlobal[0] }]);
+                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, [{ value: clientGlobal[0], escape: true }]);
                 }
             }
 
@@ -218,7 +217,7 @@ function buildServerTemplateLiteralShards(
         if (value) {
             const aliasedPart = cloneAST(value);
             aliasVariables(aliasedPart, dataVariable, locals);
-            addChunk({ value: aliasedPart }, chunks);
+            addChunk({ value: aliasedPart, escape: true }, chunks);
         } else {
             addChunk(element.text, chunks);
         }
@@ -266,7 +265,7 @@ export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMa
                 addChunk(" " + name, chunks);
                 if (value !== null) {
                     addChunk(`="`, chunks);
-                    addChunk({ value: aliasedValue }, chunks);
+                    addChunk({ value: aliasedValue, escape: true }, chunks);
                     addChunk(`"`, chunks);
                 }
             }

@@ -1,10 +1,11 @@
 import { IModule } from "../abstract-asts";
+import { writeFile } from "../filesystem";
 import { IRenderSettings, IRenderOptions, makeRenderSettings, defaultRenderSettings } from "../helpers";
-import { renderStatements, Statements } from "./statements/block";
+import { renderStatements, StatementTypes } from "./statements/block";
 
 export class Module implements IModule {
 
-    constructor(public filename: string, public statements: Array<Statements> = []) { }
+    constructor(public filename: string, public statements: Array<StatementTypes> = []) { }
 
     render(partialSettings: Partial<IRenderSettings> = defaultRenderSettings, options?: Partial<IRenderOptions>): string {
         const settings = makeRenderSettings(partialSettings);
@@ -19,7 +20,7 @@ export class Module implements IModule {
         throw new Error("Method not implemented.");
     }
 
-    writeToFile() {
-        throw new Error("Method not implemented.");
+    writeToFile(settings: Partial<IRenderSettings>) {
+        writeFile(this.filename, this.render(settings));
     }
 }

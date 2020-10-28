@@ -3,17 +3,21 @@ import { ArgumentList } from "../statements/function";
 import { ValueTypes } from "./value";
 
 export enum Operation {
-    Call, 
+    Call,
     Borrow, // Not sure whether this is operator but...      
 }
 
 export class Expression implements IRenderable {
 
-    constructor (
+    constructor(
         public lhs: ValueTypes,
         public operation: Operation,
         public rhs?: ValueTypes | ArgumentList
-    ) {}
+    ) {
+        if (operation === Operation.Call && !(rhs instanceof ArgumentList)) {
+            this.rhs = new ArgumentList(rhs ? [rhs] : []);
+        }
+    }
 
     render(settings: IRenderSettings, options?: Partial<IRenderOptions>): string {
         switch (this.operation) {

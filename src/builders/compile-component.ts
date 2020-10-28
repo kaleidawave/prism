@@ -31,7 +31,8 @@ export async function compileSingleComponent(
 
     const bundledClientModule = await getPrismClient(false);
     treeShakeBundle(features, bundledClientModule);
-    const bundledStylesheet = new Stylesheet();
+    bundledClientModule.filename = join(settings.absoluteOutputPath, "component.js");
+    const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, "component.css"));
 
     // This bundles all the components together into a single client module, single stylesheet
     addComponentToBundle(component, bundledClientModule, bundledStylesheet);
@@ -47,14 +48,17 @@ export async function compileSingleComponent(
         comments: settings.comments
     };
 
-    bundledClientModule.writeToFile(clientRenderSettings, join(settings.absoluteOutputPath, "component.js"));
-    bundledStylesheet.writeToFile(clientRenderSettings, join(settings.absoluteOutputPath, "component.css"));
+    bundledClientModule.writeToFile(clientRenderSettings);
+    bundledStylesheet.writeToFile(clientRenderSettings);
 
     if (settings.context === "isomorphic") {
-        const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!);
+        if (settings.backendLanguage === "rust") {
+            throw Error("Not implemented: compile-component --backendLanguage rust")
+        }
+        const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!, "server.ts");
         bundledServerModule.filename = join(settings.absoluteOutputPath, "component.server.js");
         for (const [, comp] of Component.registeredComponents) {
-            bundledServerModule.combine(comp.serverModule!);
+            bundledServerModule.combine(comp.serverModule! as Module);
         }
         bundledServerModule.removeImportsAndExports();
         bundledServerModule.writeToFile({

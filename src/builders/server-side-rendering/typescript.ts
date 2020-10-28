@@ -1,4 +1,5 @@
 import { dirname, relative, join, resolve } from "path";
+import { fileBundle } from "../../bundled-files";
 import { getImportPath } from "../../chef/helpers";
 import { HTMLElement, TextNode } from "../../chef/html/html";
 import { ClassDeclaration } from "../../chef/javascript/components/constructs/class";
@@ -18,6 +19,7 @@ import { assignToObjectMap } from "../../helpers";
 import { buildMetaTags } from "../../metatags";
 import { IFinalPrismSettings } from "../../settings";
 import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
+import { IShellData } from "../template";
 
 function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunks): TemplateLiteral {
     const templateLiteral = new TemplateLiteral();
@@ -25,7 +27,15 @@ function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunk
         if (typeof chunk === "string") {
             templateLiteral.addEntry(chunk);
         } else if ("value" in chunk) {
-            templateLiteral.addEntry(wrapWithEscapeCall(chunk.value));
+            if (chunk.escape) {
+                templateLiteral.addEntry(new Expression({
+                    lhs: new VariableReference("escape"),
+                    operation: Operation.Call,
+                    rhs: chunk.value
+                }));
+            } else {
+                templateLiteral.addEntry(chunk.value);
+            }
         } else if ("condition" in chunk) {
             templateLiteral.addEntry(new Expression({
                 lhs: chunk.condition as ValueTypes,
@@ -68,21 +78,9 @@ function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunk
                 })
             );
         }
+        chunk
     }
     return templateLiteral;
-}
-
-/**
- * Wraps IValue in a escapeValue function. The escape value function escapes html
- * @param value 
- * @example `abc` -> `escape(abc)`
- */
-function wrapWithEscapeCall(value: ValueTypes): Expression {
-    return new Expression({
-        lhs: new VariableReference("escape"),
-        operation: Operation.Call,
-        rhs: value
-    });
 }
 
 export function makeTsComponentServerModule(comp: Component, settings: IFinalPrismSettings): void {
@@ -124,8 +122,8 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
         } else if (statement !== comp.customElementDefineStatement) {
             comp.serverModule!.statements.push(statement);
         }
-    }   
-    
+    }
+
     comp.serverRenderFunction = new FunctionDeclaration(`render${comp.className}Component`, comp.serverRenderParameters, []);
 
     if (comp.defaultData && comp.noSSRData) {
@@ -134,7 +132,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
             typeSignature: comp.dataTypeSignature
         }));
     }
-    
+
     // Append "data-ssr" to the server rendered component. Used at runtime.
     const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
 
@@ -278,4 +276,25 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
             ).replace(/\\/g, "/")
         );
     }
+}
+
+export function buildPrismServerModule(template: IShellData, settings: IFinalPrismSettings): Module {
+    // Include the escape function
+    const baseServerModule = Module.fromString(fileBundle.get("server.ts")!, join(settings.absoluteServerOutputPath, "prism"));
+
+    // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
+    const pageRenderTemplateLiteral = serverRenderPrismNode(template.document, template.nodeData, { minify: settings.minify, addDisableToElementWithEvents: false, dynamicAttribute: false });
+
+    // Create function with content and meta slot parameters
+    const pageRenderFunction = new FunctionDeclaration(
+        "renderHTML",
+        [
+            new VariableDeclaration("contentSlot", { typeSignature: new TypeSignature({ name: "string" }) }),
+            new VariableDeclaration("metaSlot", { typeSignature: new TypeSignature({ name: "string" }) })
+        ],
+        [new ReturnStatement(templateLiteralFromServerRenderChunks(pageRenderTemplateLiteral))],
+    );
+
+    baseServerModule.addExport(pageRenderFunction);
+    return baseServerModule;
 }
