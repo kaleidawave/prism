@@ -3,7 +3,7 @@ import { writeFile } from "../filesystem";
 import { IRenderSettings, IRenderOptions, makeRenderSettings, defaultRenderSettings } from "../helpers";
 import { renderStatements, StatementTypes } from "./statements/block";
 
-export class Module implements IModule {
+export class Module implements IModule<StatementTypes> {
 
     constructor(public filename: string, public statements: Array<StatementTypes> = []) { }
 

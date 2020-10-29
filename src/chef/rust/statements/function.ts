@@ -38,7 +38,7 @@ export class FunctionDeclaration implements IFunctionDeclaration {
         if (this.returnType) {
             acc += `-> ${this.returnType.render(settings)} `;
         }
-        acc += "{\n";
+        acc += "{";
         acc += renderStatements(this.statements, settings);
         acc += "}";
         return acc;

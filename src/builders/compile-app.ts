@@ -88,6 +88,8 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         if (settings.buildTimings) console.timeEnd("Move static assets");
     }
 
+    const serverModulePaths: Array<string> = [];
+
     // Combine all registered components client modules and stylesheets and write out the server module separately
     if (settings.buildTimings) console.time("Combine all component scripts and styles, write out server modules");
     for (const [, registeredComponent] of Component.registeredComponents) {
@@ -95,7 +97,10 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         if (registeredComponent.stylesheet) {
             clientStyleBundle.combine(registeredComponent.stylesheet);
         }
-        registeredComponent.serverModule?.writeToFile(serverRenderSettings);
+        if (registeredComponent.serverModule) {
+            serverModulePaths.push(registeredComponent.serverModule.filename);
+            registeredComponent.serverModule.writeToFile(serverRenderSettings);
+        }
     }
     if (settings.buildTimings) console.timeEnd("Combine all component scripts and styles, write out server modules");
 
@@ -114,7 +119,7 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
 
     if (settings.context === "isomorphic") {
         if (settings.backendLanguage === "rust") {
-            buildRustPrismServerModule(template, settings).writeToFile(serverRenderSettings);
+            buildRustPrismServerModule(template, settings, serverModulePaths).writeToFile(serverRenderSettings);
         } else {
             buildTSPrismServerModule(template, settings).writeToFile(serverRenderSettings);
         }

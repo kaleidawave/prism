@@ -6,18 +6,20 @@ import { defaultRenderSettings } from "../../helpers";
 import { StructStatement } from "./struct";
 import { IfStatement } from "./if";
 import { ForStatement } from "./for";
+import { ModStatement } from "./mod";
 
-export type StatementTypes = Expression | VariableDeclaration | FunctionDeclaration | ReturnStatement | UseStatement | StructStatement | IfStatement | ForStatement;
+export type StatementTypes = Expression | VariableDeclaration | FunctionDeclaration | ReturnStatement | UseStatement | StructStatement | IfStatement | ForStatement | ModStatement;
 
 export function renderStatements(statements: Array<StatementTypes>, settings = defaultRenderSettings, doIndent: boolean = true): string {
     let acc = "";
     for (const statement of statements) {
-        if (doIndent) acc += " ".repeat(settings.indent);
-        acc += statement.render(settings); //.replace(/\n/, "\n" + " ".repeat(settings.indent));
-        if (!(statement instanceof FunctionDeclaration || statement instanceof StructStatement || statement instanceof ForStatement || statement instanceof IfStatement)) {
-            acc += ";";
+        const doNotAddSemiColon = statement instanceof FunctionDeclaration || statement instanceof StructStatement || statement instanceof ForStatement || statement instanceof IfStatement
+        if (doIndent) {
+            acc += ("\n" + statement.render(settings) + (doNotAddSemiColon ? "" : ";")).replace(/\n/g, "\n" + " ".repeat(settings.indent));
+        } else {
+            acc += statement.render(settings) + (doNotAddSemiColon ? "" : ";") + "\n";
         }
-        acc += "\n";
     } 
+    if (statements.length > 0 && doIndent) acc += "\n";
     return acc;
 }

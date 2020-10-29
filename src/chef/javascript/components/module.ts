@@ -9,7 +9,7 @@ import { renderBlock } from "./constructs/block";
 import { readFile, writeFile } from "../../filesystem";
 import { IModule } from "../../abstract-asts";
 
-export class Module implements IModule {
+export class Module implements IModule<StatementTypes> {
 
     name?: string;
     statements: Array<StatementTypes>;

@@ -1,8 +1,8 @@
 import { IFile } from "./filesystem";
 import { IRenderable, IRenderOptions, IRenderSettings } from "./helpers";
 
-export interface IModule extends IFile, IRenderable {
-    statements: Array<any>;
+export interface IModule<T> extends IFile, IRenderable {
+    statements: Array<T>;
 
     render(settings?: Partial<IRenderSettings>, options?: Partial<IRenderOptions>): string;
 

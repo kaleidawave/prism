@@ -58,7 +58,7 @@ export class Component {
     componentClass: ClassDeclaration;
     clientModule: JSModule;
 
-    serverModule?: IModule; // TODO any
+    serverModule?: IModule<any>; // TODO any
     // TODO language agnostic function type
     serverRenderFunction?: IFunctionDeclaration;
     pageServerRenderFunction?: IFunctionDeclaration;

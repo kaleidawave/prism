@@ -11,7 +11,7 @@ export class ForStatement implements IRenderable {
 
     render(settings: IRenderSettings, options?: Partial<IRenderOptions>): string {
         let acc = `for ${this.variable} of ${this.subject.render(settings)} `;
-        acc += `{\n${renderStatements(this.statements, settings)}}`;
+        acc += `{${renderStatements(this.statements, settings)}}`;
         return acc;
     }
 }

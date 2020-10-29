@@ -259,12 +259,10 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
     // Add imports from the server module
     const imports: Array<VariableDeclaration> = [];
 
-    if (comp.isPage) {
-        imports.push(new VariableDeclaration("renderHTML")); // Renders the component around the HTML document
-    }
-    if (comp.needsData) {
-        imports.push(new VariableDeclaration("escape")); // Escapes HTML values
-    }
+    // Renders the component around the HTML document
+    if (comp.isPage) imports.push(new VariableDeclaration("renderHTML"));
+    // Escapes HTML values
+    if (comp.needsData) imports.push(new VariableDeclaration("escape")); 
 
     if (imports.length > 0) {
         comp.serverModule!.addImport(

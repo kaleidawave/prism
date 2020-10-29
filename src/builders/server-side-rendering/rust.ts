@@ -13,7 +13,8 @@ import { TypeSignature as JSTypeSignature } from "../../chef/javascript/componen
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { Module } from "../../chef/rust/module";
-import { join } from "path";
+import { ModStatement } from "../../chef/rust/statements/mod";
+import { dirname, join, relative } from "path";
 import { HTMLElement } from "../../chef/html/html";
 import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
 import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../chef/javascript/components/statements/import-export";
@@ -42,6 +43,10 @@ function jsAstToRustAst(jsAst: JSAstTypes) {
             true // TODO temp will say its true for now ...
         );
     } else if (jsAst instanceof JSTypeSignature) {
+        if (jsAst.name === "Union") {
+            return new TypeSignature(typeMap.get(jsAst.typeArguments![0].name!)!);
+        }
+
         // TODO mapped types
         return new TypeSignature(typeMap.get(jsAst.name!) ?? jsAst.name!, {
             typeArguments: jsAst.typeArguments ? jsAst.typeArguments.map(tA => jsAstToRustAst(tA)) : undefined
@@ -117,16 +122,13 @@ function statementsFromServerRenderChunks(serverChunks: ServerRenderedChunks, in
                 chunk.args.set("attributes", new Value(Type.string, ""));
             }
             statements.push(new Expression(
-                new Expression(
-                    new VariableReference("push_str", accVariable),
+                new VariableReference("push_str", accVariable),
+                Operation.Call,
+                new ArgumentList([new Expression(
+                    new VariableReference(chunk.func.actualName!),
                     Operation.Call,
-                    new ArgumentList([new Expression(
-                        new VariableReference(chunk.func.actualName!),
-                        Operation.Call,
-                        chunk.func.buildArgumentListFromArgumentsMap(chunk.args)
-                    )])
-                ),
-                Operation.Borrow
+                    chunk.func.buildArgumentListFromArgumentsMap(chunk.args)
+                )])
             ));
         }
     }
@@ -140,12 +142,34 @@ function statementsFromServerRenderChunks(serverChunks: ServerRenderedChunks, in
  * @param settings 
  */
 export function makeRustComponentServerModule(comp: Component, settings: IFinalPrismSettings): void {
-    comp.serverModule = new Module(join(settings.absoluteServerOutputPath, comp.relativeFilename + ".rs"));
-    console.log("Filename:", comp.serverModule.filename);
+    comp.serverModule = new Module(
+        join(settings.absoluteServerOutputPath, comp.relativeFilename.replace(/[.-]/g, "_") + ".rs")
+    );
 
     for (const statement of comp.clientModule.statements) {
         if ((statement instanceof JSExportStatement && statement.exported === comp.componentClass) || statement === comp.componentClass || statement === comp.customElementDefineStatement) {
             continue;
+        } else if (statement instanceof JSImportStatement) {
+            if (statement.from.endsWith(".prism.js")) {
+                const newImports: Array<string> = [];
+                let importedComponent: Component | null = null;
+                // If a imports a component class convert it to 
+                for (const key of statement.variable!.entries!.values()) {
+                    if (comp.importedComponents.has(key?.name!)) {
+                        importedComponent = comp.importedComponents.get(key?.name!)!;
+                        newImports.push(importedComponent.serverRenderFunction!.actualName!)
+                    } else {
+                        newImports.push(key?.name!);
+                    }
+                }
+                const path = relative(
+                    settings.absoluteServerOutputPath,
+                    importedComponent!.serverModule!.filename!
+                ).split("/");
+                const useStatement = new UseStatement(["crate", ...path, newImports]);
+                comp.serverModule!.statements.push(useStatement);
+            }
+            // Ignore other imports for now
         } else {
             // TODO function with @rustConditionalImport decorator
             const rustStatement = jsAstToRustAst(statement);
@@ -171,15 +195,29 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
 
     comp.serverRenderFunction.statements = statementsFromServerRenderChunks(serverRenderChunks, true);
     comp.serverModule.statements.push(comp.serverRenderFunction);
+
+    const imports: Array<string> = [];
+
+    if (comp.isPage) imports.push("renderHTML");
+    if (comp.needsData) imports.push("escape");
+
+    const pathToPrismModule = relative(
+        settings.absoluteServerOutputPath,
+        join(settings.absoluteServerOutputPath, "prism.rs")
+    ).split("/");
+
+    if (imports.length > 0) {
+        comp.serverModule!.statements.push(new UseStatement(["crate", pathToPrismModule, imports]));
+    }
 }
 
 const escapeMap = [["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ["\"", "&quot;"], ["'", "&#039l"]];
 
-export function buildPrismServerModule(template: IShellData, settings: IFinalPrismSettings): Module {
+export function buildPrismServerModule(template: IShellData, settings: IFinalPrismSettings, outputFiles: Array<string>): Module {
     const baseServerModule = new Module(join(settings.absoluteServerOutputPath, "prism.rs"));
 
     // Escape function
-    let expression: ValueTypes = new VariableReference("unsafe");
+    let expression: ValueTypes = new VariableReference("unsafeString");
     for (const [character, replacer] of escapeMap) {
         expression = new Expression(
             new VariableReference("replace", expression),
@@ -188,7 +226,7 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
         )
     }
 
-    baseServerModule.statements.push(new FunctionDeclaration("escape", [["unsafe", new TypeSignature("String")]], new TypeSignature("String"), [new ReturnStatement(expression)], true));
+    baseServerModule.statements.push(new FunctionDeclaration("escape", [["unsafeString", new TypeSignature("String")]], new TypeSignature("String"), [new ReturnStatement(expression)], true));
 
     // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
     const renderHTMLStatements = statementsFromServerRenderChunks(
@@ -207,6 +245,21 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
         true
     );
     baseServerModule.statements.push(pageRenderFunction);
+
+    outputFiles.push(baseServerModule.filename);
+    const directoryModules: Map<string, Module> = new Map();
+    for (const file of outputFiles) {
+        const dir = dirname(file);
+        const base = basename(file, ".rs");
+        const pubCrateStatement: ModStatement = new ModStatement(base, true);
+        if (directoryModules.has(dir)) {
+            directoryModules.get(dir)!.statements.push(pubCrateStatement)
+        } else {
+            const dirModule = new Module(join(dir, "mod.rs"), [pubCrateStatement])
+            directoryModules.set(dir, dirModule);
+        }
+    }
+    directoryModules.forEach(value => value.writeToFile({}))
 
     return baseServerModule;
 }
