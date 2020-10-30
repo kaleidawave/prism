@@ -22,7 +22,7 @@ switch (process.argv[2]) {
         if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
             throw Error(`Output path must be a directory`);
         }
-        compileSingleComponent(settings.projectPath, process.cwd(), settings)
+        compileSingleComponent(settings.projectPath, settings)
             .then(() => {
                 if (settings.buildTimings) console.timeEnd("Building single component");
             });

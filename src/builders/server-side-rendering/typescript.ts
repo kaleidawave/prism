@@ -140,7 +140,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
     const componentHtmlTag = new HTMLElement(comp.tag, componentAttributes, comp.templateElement.children, comp.templateElement.parent);
 
     const ssrSettings: IServerRenderSettings = {
-        dynamicAttribute: !comp.isPage,
+        dynamicAttribute: !(comp.isPage || comp.isLayout),
         minify: settings.minify,
         addDisableToElementWithEvents: settings.disableEventElements
     }

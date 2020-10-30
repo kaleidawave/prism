@@ -599,7 +599,6 @@ export class Component {
 
         // Build the server render module
         if (settings.context === "isomorphic") {
-
             this.dataTypeSignature = this.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
 
             // Construct ssr function parameters
@@ -621,7 +620,7 @@ export class Component {
                     new VariableDeclaration(((clientGlobal[0] as VariableReference).name), { typeSignature: clientGlobal[1] }))
             );
 
-            if (!this.isPage) {
+            if (!(this.isPage || this.isLayout)) {
                 parameters.push(new VariableDeclaration("attributes", {
                     typeSignature: new TypeSignature({ name: "string" }),
                     value: new Value(Type.string)

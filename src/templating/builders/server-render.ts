@@ -66,7 +66,7 @@ export function serverRenderPrismNode(
     skipOverServerExpression: boolean = false
 ): ServerRenderedChunks {
     const parts = buildServerTemplateLiteralShards(template, nodeData, serverRenderSettings, locals, skipOverServerExpression);
-    if (serverRenderSettings.minify) {
+    if (serverRenderSettings.dynamicAttribute) {
         parts.splice(1, 0, { value: new VariableReference("attributes"), escape: true });
     }
     return parts;

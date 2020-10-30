@@ -4,7 +4,7 @@ import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { join } from "path";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
-import { IPrismSettings, makePrismSettings } from "../settings";
+import { IFinalPrismSettings } from "../settings";
 import { fileBundle } from "../bundled-files";
 
 /**
@@ -13,10 +13,8 @@ import { fileBundle } from "../bundled-files";
  */
 export async function compileSingleComponent(
     componentPath: string,
-    cwd: string,
-    partialSettings: Partial<IPrismSettings>
+    settings: IFinalPrismSettings
 ): Promise<void> {
-    const settings = makePrismSettings(cwd, partialSettings);
     const features: IRuntimeFeatures = { 
         conditionals: false, 
         isomorphic: settings.context === "isomorphic", 

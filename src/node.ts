@@ -1,6 +1,6 @@
 import { registerFSReadCallback, registerFSWriteCallback, registerFSCopyCallback, registerFSExistsCallback } from "./filesystem";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from "fs";
-import { dirname, isAbsolute, join } from "path";
+import { dirname, isAbsolute, join, sep } from "path";
 import { getArguments } from "./helpers";
 import { IFinalPrismSettings, makePrismSettings } from "./settings";
 import { spawn } from "child_process";
@@ -60,7 +60,7 @@ export function registerSettings(cwd: string): IFinalPrismSettings {
         }
     }
 
-    return makePrismSettings(cwd, settings);
+    return makePrismSettings(cwd, sep, settings);
 }
 
 /**
@@ -75,17 +75,17 @@ export function runApplication(openBrowser: boolean = false, settings: IFinalPri
         return new Promise((res, rej) => {
             try {
                 const shell = spawn("ws", [
-                    "--directory", settings.outputPath + "/client",
+                    "--directory", settings.outputPath,
                     "-f", "tiny",
                     "--spa", "index.html",
                     openBrowser ? "--open" : "",
-                    "", ""
                 ], { shell: true, stdio: "pipe" });
                 shell.stdout.pipe(process.stdout);
                 shell.on("close", res);
                 shell.on("error", rej);
             } catch (error) {
                 rej(error);
+                console.error("ws: " + error);
             }
         });
     } else {
@@ -114,6 +114,7 @@ export function runApplication(openBrowser: boolean = false, settings: IFinalPri
                 shell.on("close", res);
                 shell.on("error", rej);
             } catch (error) {
+                console.error(error);
                 rej(error);
             }
         });
