@@ -90,7 +90,10 @@ function statementsFromServerRenderChunks(
             if (chunk.args.has("attributes")) {
                 // @ts-ignore chunk.args isn't used again so can overwrite value to be in ts base...
                 // chunk.args.set("attributes", templateLiteralFromServerRenderChunks(chunk.args.get("attributes")!));
-                chunk.args.set("attributes", new Value(Type.string, ""));
+                chunk.args.set("attributes", new Expression(
+                    new VariableReference("to_string", new Value(Type.string, "")),
+                    Operation.Call
+                ));
             }
             statements.push(new Expression(
                 new VariableReference("push_str", accVariable),
@@ -195,7 +198,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
             }
             // Ignores other imports for now
         } else if (
-            statement instanceof JSFunctionDeclaration && 
+            statement instanceof JSFunctionDeclaration &&
             statement.decorators?.some?.(decorator => decorator.name === jsToRustDecoratorName)
         ) {
             /** 
@@ -252,7 +255,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
 
     if (comp.isPage) {
         let metadataString: ValueTypes;
-        if (comp.metadata) {
+        if (comp.metaDataChunks.length > 0) {
             metadataString = formatExpressionFromServerChunks(comp.metaDataChunks, comp.serverModule);
         } else {
             metadataString = new Expression(
@@ -268,16 +271,16 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
             [
                 new ReturnStatement(
                     new Expression(
-                        new VariableReference("renderHTML"),
+                        new VariableReference("render_html"),
                         Operation.Call,
-                        new Expression(
-                            new VariableReference(componentRenderFunctionName),
-                            Operation.Call,
-                            new ArgumentList([
+                        new ArgumentList([
+                            new Expression(
+                                new VariableReference(componentRenderFunctionName),
+                                Operation.Call,
                                 new VariableReference("data"),
-                                metadataString
-                            ])
-                        )
+                            ),
+                            metadataString
+                        ])
                     )
                 )
             ],
@@ -288,7 +291,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
 
     const imports: Array<string> = [];
 
-    if (comp.isPage) imports.push("renderHTML");
+    if (comp.isPage) imports.push("render_html");
     if (comp.needsData) imports.push("escape");
 
     const pathToPrismModule = relative(join(settings.cwd, "src"), dirname(comp.serverModule.filename)).split(settings.pathSplitter);
@@ -323,7 +326,7 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
 
     // Create function with content and meta slot parameters
     const pageRenderFunction = new FunctionDeclaration(
-        "renderHTML",
+        "render_html",
         [
             ["contentSlot", new TypeSignature("String")],
             ["metaSlot", new TypeSignature("String")]

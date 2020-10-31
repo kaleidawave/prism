@@ -39,15 +39,26 @@ export async function parseTemplateShell(settings: IFinalPrismSettings): Promise
                     let swapElement: HTMLElement = new HTMLElement("router-component", null, [], element.parent);
                     element.parent!.children.splice(element.parent!.children.indexOf(element), 1, swapElement);
                     swapElement.children.push(element);
+                    element.parent = swapElement;
                     break;
                 case "meta":
                     // TODO link up names
                     // TODO manifest
-                    element.children.push(
-                        new HTMLElement("script", new Map([["type", "module"], ["src", "/bundle.js"]]))
-                    );
-                    element.children.push(
-                        new HTMLElement("link", new Map([["rel", "stylesheet"], ["href", "/bundle.css"]]))
+                    element.parent!.children.splice(
+                        element.parent!.children.indexOf(element),
+                        0,
+                        new HTMLElement(
+                            "script",
+                            new Map([["type", "module"], ["src", "/bundle.js"]]),
+                            [],
+                            element.parent
+                        ),
+                        new HTMLElement(
+                            "link",
+                            new Map([["rel", "stylesheet"], ["href", "/bundle.css"]]),
+                            [],
+                            element.parent
+                        )
                     );
                     break;
                 default:
@@ -59,6 +70,9 @@ export async function parseTemplateShell(settings: IFinalPrismSettings): Promise
     return { document, nodeData, slots };
 }
 
+/**
+  Writes out a "index.html" or "shell.html" which is for using Prism as a csr spa
+*/
 export function writeIndexHTML(
     template: IShellData,
     settings: IFinalPrismSettings,
@@ -67,7 +81,7 @@ export function writeIndexHTML(
     const indexHTMLPath =
         join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
 
-    // Remove slot elements
+    // Remove slot elements from the output
     const slotElements: Array<[HTMLElement | HTMLDocument, HTMLElement, number]> = [];
     for (const slotElem of template.slots) {
         const parent = slotElem.parent!;
@@ -78,5 +92,4 @@ export function writeIndexHTML(
     template.document.writeToFile(clientRenderSettings, indexHTMLPath);
     // Replace slot elements
     slotElements.forEach(([parent, slotElem, index]) => parent.children.splice(index, 0, slotElem));
-
 }

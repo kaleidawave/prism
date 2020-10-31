@@ -4,7 +4,8 @@ export class StructStatement implements IRenderable {
     constructor (
         public name: TypeSignature,
         public members: Map<string, TypeSignature>,
-        public isPublic: boolean = false
+        public isPublic: boolean = false,
+        public privateMembers: Set<string> = new Set()
     ) {}
 
     render(settings: IRenderSettings, options?: Partial<IRenderOptions>): string {
@@ -13,6 +14,7 @@ export class StructStatement implements IRenderable {
         acc += `struct ${this.name.render(settings)} {\n`;
         for (const [name, type] of this.members) {
             acc += " ".repeat(settings.indent);
+            if (!this.privateMembers.has(name)) acc += "pub ";
             acc += `${name}: ${type.render(settings)},\n`;
         }
         acc += "}\n";

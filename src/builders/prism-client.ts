@@ -1,15 +1,13 @@
 import { Module } from "../chef/javascript/components/module";
-import { getRoutes, injectRoutes } from "./client-side-routing";
+import { injectRoutes } from "./client-side-routing";
 import { fileBundle } from "../bundled-files";
 import { join } from "path";
-import { dynamicUrlToString } from "../chef/dynamic-url";
-import { flatElements, HTMLDocument, HTMLElement } from "../chef/html/html";
-import { defaultTemplateHTML, IFinalPrismSettings } from "../settings";
 import { FunctionDeclaration } from "../chef/javascript/components/constructs/function";
 import { ExportStatement } from "../chef/javascript/components/statements/import-export";
 import { ClassDeclaration } from "../chef/javascript/components/constructs/class";
 import { VariableDeclaration } from "../chef/javascript/components/statements/variable";
 import { Comment } from "../chef/javascript/components/statements/comments";
+import { ValueTypes } from "../chef/javascript/components/value/value";
 
 export const clientModuleFilenames = [
     "component.ts",
@@ -106,7 +104,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement instanceof ExportStatement &&
             statement.exported instanceof FunctionDeclaration &&
             statement.exported.name?.name === "createObservableObject"
-        ) as ExportStatement).exported = createObservableObject!;
+        ) as ExportStatement).exported = createObservableObject as ValueTypes;
     }
 }
 

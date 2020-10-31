@@ -121,8 +121,6 @@ export class ImportStatement implements IRenderable {
     }
 }
 
-const validExportableStructures = new Set([ClassDeclaration, FunctionDeclaration, TypeDeclaration, VariableDeclaration, VariableReference, Expression, InterfaceDeclaration]);
-
 export class ExportStatement implements IRenderable {
 
     constructor(
@@ -140,7 +138,10 @@ export class ExportStatement implements IRenderable {
             if (!serializedExport) return "";
             return acc + serializedExport;
         } else if (settings.moduleFormat === ModuleFormat.CJS) {
-            if (this.exported instanceof ClassDeclaration || this.exported instanceof FunctionDeclaration || this.exported instanceof VariableDeclaration || this.exported instanceof InterfaceDeclaration) {
+            if (this.exported instanceof ClassDeclaration ||
+                this.exported instanceof FunctionDeclaration ||
+                this.exported instanceof VariableDeclaration ||
+                this.exported instanceof InterfaceDeclaration) {
                 /**
                  * this.exported is rendered first because: `export function x() {}` !== module.exports.x = function x() {}. As in the second example x is not hoisted or something like that...
                  */
@@ -175,7 +176,15 @@ export class ExportStatement implements IRenderable {
             reader.move();
         }
         const exported = parseStatement(reader);
-        if (!validExportableStructures.has(Object.getPrototypeOf(exported))) {
+        if (!(
+            exported instanceof ClassDeclaration ||
+            exported instanceof FunctionDeclaration ||
+            exported instanceof TypeDeclaration ||
+            exported instanceof VariableDeclaration ||
+            exported instanceof VariableReference ||
+            exported instanceof Expression ||
+            exported instanceof InterfaceDeclaration)
+        ) {
             throw Error(`Invalid exported member "${exported.constructor.name}"`);
         }
         return new ExportStatement(exported as ValueTypes, isDefault);

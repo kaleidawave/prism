@@ -74,9 +74,11 @@ export class Component {
 
     clientGlobals: Array<[VariableReference, TypeSignature]> = [];
     customElementDefineStatement: Expression;
-    noSSRData: boolean;
     defaultData: ObjectLiteral;
     templateData: ITemplateData;
+
+    // Whether to not add a parameter for sending data to component in favor of using default data
+    noSSRData: boolean;
 
     stylesheet?: Stylesheet;
 
@@ -92,9 +94,15 @@ export class Component {
     static registeredComponents: Map<string, Component> = new Map();
     passive: boolean;
     globals: VariableReference[];
+    
+    // Parameters for the SSR function
     serverRenderParameters: VariableDeclaration[];
+    // The TS type signature for the component
     dataTypeSignature: TypeSignature;
+
+    // The template wrapped in a <*component-tag*> element
     componentHtmlTag: HTMLElement;
+    // ServerRenderedChunks used for generating the concatenation for <head>
     metaDataChunks: ServerRenderedChunks;
 
     /**

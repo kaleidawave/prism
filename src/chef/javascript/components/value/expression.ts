@@ -447,7 +447,6 @@ export class Expression implements IRenderable {
                 }
         }
 
-        // Postfix operators that don't quite fit into binary and can be chained
         while (valueThings.has(reader.current.type)) {
             switch (reader.current.type as JSToken) {
                 // Chain
