@@ -5,11 +5,12 @@ import { TypeSignature } from "../types/type-signature";
 import { StatementTypes, ReturnStatement } from "../statements/statement";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "./block";
-import { ClassDeclaration, Decorator } from "./class";
+import { ClassDeclaration } from "./class";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ObjectLiteral } from "../value/object";
 import { Module } from "../module";
 import { IFunctionDeclaration } from "../../../abstract-asts";
+import { Decorator } from "../types/decorator";
 
 export const functionPrefixes = [JSToken.Get, JSToken.Set, JSToken.Async];
 
@@ -67,7 +68,7 @@ interface FunctionOptions {
     bound: boolean, // If "this" refers to function scope
     isGenerator: boolean,
     isStatic: boolean,
-    decorators: Set<Decorator>,
+    decorators?: Array<Decorator>,
     returnType?: TypeSignature,
     isAbstract: boolean, // TODO implement on IClassMember
 }
@@ -79,7 +80,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
     parameters: Array<VariableDeclaration>;
     parent: ClassDeclaration | ObjectLiteral | Module;
 
-    decorators: Set<Decorator>;
+    decorators?: Array<Decorator>;
 
     bound: boolean = true; // If "this" returns to function context
     getSet?: GetSet;
@@ -146,6 +147,9 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
     render(settings: IRenderSettings = defaultRenderSettings): string {
         settings = makeRenderSettings(settings);
         let acc = "";
+        if (this.decorators) {
+            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n");
+        }
 
         if (this.isAbstract && settings.scriptLanguage !== ScriptLanguages.Typescript) return acc;
 
@@ -240,7 +244,6 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
         reader: TokenReader<JSToken>,
         parent?: ClassDeclaration | ObjectLiteral,
         modifiers?: Set<JSToken>,
-        decorators?: Set<Decorator>
     ): FunctionDeclaration {
         let async = false;
         if (reader.current.type === JSToken.Async) {
@@ -292,7 +295,6 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
                     isAsync: async,
                     getSet,
                     returnType,
-                    decorators: new Set(decorators)
                 });
             }
 
@@ -306,8 +308,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
                 isStatic,
                 isAsync: async,
                 getSet,
-                returnType,
-                decorators: new Set(decorators)
+                returnType
             });
         } else {
             let params: VariableDeclaration[];

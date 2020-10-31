@@ -8,8 +8,9 @@ import { IfStatement } from "./if";
 import { ForStatement } from "./for";
 import { ModStatement } from "./mod";
 import { DeriveStatement } from "./derive";
+import { DynamicStatement } from "../dynamic-statement";
 
-export type StatementTypes = Expression | VariableDeclaration | FunctionDeclaration | ReturnStatement | UseStatement | StructStatement | IfStatement | ForStatement | ModStatement | DeriveStatement;
+export type StatementTypes = Expression | VariableDeclaration | FunctionDeclaration | ReturnStatement | UseStatement | StructStatement | IfStatement | ForStatement | ModStatement | DeriveStatement | DynamicStatement;
 
 export function renderStatements(statements: Array<StatementTypes>, settings = defaultRenderSettings, doIndent: boolean = true): string {
     let acc = "";

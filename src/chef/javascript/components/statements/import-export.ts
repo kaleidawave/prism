@@ -1,10 +1,14 @@
-import { StatementTypes, ParseStatement } from "./statement";
+import { parseStatement } from "./statement";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ClassDeclaration } from "../constructs/class";
 import { FunctionDeclaration } from "../constructs/function";
 import { TokenReader, IRenderSettings, ScriptLanguages, ModuleFormat, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { InterfaceDeclaration } from "../types/interface";
+import { ValueTypes } from "../value/value";
+import { TypeDeclaration } from "../types/statements";
+import { VariableReference } from "../value/variable";
+import { Expression } from "../value/expression";
 
 const extensions = [".ts", ".js"];
 
@@ -117,10 +121,12 @@ export class ImportStatement implements IRenderable {
     }
 }
 
+const validExportableStructures = new Set([ClassDeclaration, FunctionDeclaration, TypeDeclaration, VariableDeclaration, VariableReference, Expression, InterfaceDeclaration]);
+
 export class ExportStatement implements IRenderable {
 
     constructor(
-        public exported: StatementTypes,
+        public exported: ValueTypes,
         public isDefault: boolean = false,
     ) { }
 
@@ -140,7 +146,7 @@ export class ExportStatement implements IRenderable {
                  */
                 let acc = this.exported.render(settings);
                 if (!acc) return "";
-                
+
                 acc += "\n";
                 acc += "module.exports";
 
@@ -168,8 +174,10 @@ export class ExportStatement implements IRenderable {
             isDefault = true;
             reader.move();
         }
-        const exported = ParseStatement(reader);
-        return new ExportStatement(exported, isDefault);
+        const exported = parseStatement(reader);
+        if (!validExportableStructures.has(Object.getPrototypeOf(exported))) {
+            throw Error(`Invalid exported member "${exported.constructor.name}"`);
+        }
+        return new ExportStatement(exported as ValueTypes, isDefault);
     }
-
 }

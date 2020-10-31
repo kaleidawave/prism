@@ -20,7 +20,7 @@ export class AsExpression implements IRenderable {
     }
 }
 
-export class TypeStatement implements IRenderable {
+export class TypeDeclaration implements IRenderable {
     constructor(
         public name: TypeSignature,
         public value: TypeSignature,
@@ -36,13 +36,13 @@ export class TypeStatement implements IRenderable {
         return acc;
     }
 
-    static fromTokens(reader: TokenReader<JSToken>): TypeStatement {
+    static fromTokens(reader: TokenReader<JSToken>): TypeDeclaration {
         reader.expectNext(JSToken.Type);
         // LHS can have generics so parse it as so
         const name = TypeSignature.fromTokens(reader);
         // TODO catch type x | y = 2; etc
         reader.expectNext(JSToken.Assign);
         const value = TypeSignature.fromTokens(reader);
-        return new TypeStatement(name, value);
+        return new TypeDeclaration(name, value);
     }
 }

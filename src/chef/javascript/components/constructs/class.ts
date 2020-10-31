@@ -1,10 +1,10 @@
 import { TokenReader, IRenderSettings, IRenderable, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { commentTokens, JSToken, stringToTokens } from "../../javascript";
 import { TypeSignature } from "../types/type-signature";
-import { FunctionDeclaration, ArgumentList, GetSet } from "./function";
+import { Decorator } from "../types/decorator";
+import { FunctionDeclaration, GetSet } from "./function";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { Comment } from "../statements/comments";
-import { ValueTypes } from "../value/value";
 
 // Tokens which when prepended to a class member depict modification
 const memberModifiers = new Set([
@@ -12,56 +12,10 @@ const memberModifiers = new Set([
     JSToken.Abstract, JSToken.Static,
     JSToken.Get, JSToken.Set
 ]);
-    
+
 interface ClassContextSettings {
     isAbstract?: boolean,
     isExpression?: boolean // e.g. const x = class { a() {} }
-}
-
-// TODO better place for decorators?
-export class Decorator {
-    private _argumentList?: ArgumentList; // Arguments sent to decorator
-
-    constructor(
-        public name: string,
-        args?: Array<ValueTypes> | ArgumentList
-    ) {
-        if (args) {
-            if (args instanceof ArgumentList) {
-                this._argumentList = args;
-            } else {
-                this._argumentList = new ArgumentList(args);
-            }
-        }
-    }
-
-    render(settings: IRenderSettings = defaultRenderSettings): string {
-        let acc = this.name;
-        if (this._argumentList) {
-            acc += this._argumentList.render(settings);
-        }
-        return acc;
-    }
-
-    // Getting arguments parsed to decorator function without having to delve
-    get args() {
-        if (this._argumentList) {
-            return this._argumentList.args;
-        } else {
-            return [];
-        }
-    }
-
-    static fromTokens(reader: TokenReader<JSToken>) {
-        reader.expect(JSToken.At);
-        const { value: name } = reader.next();
-        reader.expectNext(JSToken.Identifier);
-        if (reader.current.type === JSToken.OpenBracket) {
-            return new Decorator(name!, ArgumentList.fromTokens(reader));
-        } else {
-            return new Decorator(name!);
-        }
-    }
 }
 
 interface IClassSettings {
@@ -167,7 +121,11 @@ export class ClassDeclaration implements IRenderable, IClassSettings {
     render(settings: IRenderSettings = defaultRenderSettings): string {
         settings = makeRenderSettings(settings);
         let acc = "";
-        if (this.isAbstract && settings.scriptLanguage ===   ScriptLanguages.Typescript) acc += "abstract ";
+        if (this.decorators) {
+            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n");
+        }
+
+        if (this.isAbstract && settings.scriptLanguage === ScriptLanguages.Typescript) acc += "abstract ";
         acc += "class ";
         if (this.name) {
             if (settings.scriptLanguage === ScriptLanguages.Typescript) {
@@ -249,7 +207,7 @@ export class ClassDeclaration implements IRenderable, IClassSettings {
         reader.expectNext(JSToken.OpenCurly);
 
         const modifierAccumulator = new Set<JSToken>();
-        const decoratorAccumulator = new Set<Decorator>();
+        let decoratorAccumulator: Array<Decorator> = [];
         while (reader.current.type !== JSToken.CloseCurly) {
             // TODO accessibility modifiers
 
@@ -257,7 +215,7 @@ export class ClassDeclaration implements IRenderable, IClassSettings {
                 clsDec.addMember(new Comment(reader.current.value!, reader.current.type === JSToken.MultilineComment));
                 reader.move();
             } else if (reader.current.type === JSToken.At) {
-                decoratorAccumulator.add(Decorator.fromTokens(reader));
+                decoratorAccumulator.push(Decorator.fromTokens(reader));
             } else if (memberModifiers.has(reader.current.type)) {
                 modifierAccumulator.add(reader.current.type);
                 reader.move();
@@ -267,10 +225,11 @@ export class ClassDeclaration implements IRenderable, IClassSettings {
                 || reader.current.type === JSToken.Multiply
                 || reader.peek()?.type === JSToken.OpenBracket
             ) {
-                const func = FunctionDeclaration.fromTokens(reader, clsDec, modifierAccumulator, decoratorAccumulator);
+                const func = FunctionDeclaration.fromTokens(reader, clsDec, modifierAccumulator);
+                func.decorators = decoratorAccumulator;
                 clsDec.addMember(func);
                 modifierAccumulator.clear();
-                decoratorAccumulator.clear();
+                decoratorAccumulator = [];
             } else {
                 const variable = VariableDeclaration.fromTokens(reader, {
                     isStatic: modifierAccumulator.has(JSToken.Static),

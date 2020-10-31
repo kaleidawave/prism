@@ -1,7 +1,7 @@
 import { TokenReader, makeRenderSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
 import { JSToken, stringToTokens } from "../javascript";
-import { Decorator, ClassDeclaration } from "./constructs/class";
-import { StatementTypes, ParseStatement } from "./statements/statement";
+import { ClassDeclaration } from "./constructs/class";
+import { StatementTypes, parseStatement } from "./statements/statement";
 import { ExportStatement, ImportStatement } from "./statements/import-export";
 import { ValueTypes } from "./value/value";
 import { VariableDeclaration } from "./statements/variable";
@@ -68,29 +68,15 @@ export class Module implements IModule<StatementTypes> {
     static fromTokens(reader: TokenReader<JSToken>, filename: string): Module {
         const mod = new Module(filename);
 
-        // Accumulate decorators for classes
-        const decoratorAccumulator: Set<Decorator> = new Set();
-
         while (reader.current.type !== JSToken.EOF) {
             // Parse the statement
-            const statement = ParseStatement(reader);
-
-            if (statement instanceof Decorator) {
-                decoratorAccumulator.add(statement);
-                continue;
-            } else if (statement instanceof ClassDeclaration) {
-                // Set class decorators and clear accumulator
-                statement.decorators = [...decoratorAccumulator];
-                decoratorAccumulator.clear();
-            }
+            const statement = parseStatement(reader);
 
             // If class add to Module.classes
             if (statement instanceof ClassDeclaration) {
                 mod.classes.push(statement);
             } else if (statement instanceof ExportStatement && statement.exported instanceof ClassDeclaration) {
                 mod.classes.push(statement.exported);
-                statement.exported.decorators = [...decoratorAccumulator];
-                decoratorAccumulator.clear();
             }
 
             // Add to imports

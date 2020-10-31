@@ -10,9 +10,9 @@ import { IFinalPrismSettings } from "../../settings";
 import { Module } from "../../chef/rust/module";
 import { ModStatement } from "../../chef/rust/statements/mod";
 import { dirname, join, relative } from "path";
-import { HTMLElement } from "../../chef/html/html";
 import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
 import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../chef/javascript/components/statements/import-export";
+import { FunctionDeclaration as JSFunctionDeclaration } from "../../chef/javascript/components/constructs/function";
 import { UseStatement } from "../../chef/rust/statements/use";
 import { ElseStatement, IfStatement } from "../../chef/rust/statements/if";
 import { ForStatement } from "../../chef/rust/statements/for";
@@ -20,6 +20,8 @@ import { basename } from "path";
 import { IShellData } from "../template";
 import { jsAstToRustAst } from "../../chef/rust/utils/js2rust";
 import { DeriveStatement } from "../../chef/rust/statements/derive";
+import { TemplateLiteral } from "../../chef/javascript/components/value/template-literal";
+import { DynamicStatement } from "../../chef/rust/dynamic-statement";
 
 /** The variable which points to the String that is appended to */
 const accVariable = new VariableReference("acc");
@@ -110,12 +112,56 @@ function statementsFromServerRenderChunks(
     return statements;
 }
 
+/** Builds a `format!(...)` expression. Cannot be used for condition and iterator data */
+function formatExpressionFromServerChunks(
+    serverChunks: ServerRenderedChunks,
+    module: Module
+): Expression {
+    let formatString = "";
+    const args: Array<ValueTypes> = [];
+    for (const chunk of serverChunks) {
+        if (typeof chunk === "string") {
+            formatString += chunk;
+        } else if ("value" in chunk) {
+            formatString += "{}";
+            const value = jsAstToRustAst(chunk.value, module);
+            // Creates `&escape(*value*.to_string()).to_string()`:
+            args.push(new Expression(
+                new Expression(
+                    new VariableReference("to_string", new Expression(
+                        new VariableReference("escape"),
+                        Operation.Call,
+                        new Expression(
+                            new VariableReference("to_string", value),
+                            Operation.Call
+                        )
+                    )),
+                    Operation.Call
+                ),
+                Operation.Borrow
+            ));
+        } else {
+            throw Error(`Cannot use ${chunk} in Rust format! expression`);
+        }
+    }
+
+    return new Expression(
+        new VariableReference("format!"),
+        Operation.Call,
+        new ArgumentList(
+            [new Value(Type.string, formatString), ...args]
+        )
+    );
+}
+
+const jsToRustDecoratorName = "useRustStatement";
+
 /**
  * Builds a rust module that has a public function for rendering a component to js
  * @param comp 
  * @param settings 
  */
-export function makeRustComponentServerModule(comp: Component, settings: IFinalPrismSettings): void {
+export function makeRustComponentServerModule(comp: Component, settings: IFinalPrismSettings, ssrSettings: IServerRenderSettings): void {
     comp.serverModule = new Module(
         join(settings.absoluteServerOutputPath, comp.relativeFilename.replace(/[.-]/g, "_") + ".rs")
     );
@@ -147,7 +193,32 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
                 ]);
                 comp.serverModule!.statements.push(useStatement);
             }
-            // Ignore other imports for now
+            // Ignores other imports for now
+        } else if (
+            statement instanceof JSFunctionDeclaration && 
+            statement.decorators?.some?.(decorator => decorator.name === jsToRustDecoratorName)
+        ) {
+            /** 
+             * Conditional swap out function for value in decorator argument e.g
+             * @useRustCode("use crate_x::{func1};")
+             * function func1() {
+             *    ..js engine dependant logic...
+             * }
+             * Currently very flexible with `DynamicStatement`
+             * Expects that the rust code in the argument string introduces a function of the same name 
+             * and parameters into the module / scope
+             */
+
+            const arg = statement.decorators.find(decorator => decorator.name === jsToRustDecoratorName)?.args[0];
+            let argString: string;
+            if (arg instanceof Value && arg.type === Type.string) {
+                argString = arg.value;
+            } else if (arg instanceof TemplateLiteral && arg.entries.length === 1 && typeof arg.entries[0] === "string") {
+                argString = arg.entries[0];
+            } else {
+                throw Error(`Invalid arg for @${jsToRustDecoratorName}`);
+            }
+            comp.serverModule.statements.push(new DynamicStatement(argString));
         } else {
             // TODO function with @rustConditionalImport decorator
             const rustStatement = jsAstToRustAst(statement, comp.serverModule);
@@ -165,17 +236,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
 
     comp.serverRenderFunction = new FunctionDeclaration(componentRenderFunctionName, rustRenderParameters, new TypeSignature("String"), [], true);
 
-    // Append "data-ssr" to the server rendered component. Used at runtime.
-    const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
-    const componentHtmlTag = new HTMLElement(comp.tag, componentAttributes, comp.templateElement.children, comp.templateElement.parent);
-    const ssrSettings: IServerRenderSettings = {
-        dynamicAttribute: !(comp.isPage || comp.isLayout),
-        minify: settings.minify,
-        addDisableToElementWithEvents: settings.disableEventElements
-    }
-
-    const serverRenderChunks = serverRenderPrismNode(componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
-
+    const serverRenderChunks = serverRenderPrismNode(comp.componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
     comp.serverRenderFunction.statements = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, true);
 
     if (comp.usesLayout) {
@@ -192,7 +253,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
     if (comp.isPage) {
         let metadataString: ValueTypes;
         if (comp.metadata) {
-            throw Error("Not implemented - Rust page metadata")
+            metadataString = formatExpressionFromServerChunks(comp.metaDataChunks, comp.serverModule);
         } else {
             metadataString = new Expression(
                 new VariableReference("to_string", new Value(Type.string, "")),
@@ -256,7 +317,7 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
 
     // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
     const serverChunks = serverRenderPrismNode(template.document, template.nodeData, {
-        minify: settings.minify, addDisableToElementWithEvents: false, dynamicAttribute: false
+        minify: settings.minify, addDisableToElementWithEvents: false
     });
     const renderHTMLStatements = statementsFromServerRenderChunks(serverChunks, baseServerModule, true);
 

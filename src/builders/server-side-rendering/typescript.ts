@@ -1,7 +1,6 @@
 import { dirname, relative, join, resolve } from "path";
 import { fileBundle } from "../../bundled-files";
 import { getImportPath } from "../../chef/helpers";
-import { HTMLElement, TextNode } from "../../chef/html/html";
 import { ClassDeclaration } from "../../chef/javascript/components/constructs/class";
 import { ArgumentList, FunctionDeclaration } from "../../chef/javascript/components/constructs/function";
 import { Module } from "../../chef/javascript/components/module";
@@ -15,12 +14,14 @@ import { TemplateLiteral } from "../../chef/javascript/components/value/template
 import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/value";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Component } from "../../component";
-import { assignToObjectMap } from "../../helpers";
-import { buildMetaTags } from "../../metatags";
 import { IFinalPrismSettings } from "../../settings";
 import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { IShellData } from "../template";
 
+/**
+ * Creates a `TemplateLiteral`
+ * @param serverChunks Array of chunks
+ */
 function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunks): TemplateLiteral {
     const templateLiteral = new TemplateLiteral();
     for (const chunk of serverChunks) {
@@ -83,7 +84,7 @@ function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunk
     return templateLiteral;
 }
 
-export function makeTsComponentServerModule(comp: Component, settings: IFinalPrismSettings): void {
+export function makeTsComponentServerModule(comp: Component, settings: IFinalPrismSettings, ssrSettings: IServerRenderSettings): void {
     comp.serverModule = new Module(join(settings.absoluteServerOutputPath, comp.relativeFilename));
 
     for (const statement of comp.clientModule.statements) {
@@ -133,20 +134,8 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
         }));
     }
 
-    // Append "data-ssr" to the server rendered component. Used at runtime.
-    const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
-
-    // Generate a tag of self (instead of using template) (reuses template.element.children)
-    const componentHtmlTag = new HTMLElement(comp.tag, componentAttributes, comp.templateElement.children, comp.templateElement.parent);
-
-    const ssrSettings: IServerRenderSettings = {
-        dynamicAttribute: !(comp.isPage || comp.isLayout),
-        minify: settings.minify,
-        addDisableToElementWithEvents: settings.disableEventElements
-    }
-
     // Final argument is to add a entry onto the component that is sent attributes 
-    const serverRenderChunks = serverRenderPrismNode(componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
+    const serverRenderChunks = serverRenderPrismNode(comp.componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
     const renderTemplateLiteral = templateLiteralFromServerRenderChunks(serverRenderChunks);
 
     // TODO would comp work just using the existing slot functionality?
@@ -201,27 +190,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
             rhs: new ArgumentList(pageRenderArgs)
         });
 
-        // Build the metadata
-        let metadataString: ServerRenderedChunks = [];
-        if (comp.title) {
-            const title = new HTMLElement("title");
-            const titleTextNode = new TextNode("", title);
-            assignToObjectMap(comp.templateData.nodeData, titleTextNode, "textNodeValue", comp.title);
-            title.children.push(titleTextNode);
-            metadataString = metadataString.concat(serverRenderPrismNode(title, comp.templateData.nodeData, ssrSettings));
-        }
-
-        if (comp.metadata) {
-            const { metadataTags, nodeData: metaDataNodeData } = buildMetaTags(comp.metadata)
-            for (const metaTag of metadataTags) {
-                metadataString = metadataString.concat(serverRenderPrismNode(metaTag, metaDataNodeData, ssrSettings, comp.globals))
-                if (!settings.minify) {
-                    metadataString.push("\n");
-                }
-            }
-        }
-
-        const metaDataArg: ValueTypes = (comp.title || comp.metadata) ? templateLiteralFromServerRenderChunks(metadataString) : new Value(Type.string);
+        const metaDataArg: ValueTypes = (comp.title || comp.metadata) ? templateLiteralFromServerRenderChunks(comp.metaDataChunks) : new Value(Type.string);
 
         // Creates "return renderHTML(renderComponent(***))"
         const renderAsPage = new ReturnStatement(
@@ -281,7 +250,7 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
     const baseServerModule = Module.fromString(fileBundle.get("server.ts")!, join(settings.absoluteServerOutputPath, "prism"));
 
     // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
-    const pageRenderTemplateLiteral = serverRenderPrismNode(template.document, template.nodeData, { minify: settings.minify, addDisableToElementWithEvents: false, dynamicAttribute: false });
+    const pageRenderTemplateLiteral = serverRenderPrismNode(template.document, template.nodeData, { minify: settings.minify, addDisableToElementWithEvents: false });
 
     // Create function with content and meta slot parameters
     const pageRenderFunction = new FunctionDeclaration(

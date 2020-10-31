@@ -22,30 +22,34 @@ export interface IEvent {
 /**
  * Extends the HTMLElement interface adding new properties used in Prism template syntax
  */
-export interface NodeData {
-    component?: Component // Whether the element is a external component
-    dynamicAttributes?: Map<string, ValueTypes> // Attributes of an element which are linked to data
-    events?: Array<IEvent> // Events the element has
-    identifier?: string // A identifier used for lookup of the element
-    slotFor?: string // If slot the key of content that should be there
-    nullable?: boolean // True if the element is not certain to exist in the DOM
-    multiple?: boolean // If the element can exist multiple times in the DOM
+interface FullNodeData {
+    component: Component // Whether the element is a external component
+    dynamicAttributes: Map<string, ValueTypes> // Attributes of an element which are linked to data
+    events: Array<IEvent> // Events the element has
+    identifier: string // A identifier used for lookup of the element
+    slotFor: string // If slot the key of content that should be there
+    nullable: boolean // True if the element is not certain to exist in the DOM
+    multiple: boolean // If the element can exist multiple times in the DOM
+
+    rawAttribute: ValueTypes, // A name of a variable that does <div ${*rawAttribute*}>
 
     // A expression that has to return a truthy value to render (also used for determine that it was a #if node)
-    conditionalExpression?: ValueTypes,
+    conditionalExpression: ValueTypes,
     // A expression that is used for iteration over children (also used for determine that it was a #for node)
-    iteratorExpression?:  ForIteratorExpression,
+    iteratorExpression:  ForIteratorExpression,
 
     // A method that renders itself or its children, used for #if and #for node
-    clientRenderMethod?: FunctionDeclaration,
+    clientRenderMethod: FunctionDeclaration,
 
-    elseElement?: HTMLElement, // If #if points to the #else element
+    elseElement: HTMLElement, // If #if points to the #else element
 
     // For TextNodes:
-    textNodeValue?: ValueTypes; // A expression value for its text content
+    textNodeValue: ValueTypes; // A expression value for its text content
     // For HTMLComments:
-    isFragment?: true // If the comment is used to break up text nodes for ssr hydration
+    isFragment: true // If the comment is used to break up text nodes for ssr hydration
 }
+
+export type NodeData = Partial<FullNodeData>;
 
 // Explains what a variable affects
 export enum BindingAspect {
@@ -83,7 +87,7 @@ export type Locals = Array<{ name: string, path: VariableReferenceArray }>;
 
 export interface ITemplateData {
     slots: Map<string, HTMLElement>,
-    nodeData: WeakMap<Node, Partial<NodeData>>
+    nodeData: WeakMap<Node, NodeData>
     bindings: Array<IBinding>,
     events: Array<IEvent>,
     hasSVG: boolean

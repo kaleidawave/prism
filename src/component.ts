@@ -1,4 +1,4 @@
-import { HTMLElement, HTMLDocument } from "./chef/html/html";
+import { HTMLElement, HTMLDocument, TextNode } from "./chef/html/html";
 import { ClassDeclaration } from "./chef/javascript/components/constructs/class";
 import { parseTemplate, IBinding, ITemplateData, BindingAspect } from "./templating/template";
 import { Module as JSModule } from "./chef/javascript/components/module";
@@ -35,7 +35,8 @@ import { assignToObjectMap } from "./helpers";
 import { IFinalPrismSettings } from "./settings";
 import { IRuntimeFeatures } from "./builders/prism-client";
 import { IFunctionDeclaration, IModule } from "./chef/abstract-asts";
-import { IServerRenderSettings } from "./templating/builders/server-render";
+import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "./templating/builders/server-render";
+import { buildMetaTags } from "./metatags";
 
 export class Component {
     static registeredTags: Set<string> = new Set()
@@ -93,6 +94,8 @@ export class Component {
     globals: VariableReference[];
     serverRenderParameters: VariableDeclaration[];
     dataTypeSignature: TypeSignature;
+    componentHtmlTag: HTMLElement;
+    metaDataChunks: ServerRenderedChunks;
 
     /**
      * Returns a component under a filename
@@ -599,6 +602,12 @@ export class Component {
 
         // Build the server render module
         if (settings.context === "isomorphic") {
+            // TODO events.forEach(x => x.addAttribute("disable")) ...
+            const ssrSettings: IServerRenderSettings = {
+                minify: settings.minify,
+                addDisableToElementWithEvents: settings.disableEventElements 
+            }
+
             this.dataTypeSignature = this.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
 
             // Construct ssr function parameters
@@ -620,12 +629,42 @@ export class Component {
                     new VariableDeclaration(((clientGlobal[0] as VariableReference).name), { typeSignature: clientGlobal[1] }))
             );
 
+            // Append "data-ssr" to the server rendered component. Used at runtime.
+            const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
+
+            // Generate a tag of self (instead of using template) (reuses template.element.children)
+            this.componentHtmlTag = new HTMLElement(this.tag, componentAttributes, this.templateElement.children, this.templateElement.parent);
+
             if (!(this.isPage || this.isLayout)) {
+                assignToObjectMap(this.templateData.nodeData, this.componentHtmlTag, "rawAttribute", new VariableReference("attributes"));
                 parameters.push(new VariableDeclaration("attributes", {
                     typeSignature: new TypeSignature({ name: "string" }),
                     value: new Value(Type.string)
                 }));
             }
+
+            let metadataString: ServerRenderedChunks = [];
+            if (this.isPage) {
+                // Build the metadata
+                if (this.title) {
+                    const title = new HTMLElement("title");
+                    const titleTextNode = new TextNode("", title);
+                    assignToObjectMap(this.templateData.nodeData, titleTextNode, "textNodeValue", this.title);
+                    title.children.push(titleTextNode);
+                    metadataString = metadataString.concat(serverRenderPrismNode(title, this.templateData.nodeData, ssrSettings));
+                }
+
+                if (this.metadata) {
+                    const { metadataTags, nodeData: metaDataNodeData } = buildMetaTags(this.metadata)
+                    for (const metaTag of metadataTags) {
+                        metadataString = metadataString.concat(serverRenderPrismNode(metaTag, metaDataNodeData, ssrSettings, this.globals))
+                        if (!settings.minify) {
+                            metadataString.push("\n");
+                        }
+                    }
+                }
+            }
+            this.metaDataChunks = metadataString;
 
             if (this.hasSlots) {
                 for (const slot of this.templateData.slots.keys()) {
@@ -636,9 +675,9 @@ export class Component {
             this.serverRenderParameters = parameters;
 
             if (settings.backendLanguage === "rust") {
-                rustModuleFromServerRenderedChunks(this, settings);
+                rustModuleFromServerRenderedChunks(this, settings, ssrSettings);
             } else {
-                tsModuleFromServerRenderedChunks(this, settings);
+                tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
             }
         }
     }

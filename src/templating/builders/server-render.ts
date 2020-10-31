@@ -9,7 +9,6 @@ import { IFunctionDeclaration } from "../../chef/abstract-asts";
 const dataVariable = new VariableReference("data");
 
 export interface IServerRenderSettings {
-    dynamicAttribute: boolean,
     minify: boolean,
     addDisableToElementWithEvents: boolean
 }
@@ -53,34 +52,14 @@ function addChunk(chunk: ServerChunk, chunks: Array<ServerChunk>) {
 }
 
 /**
- * Generates a template literal with relevant interpolation of variables that when run will generate ssr html
- * @param template The <template> prism node to render
- * @param minify Will not prettify the output in the template literal
- * @param dynamicAttribute If true will add a ${attributes} onto the top tag attribute. Kinda temp but doing it later breaks because template literal collapsation 
- */
-export function serverRenderPrismNode(
-    template: HTMLElement | HTMLDocument,
-    nodeData: WeakMap<Node, NodeData>,
-    serverRenderSettings: IServerRenderSettings,
-    locals: Array<VariableReference> = [],
-    skipOverServerExpression: boolean = false
-): ServerRenderedChunks {
-    const parts = buildServerTemplateLiteralShards(template, nodeData, serverRenderSettings, locals, skipOverServerExpression);
-    if (serverRenderSettings.dynamicAttribute) {
-        parts.splice(1, 0, { value: new VariableReference("attributes"), escape: true });
-    }
-    return parts;
-}
-
-/**
  * Builds parts to build up the template literal
  * TODO generator ???
  */
-function buildServerTemplateLiteralShards(
+export function serverRenderPrismNode(
     element: Node | HTMLDocument,
     nodeData: WeakMap<Node, NodeData>,
     serverRenderSettings: IServerRenderSettings,
-    locals: Array<VariableReference>,
+    locals: Array<VariableReference> = [],
     skipOverServerExpression: boolean = false
 ): ServerRenderedChunks {
 
@@ -129,7 +108,7 @@ function buildServerTemplateLiteralShards(
                     for (let i = 0; i < element.children.length; i++) {
                         const child = element.children[i];
                         slotRenderFunction.push(
-                            ...buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals)
+                            ...serverRenderPrismNode(child, nodeData, serverRenderSettings, locals)
                         );
                         if (!serverRenderSettings.minify && i !== element.children.length - 1) chunks.push("\n");
                     }
@@ -179,7 +158,7 @@ function buildServerTemplateLiteralShards(
             addChunk({
                 subject: serverAliasedExpression.subject,
                 variable: serverAliasedExpression.variable.name,
-                childRenderExpression: buildServerTemplateLiteralShards(
+                childRenderExpression: serverRenderPrismNode(
                     element.children[0],
                     nodeData,
                     serverRenderSettings,
@@ -188,7 +167,7 @@ function buildServerTemplateLiteralShards(
             }, chunks)
         } else {
             for (const child of element.children) {
-                const parts = buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals);
+                const parts = serverRenderPrismNode(child, nodeData, serverRenderSettings, locals);
                 // Indent children
                 if (!serverRenderSettings.minify) {
                     for (let i = 0; i < parts.length; i++) {
@@ -229,7 +208,7 @@ function buildServerTemplateLiteralShards(
     } else if (element instanceof HTMLDocument) {
         for (let i = 0; i < element.children.length; i++) {
             const child = element.children[i];
-            buildServerTemplateLiteralShards(child, nodeData, serverRenderSettings, locals).forEach(chunk => addChunk(chunk, chunks));
+            serverRenderPrismNode(child, nodeData, serverRenderSettings, locals).forEach(chunk => addChunk(chunk, chunks));
             if (!serverRenderSettings.minify && i !== element.children.length - 1) addChunk("\n", chunks);
         }
     } else {
@@ -238,7 +217,11 @@ function buildServerTemplateLiteralShards(
     return chunks;
 }
 
-export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMap<Node, NodeData>, locals: Array<VariableReference>) {
+export function serverRenderNodeAttribute(
+    element: HTMLElement, 
+    nodeData: WeakMap<Node, NodeData>, 
+    locals: Array<VariableReference>
+) {
     const chunks: ServerRenderedChunks = [];
     if (element.attributes) {
         for (const [name, value] of element.attributes) {
@@ -247,6 +230,11 @@ export function serverRenderNodeAttribute(element: HTMLElement, nodeData: WeakMa
                 addChunk(`="${value}"`, chunks)
             }
         }
+    }
+    const rawAttribute = nodeData.get(element)?.rawAttribute;
+    if (rawAttribute) {
+        addChunk(" ", chunks);
+        addChunk({ value: rawAttribute, escape: true }, chunks);
     }
 
     const dynamicAttributes = nodeData.get(element)?.dynamicAttributes;

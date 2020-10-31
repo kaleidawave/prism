@@ -4,7 +4,7 @@ import { IfStatement } from "./if";
 import { SwitchStatement } from "./switch";
 import { Expression } from "../value/expression";
 import { VariableDeclaration } from "../statements/variable";
-import { ClassDeclaration, Decorator } from "../constructs/class";
+import { ClassDeclaration } from "../constructs/class";
 import { ValueTypes } from "../value/value";
 import { FunctionDeclaration } from "../constructs/function";
 import { ForStatement } from "./for";
@@ -14,7 +14,8 @@ import { EnumDeclaration } from "../types/enum";
 import { TryBlock, ThrowStatement } from "./try-catch";
 import { Comment } from "./comments";
 import { ImportStatement, ExportStatement } from "./import-export";
-import { TypeStatement } from "../types/statements";
+import { TypeDeclaration } from "../types/statements";
+import { Decorator } from "../types/decorator";
 
 export type StatementTypes =
     VariableDeclaration
@@ -35,9 +36,9 @@ export type StatementTypes =
     | EnumDeclaration
     | SwitchStatement
     | Decorator
-    | TypeStatement;
+    | TypeDeclaration;
 
-export function ParseStatement(reader: TokenReader<JSToken>): StatementTypes {
+export function parseStatement(reader: TokenReader<JSToken>): StatementTypes {
     switch (reader.current.type) {
         case JSToken.Const:
         case JSToken.Let:
@@ -60,7 +61,19 @@ export function ParseStatement(reader: TokenReader<JSToken>): StatementTypes {
         case JSToken.Abstract:
             reader.move();
             return ClassDeclaration.fromTokens(reader, { isAbstract: true });
-        case JSToken.At: return Decorator.fromTokens(reader);
+        case JSToken.At:
+            const decorators: Array<Decorator> = [];
+            while (reader.current.type === JSToken.At) {
+                decorators.push(Decorator.fromTokens(reader));
+            }
+            const statement = parseStatement(reader);
+            const clsOrFunc = statement instanceof ExportStatement ? statement.exported : statement;
+            if (clsOrFunc instanceof FunctionDeclaration || clsOrFunc instanceof ClassDeclaration) {
+                clsOrFunc.decorators = decorators;
+            } else {
+                reader.throwExpect("Expected class or function to proceed decorator");
+            }
+            return clsOrFunc;
         case JSToken.Interface: return InterfaceDeclaration.fromTokens(reader);
         case JSToken.Break: return BreakStatement.fromTokens(reader);
         case JSToken.Continue: return ContinueStatement.fromTokens(reader);
@@ -75,7 +88,7 @@ export function ParseStatement(reader: TokenReader<JSToken>): StatementTypes {
             } else {
                 return ImportStatement.fromTokens(reader);
             }
-        case JSToken.Type: return TypeStatement.fromTokens(reader);
+        case JSToken.Type: return TypeDeclaration.fromTokens(reader);
         case JSToken.Export: return ExportStatement.fromTokens(reader);
         case JSToken.HashBang:
             const path = reader.current.value!;
