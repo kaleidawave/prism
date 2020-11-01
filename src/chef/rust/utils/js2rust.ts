@@ -7,9 +7,13 @@ import { Type, Value } from "../values/value";
 import { VariableReference } from "../values/variable";
 import { StructStatement, TypeSignature } from "../statements/struct";
 import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../javascript/components/statements/import-export";
+import { Expression as JSExpression, Operation as JSOperation } from "../../javascript/components/value/expression";
 import { basename } from "path";
 import { UseStatement } from "../statements/use";
 import { Module } from "../module";
+import { Expression, Operation } from "../values/expression";
+import { ArgumentList as JSArgumentList } from "../../javascript/components/constructs/function";
+import { ArgumentList } from "../statements/function";
 
 const literalTypeMap = new Map([[JSType.number, Type.number], [JSType.string, Type.string]]);
 const typeMap: Map<string, string> = new Map([
@@ -21,6 +25,10 @@ const typeMap: Map<string, string> = new Map([
 const jsTypeMap: Map<JSType, string> = new Map([
     [JSType.string, "string"],
     [JSType.number, "number"],
+]);
+
+const operationMap: Map<JSOperation, Operation> = new Map([
+    [JSOperation.Call, Operation.Call]
 ]);
 
 export function jsAstToRustAst(jsAst: JSAstTypes, module: Module) {
@@ -55,7 +63,19 @@ export function jsAstToRustAst(jsAst: JSAstTypes, module: Module) {
             path.push(Array.from(jsAst.variable.entries!).map(([name]) => name as string));
         }
         return new UseStatement(path);
+    } else if (jsAst instanceof JSExpression) {
+        const operation = operationMap.get(jsAst.operation);
+        if (typeof operation === "undefined") {
+            throw Error(`Cannot convert JS operation "${JSOperation[jsAst.operation]}" to Rust`);
+        }
+        return new Expression(
+            jsAstToRustAst(jsAst.lhs, module),
+            operation,
+            jsAst.rhs ? jsAstToRustAst(jsAst.rhs, module) : undefined
+        )
+    } else if (jsAst instanceof JSArgumentList) {
+        return new ArgumentList(jsAst.args.map(arg => jsAstToRustAst(arg, module)));
     } else {
-        console.warn(`Cannot convert "${jsAst.constructor.name}" "${jsAst.render()}" to Rust`);
+        throw Error(`Cannot convert "${jsAst.constructor.name}" "${jsAst.render()}" to Rust`);
     }
 }

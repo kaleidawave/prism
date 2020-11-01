@@ -18,7 +18,7 @@ export class FunctionDeclaration implements IFunctionDeclaration {
     constructor(
         public actualName: string,
         public parameters: Array<[string, TypeSignature]>,
-        public returnType: TypeSignature,
+        public returnType: TypeSignature | null,
         public statements: StatementTypes[],
         public isPublic: boolean = false,
     ) { }

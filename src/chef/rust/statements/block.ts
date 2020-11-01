@@ -15,13 +15,19 @@ export type StatementTypes = Expression | VariableDeclaration | FunctionDeclarat
 export function renderStatements(statements: Array<StatementTypes>, settings = defaultRenderSettings, doIndent: boolean = true): string {
     let acc = "";
     for (const statement of statements) {
-        const doNotAddSemiColon = statement instanceof FunctionDeclaration || statement instanceof StructStatement || statement instanceof ForStatement || statement instanceof IfStatement || statement instanceof DeriveStatement;
+        const doNotAddSemiColon =
+            statement instanceof FunctionDeclaration ||
+            statement instanceof StructStatement ||
+            statement instanceof ForStatement ||
+            statement instanceof IfStatement ||
+            statement instanceof DynamicStatement ||
+            statement instanceof DeriveStatement;
         if (doIndent) {
             acc += ("\n" + statement.render(settings) + (doNotAddSemiColon ? "" : ";")).replace(/\n/g, "\n" + " ".repeat(settings.indent));
         } else {
             acc += statement.render(settings) + (doNotAddSemiColon ? "" : ";") + "\n";
         }
-    } 
+    }
     if (statements.length > 0 && doIndent) acc += "\n";
     return acc;
 }

@@ -4,7 +4,7 @@ import { ValueTypes } from "../values/value";
 export class VariableDeclaration implements IRenderable {
     constructor(
         public name: string,
-        public isMutable: boolean,
+        public isMutable: boolean = false,
         public value?: ValueTypes,
     ) {}
     
