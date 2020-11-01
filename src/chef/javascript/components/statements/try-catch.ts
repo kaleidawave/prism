@@ -2,18 +2,18 @@
  * Contains declarations for "throw" and "try...catch...finally"
  */
 
-import { IStatement } from "./statement";
-import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
+import { StatementTypes } from "./statement";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { parseBlock, renderBlock } from "../constructs/block";
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { Expression } from "../value/expression";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 
-export class ThrowStatement implements IStatement {
+export class ThrowStatement implements IRenderable {
 
     constructor(
-        public value: IValue
+        public value: ValueTypes
     ) {}
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -28,10 +28,10 @@ export class ThrowStatement implements IStatement {
     }
 }
 
-export class TryBlock implements IStatement {
+export class TryBlock implements IRenderable {
 
     constructor (
-        public statements: Array<IStatement>,
+        public statements: Array<StatementTypes>,
         public catchBlock: CatchBlock | null = null,
         public finallyBlock: FinallyBlock | null = null,
     ) {}
@@ -67,11 +67,11 @@ export class TryBlock implements IStatement {
     }   
 }
 
-export class CatchBlock implements IStatement {
+export class CatchBlock implements IRenderable {
 
     constructor (
         public errorVariable: VariableDeclaration | null,
-        public statements: Array<IStatement>,
+        public statements: Array<StatementTypes>,
     ) {
         if (errorVariable) errorVariable.context = VariableContext.Parameter;
     }
@@ -103,10 +103,10 @@ export class CatchBlock implements IStatement {
     }
 }
 
-export class FinallyBlock implements IStatement {
+export class FinallyBlock implements IRenderable {
 
     constructor (
-        public statements: Array<IStatement>,
+        public statements: Array<StatementTypes>,
     ) {}
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

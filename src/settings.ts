@@ -2,7 +2,7 @@ import { join, isAbsolute } from "path";
 
 export interface IPrismSettings {
     minify: boolean, // Removes whitespace for space saving in output
-    backendLanguage: "js" | "ts", // The languages to output server templates in
+    backendLanguage: "js" | "ts" | "rust", // The languages to output server templates in
     comments: boolean, // Leave comments in TODO comment levels
     projectPath: string, // The path to the components folder OR a single component
     assetPath: string | null, // The path to the assets folder
@@ -45,6 +45,8 @@ const defaultSettings: IPrismSettings = {
  * @example if projectPath = "../abc" then absoluteProjectPath ~ "C:/abc"
  */
 export interface IFinalPrismSettings extends IPrismSettings {
+    cwd: string,
+    pathSplitter: string,
     absoluteProjectPath: string,
     absoluteOutputPath: string,
     absoluteAssetPath: string,
@@ -52,7 +54,7 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteTemplatePath: string,
 }
 
-export function makePrismSettings(cwd: string, partialSettings: Partial<IPrismSettings>): IFinalPrismSettings {
+export function makePrismSettings(cwd: string, pathSplitter: string, partialSettings: Partial<IPrismSettings>, ): IFinalPrismSettings {
     const projectPath = partialSettings.projectPath ?? defaultSettings.projectPath;
     const outputPath = partialSettings.outputPath ?? defaultSettings.outputPath;
     const assetPath = partialSettings.assetPath ?? join(outputPath, "assets");
@@ -61,6 +63,7 @@ export function makePrismSettings(cwd: string, partialSettings: Partial<IPrismSe
     return {
         ...defaultSettings,
         ...partialSettings,
+        cwd, pathSplitter,
         absoluteProjectPath: isAbsolute(projectPath) ? projectPath : join(cwd, projectPath),
         absoluteOutputPath: isAbsolute(outputPath) ? outputPath : join(cwd, outputPath),
         absoluteAssetPath: isAbsolute(assetPath) ? assetPath : join(cwd, assetPath),

@@ -1,14 +1,14 @@
-import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
-import { IStatement } from "./statement";
+import { StatementTypes } from "./statement";
 import { Expression } from "../value/expression";
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { parseBlock, renderBlock } from "../constructs/block";
 
-export class IfStatement implements IStatement {
+export class IfStatement implements IRenderable {
     constructor(
-        public condition: IValue, 
-        public statements: Array<IStatement> = [], 
+        public condition: ValueTypes, 
+        public statements: Array<StatementTypes> = [], 
         public consequent: ElseStatement | null = null
     ) { }
 
@@ -45,10 +45,10 @@ export class IfStatement implements IStatement {
     }
 }
 
-export class ElseStatement implements IStatement {
+export class ElseStatement implements IRenderable {
     constructor(
-        public condition: IValue | null = null,
-        public statements: Array<IStatement>,
+        public condition: ValueTypes | null = null,
+        public statements: Array<StatementTypes>,
         public consequent: ElseStatement | null = null
     ) {}
 
@@ -74,7 +74,7 @@ export class ElseStatement implements IStatement {
 
     static fromTokens(reader: TokenReader<JSToken>): ElseStatement {
         reader.expectNext(JSToken.Else);
-        let condition: IValue | null = null;
+        let condition: ValueTypes | null = null;
         if (reader.current.type === JSToken.If) {
             reader.move();
             reader.expectNext(JSToken.OpenBracket);

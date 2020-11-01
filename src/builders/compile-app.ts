@@ -2,9 +2,11 @@ import { filesInFolder } from "../helpers";
 import { Component } from "../component";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
-import { buildIndexHtml, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
+import { getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
+import { parseTemplateShell, writeIndexHTML } from "./template";
+import { buildPrismServerModule as buildTSPrismServerModule } from "./server-side-rendering/typescript";
+import { buildPrismServerModule as buildRustPrismServerModule } from "./server-side-rendering/rust";
 import { join } from "path";
-import { generateServerModule } from "./prism-server";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { VariableReference } from "../chef/javascript/components/value/variable";
@@ -55,12 +57,11 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         includeExtensionsInImports: settings.deno
     };
 
-    const clientScriptBundle = new Module();
-    const clientStyleBundle = new Stylesheet();
+    const template = await parseTemplateShell(settings);
 
     // TODO versioning
-    clientScriptBundle.filename = join(settings.absoluteOutputPath, "bundle.js");
-    clientStyleBundle.filename = join(settings.absoluteOutputPath, "bundle.css");
+    const clientScriptBundle = new Module(join(settings.absoluteOutputPath, "bundle.js"));
+    const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, "bundle.css"));
 
     const prismClient = await getPrismClient(settings.clientSideRouting);
     treeShakeBundle(features, prismClient);
@@ -87,6 +88,8 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         if (settings.buildTimings) console.timeEnd("Move static assets");
     }
 
+    const serverModulePaths: Array<string> = [];
+
     // Combine all registered components client modules and stylesheets and write out the server module separately
     if (settings.buildTimings) console.time("Combine all component scripts and styles, write out server modules");
     for (const [, registeredComponent] of Component.registeredComponents) {
@@ -94,7 +97,10 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         if (registeredComponent.stylesheet) {
             clientStyleBundle.combine(registeredComponent.stylesheet);
         }
-        registeredComponent.serverModule?.writeToFile(serverRenderSettings);
+        if (registeredComponent.serverModule) {
+            serverModulePaths.push(registeredComponent.serverModule.filename);
+            registeredComponent.serverModule.writeToFile(serverRenderSettings);
+        }
     }
     if (settings.buildTimings) console.timeEnd("Combine all component scripts and styles, write out server modules");
 
@@ -112,8 +118,11 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
     }
 
     if (settings.context === "isomorphic") {
-        generateServerModule(join(settings.absoluteServerOutputPath, "prism"), settings)
-            .then(serverModule => serverModule.writeToFile(serverRenderSettings));
+        if (settings.backendLanguage === "rust") {
+            buildRustPrismServerModule(template, settings, serverModulePaths).writeToFile(serverRenderSettings);
+        } else {
+            buildTSPrismServerModule(template, settings).writeToFile(serverRenderSettings);
+        }
     }
 
     // Write out files
@@ -126,9 +135,7 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
 
     // Build the index / shell page to serve
     // This is also built under context===isomorphic to allow for offline with service workers
-    const indexHTMLPath = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
-    buildIndexHtml(settings)
-        .then(indexHTML => indexHTML.writeToFile(clientRenderSettings, indexHTMLPath));
+    writeIndexHTML(template, settings, clientRenderSettings);
 
     console.log(`Wrote out bundle.js and bundle.css to ${settings.outputPath}${settings.context === "isomorphic" ? ` and wrote out server templates to ${settings.serverOutputPath}` : ""}`);
     console.log("Built Prism application");

@@ -4,16 +4,15 @@ import { VariableReference } from "../../src/chef/javascript/components/value/va
 import { Operation } from "../../src/chef/javascript/components/value/expression";
 import { assignToObjectMap } from "../../src/helpers";
 
-const serverRenderSettings: IServerRenderSettings = {addDisableToElementWithEvents: false, dynamicAttribute: false, minify: true}
+const serverRenderSettings: IServerRenderSettings = {addDisableToElementWithEvents: false, minify: true};
 
 test("Tag and text", () => {
-    // TODO parse and create maybe from html example
     const dom = new HTMLElement("div");
     dom.children = [
         new TextNode("Hello World", dom)
     ];
-    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings).entries[0]).toBe("<div>Hello World</div>");
-    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings).entries[0]).toBe("<div>Hello World</div>");
+    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings)[0]).toBe("<div>Hello World</div>");
+    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings)[0]).toBe("<div>Hello World</div>");
 });
 
 test("Attributes", () => {
@@ -33,13 +32,8 @@ test("Dynamic Attributes", () => {
     expect(serverRenderPrismNode(div, nodeData, serverRenderSettings).entries).toMatchObject([
         `<div title="`,
         {
-            lhs: {name: "escape"},
-            operation: Operation.Call,
-            rhs: {
-                args: [
-                    { name: "someTitle" }
-                ]
-            }
+            value: { name: "someTitle" },
+            escape: false
         },
         `"></div>`
     ]);
@@ -47,7 +41,10 @@ test("Dynamic Attributes", () => {
 
 test("Self closing tags", () => {
     const element = new HTMLElement("img");
-    expect(serverRenderPrismNode(element, new WeakMap, serverRenderSettings).entries[0]).toBe(`<img>`)
+    expect(serverRenderPrismNode(element, new WeakMap, serverRenderSettings)[0]).toBe(`<img>`)
 });
 
+test.todo("Conditional");
+test.todo("Iterator");
+test.todo("Calling");
 test.todo("Comments");

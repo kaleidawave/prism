@@ -1,9 +1,9 @@
 import { JSToken, stringToTokens } from "../../javascript";
-import { IStatement } from "./statement";
+import { StatementTypes } from "./statement";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { Expression, Operation } from "../value/expression";
-import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
-import { IValue } from "../value/value";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
+import { ValueTypes } from "../value/value";
 import { renderBlock, parseBlock } from "../constructs/block";
 
 // These tokens refer to object destructuring
@@ -13,7 +13,7 @@ const closers = new Set([JSToken.CloseSquare, JSToken.CloseCurly])
 /**
  * @example `let x = 2; x < 5; x++;`
  */
-export class ForStatementExpression {
+export class ForStatementExpression implements IRenderable {
 
     // TODO these can be null
     constructor(
@@ -67,7 +67,7 @@ export class ForIteratorExpression {
     constructor(
         public variable: VariableDeclaration, // TODO allow string for utility
         public operation: Operation.Of | Operation.In,
-        public subject: IValue,
+        public subject: ValueTypes,
     ) { }
 
     static fromTokens(reader: TokenReader<JSToken>): ForIteratorExpression {
@@ -90,11 +90,11 @@ export class ForIteratorExpression {
     }
 }
 
-export class ForStatement implements IStatement {
+export class ForStatement implements IRenderable {
 
     constructor(
         public expression: ForLoopExpression,
-        public statements: Array<IStatement>
+        public statements: Array<StatementTypes>
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

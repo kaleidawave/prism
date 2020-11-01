@@ -1,11 +1,11 @@
-import { TokenReader, IConstruct, IRenderSettings, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderable, IRenderSettings, defaultRenderSettings } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { IfStatement } from "./if";
 import { SwitchStatement } from "./switch";
 import { Expression } from "../value/expression";
 import { VariableDeclaration } from "../statements/variable";
-import { ClassDeclaration, Decorator } from "../constructs/class";
-import { IValue } from "../value/value";
+import { ClassDeclaration } from "../constructs/class";
+import { ValueTypes } from "../value/value";
 import { FunctionDeclaration } from "../constructs/function";
 import { ForStatement } from "./for";
 import { WhileStatement, DoWhileStatement } from "./while";
@@ -14,11 +14,31 @@ import { EnumDeclaration } from "../types/enum";
 import { TryBlock, ThrowStatement } from "./try-catch";
 import { Comment } from "./comments";
 import { ImportStatement, ExportStatement } from "./import-export";
-import { TypeStatement } from "../types/statements";
+import { TypeDeclaration } from "../types/statements";
+import { Decorator } from "../types/decorator";
 
-export interface IStatement extends IConstruct { }
+export type StatementTypes =
+    VariableDeclaration
+    | HashBangStatement
+    | ClassDeclaration
+    | FunctionDeclaration
+    | ImportStatement
+    | ExportStatement
+    | ForStatement
+    | DoWhileStatement
+    | WhileStatement
+    | IfStatement
+    | Comment
+    | InterfaceDeclaration
+    | ReturnStatement
+    | BreakStatement
+    | ContinueStatement
+    | EnumDeclaration
+    | SwitchStatement
+    | Decorator
+    | TypeDeclaration;
 
-export function ParseStatement(reader: TokenReader<JSToken>): IStatement {
+export function parseStatement(reader: TokenReader<JSToken>): StatementTypes {
     switch (reader.current.type) {
         case JSToken.Const:
         case JSToken.Let:
@@ -35,13 +55,25 @@ export function ParseStatement(reader: TokenReader<JSToken>): IStatement {
             return comment;
         case JSToken.Class: return ClassDeclaration.fromTokens(reader);
         case JSToken.Async:
-        case JSToken.Function: 
+        case JSToken.Function:
             return FunctionDeclaration.fromTokens(reader);
         case JSToken.Return: return ReturnStatement.fromTokens(reader);
         case JSToken.Abstract:
             reader.move();
             return ClassDeclaration.fromTokens(reader, { isAbstract: true });
-        case JSToken.At: return Decorator.fromTokens(reader);
+        case JSToken.At:
+            const decorators: Array<Decorator> = [];
+            while (reader.current.type === JSToken.At) {
+                decorators.push(Decorator.fromTokens(reader));
+            }
+            const statement = parseStatement(reader);
+            const clsOrFunc = statement instanceof ExportStatement ? statement.exported : statement;
+            if (clsOrFunc instanceof FunctionDeclaration || clsOrFunc instanceof ClassDeclaration) {
+                clsOrFunc.decorators = decorators;
+            } else {
+                reader.throwExpect("Expected class or function to proceed decorator");
+            }
+            return clsOrFunc;
         case JSToken.Interface: return InterfaceDeclaration.fromTokens(reader);
         case JSToken.Break: return BreakStatement.fromTokens(reader);
         case JSToken.Continue: return ContinueStatement.fromTokens(reader);
@@ -49,16 +81,16 @@ export function ParseStatement(reader: TokenReader<JSToken>): IStatement {
         case JSToken.Try: return TryBlock.fromTokens(reader);
         case JSToken.Throw: return ThrowStatement.fromTokens(reader);
         case JSToken.Switch: return SwitchStatement.fromTokens(reader);
-        case JSToken.Import: 
+        case JSToken.Import:
             // Catch for dynamic import
             if (reader.peek()?.type === JSToken.OpenBracket) {
                 return Expression.fromTokens(reader);
             } else {
                 return ImportStatement.fromTokens(reader);
             }
-        case JSToken.Type: return TypeStatement.fromTokens(reader);
+        case JSToken.Type: return TypeDeclaration.fromTokens(reader);
         case JSToken.Export: return ExportStatement.fromTokens(reader);
-        case JSToken.HashBang: 
+        case JSToken.HashBang:
             const path = reader.current.value!;
             reader.move();
             return new HashBangStatement(path);
@@ -66,9 +98,10 @@ export function ParseStatement(reader: TokenReader<JSToken>): IStatement {
     }
 }
 
-export class ReturnStatement implements IStatement {
+export class ReturnStatement implements IRenderable {
     constructor(
-        public returnValue: IValue | null = null
+        public returnValue: ValueTypes
+            | null = null
     ) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -91,7 +124,7 @@ export class ReturnStatement implements IStatement {
     }
 }
 
-export class BreakStatement implements IStatement {
+export class BreakStatement implements IRenderable {
     constructor(
         public label?: string
     ) { }
@@ -115,7 +148,7 @@ export class BreakStatement implements IStatement {
     }
 }
 
-export class ContinueStatement implements IStatement {
+export class ContinueStatement implements IRenderable {
     constructor(
         public label?: string
     ) { }
@@ -135,7 +168,7 @@ export class ContinueStatement implements IStatement {
     }
 }
 
-export class HashBangStatement implements IStatement {
+export class HashBangStatement implements IRenderable {
     constructor(
         public path: string
     ) { }

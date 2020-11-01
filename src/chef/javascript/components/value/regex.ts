@@ -1,5 +1,5 @@
-import { IValue } from "./value";
-import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
+import { ValueTypes } from "./value";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 
 export enum RegExpressionFlags {
@@ -22,7 +22,7 @@ const flagMap: Map<string, RegExpressionFlags> = new Map([
 
 const mapFlag: Map<RegExpressionFlags, string> = new Map(Array.from(flagMap).map(([s, f]) => [f, s]));
 
-export class RegExpLiteral {
+export class RegExpLiteral implements IRenderable {
 
     constructor (
         public expression: string,
@@ -39,7 +39,7 @@ export class RegExpLiteral {
         return regexp;
     }
 
-    static fromTokens(reader: TokenReader<JSToken>): IValue {
+    static fromTokens(reader: TokenReader<JSToken>): RegExpLiteral {
         reader.expect(JSToken.RegexLiteral);
         const pattern = reader.current.value!;
         reader.move();

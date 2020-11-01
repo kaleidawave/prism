@@ -1,6 +1,6 @@
 import { JSToken, stringToTokens } from "../../javascript";
-import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
-import { IValue } from "../value/value";
+import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings, IRenderable } from "../../../helpers";
+import { ValueTypes } from "../value/value";
 import { TypeSignature } from "../types/type-signature";
 import { Expression } from "../value/expression";
 import type { Module } from "../module";
@@ -13,7 +13,7 @@ interface IVariableSettings {
     typeSignature?: TypeSignature,
     parent: Module | ClassDeclaration,
     isConstant: boolean,
-    value: IValue,
+    value: ValueTypes,
     isStatic: boolean,
     isAbstract: boolean,
     context: VariableContext,
@@ -31,11 +31,11 @@ export enum VariableContext {
 /**
  * Class that represents a variable declaration though using const, let, var declaration or a existing in a class field
  */
-export class VariableDeclaration implements IVariableSettings {
+export class VariableDeclaration implements IRenderable, IVariableSettings {
 
     name: string;
     entries?: Map<string | number, VariableDeclaration | null>;
-    value: IValue;
+    value: ValueTypes;
     typeSignature?: TypeSignature; // TODO will be Type eventually
     parent: Module | ClassDeclaration;
     isConstant: boolean = true;
@@ -251,7 +251,7 @@ export class VariableDeclaration implements IVariableSettings {
         }
 
         // Assigned value
-        let value: IValue | undefined;
+        let value: ValueTypes | undefined;
         if (reader.current.type as JSToken === JSToken.Assign) {
             reader.move();
             value = Expression.fromTokens(reader);

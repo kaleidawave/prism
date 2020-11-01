@@ -1,4 +1,4 @@
-import { IStatement, ParseStatement } from "../statements/statement";
+import { StatementTypes, parseStatement } from "../statements/statement";
 import { TokenReader, IRenderSettings, defaultRenderSettings } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { ImportStatement, ExportStatement } from "../statements/import-export";
@@ -11,12 +11,12 @@ const endingSwitchBlockTokens = new Set([JSToken.Default, JSToken.Case, JSToken.
  * Parses blocks from statements for, if, function etc
  * @param inSwitch If parsing a switch statement
  */
-export function parseBlock(reader: TokenReader<JSToken>, inSwitch = false): Array<IStatement> {
+export function parseBlock(reader: TokenReader<JSToken>, inSwitch = false): Array<StatementTypes> {
     if (reader.current.type === JSToken.OpenCurly || inSwitch) {
         if (reader.current.type === JSToken.OpenCurly) reader.move();
-        const statements: Array<IStatement> = [];
+        const statements: Array<StatementTypes> = [];
         while (reader.current.type as JSToken !== JSToken.CloseCurly) {
-            statements.push(ParseStatement(reader));
+            statements.push(parseStatement(reader));
             if (reader.current.type as JSToken === JSToken.SemiColon) reader.move();
             if (inSwitch && endingSwitchBlockTokens.has(reader.current.type)) return statements;
         }
@@ -24,7 +24,7 @@ export function parseBlock(reader: TokenReader<JSToken>, inSwitch = false): Arra
         return statements;
     } else {
         // If using shorthand block (without {}) then just parse in a single expression
-        const statement = ParseStatement(reader);
+        const statement = parseStatement(reader);
         if (reader.current.type as JSToken === JSToken.SemiColon) reader.move();
         return [statement];
     }
@@ -36,7 +36,7 @@ export function parseBlock(reader: TokenReader<JSToken>, inSwitch = false): Arra
  * DOES NOT INCLUDE SURROUNDING CURLY BRACES
  * @param indent whether to indent block members
  */
-export function renderBlock(block: Array<IStatement>, settings: IRenderSettings = defaultRenderSettings, indent = true) {
+export function renderBlock(block: Array<StatementTypes>, settings: IRenderSettings = defaultRenderSettings, indent = true) {
     let acc = "";
     for (let i = 0; i < block.length; i++) {
         const statement = block[i];

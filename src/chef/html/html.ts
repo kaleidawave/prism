@@ -1,9 +1,9 @@
-import { TokenReader, ITokenizationSettings, IRenderSettings, makeRenderSettings, defaultRenderSettings, IConstruct, IRenderOptions, IPosition, IParseSettings, defaultParseSettings } from "../helpers";
+import { TokenReader, ITokenizationSettings, IRenderSettings, makeRenderSettings, defaultRenderSettings, IRenderable, IRenderOptions, IPosition, IParseSettings, defaultParseSettings } from "../helpers";
 import { Module } from "../javascript/components/module";
 import { Stylesheet } from "../css/stylesheet";
-import { readFile, writeFile } from "../filesystem";
+import { readFile, writeFile, IFile } from "../filesystem";
 
-export abstract class Node implements IConstruct {
+export abstract class Node implements IRenderable {
     abstract parent: HTMLElement | HTMLDocument | null;
     abstract render(settings: IRenderSettings): string;
 
@@ -47,7 +47,7 @@ export abstract class Node implements IConstruct {
     }
 }
 
-export class TextNode extends Node implements IConstruct {
+export class TextNode extends Node implements IRenderable {
     constructor(
         public text = '',
         public parent: HTMLElement | null = null,
@@ -65,7 +65,7 @@ export class TextNode extends Node implements IConstruct {
     }
 }
 
-export class HTMLElement extends Node implements IConstruct {
+export class HTMLElement extends Node implements IRenderable {
     // Tags that don't require </...>
     static selfClosingTags = new Set(["area", "base", "br", "embed", "hr", "iframe", "img", "input", "link", "meta", "param", "source", "track", "!DOCTYPE"]);
 
@@ -131,7 +131,7 @@ export class HTMLElement extends Node implements IConstruct {
             return new HTMLElement(tagName, attributes, [], parent, position);
         } else if (tagName === "script" && reader.current.type !== HTMLToken.TagCloseStart) {
             const elem = new HTMLElement(tagName, attributes, [], parent, position);
-            elem.module = Module.fromString(reader.current.value!, reader.filename, reader.current.column, reader.current.line);
+            elem.module = Module.fromString(reader.current.value!, reader.filename ?? "anonymous", reader.current.column, reader.current.line);
             reader.move();
             reader.expectNext(HTMLToken.TagCloseStart);
             reader.expectNext(HTMLToken.TagName);
@@ -139,7 +139,7 @@ export class HTMLElement extends Node implements IConstruct {
             return elem;
         } else if (tagName === "style" && reader.current.type !== HTMLToken.TagCloseStart) {
             const elem = new HTMLElement(tagName, attributes, [], parent, position);
-            elem.stylesheet = Stylesheet.fromString(reader.current.value!, reader.filename, reader.current.column, reader.current.line);
+            elem.stylesheet = Stylesheet.fromString(reader.current.value!, reader.filename ?? "anonymous", reader.current.column, reader.current.line);
             reader.move();
             reader.expectNext(HTMLToken.TagCloseStart);
             reader.expectNext(HTMLToken.TagName);
@@ -236,7 +236,7 @@ export class HTMLElement extends Node implements IConstruct {
     }
 }
 
-export class HTMLComment extends Node implements IConstruct {
+export class HTMLComment extends Node implements IRenderable {
     constructor(
         public parent: HTMLElement | HTMLDocument,
         public comment: string = "",
@@ -250,17 +250,16 @@ export class HTMLComment extends Node implements IConstruct {
     }
 }
 
-export class HTMLDocument {
+export class HTMLDocument implements IFile {
     children: Array<Node> = [];
-    filename: string;
 
-    constructor(elements: Array<Node> = []) {
+    constructor(public filename: string, elements: Array<Node> = []) {
         elements.forEach(element => element.parent = this);
         this.children = elements;
     }
 
-    static fromTokens(reader: TokenReader<HTMLToken>, settings: IParseSettings = defaultParseSettings) {
-        const html = new HTMLDocument();
+    static fromTokens(reader: TokenReader<HTMLToken>, settings: IParseSettings = defaultParseSettings, filename: string) {
+        const html = new HTMLDocument(filename);
         while (reader.current.type !== HTMLToken.EOF) {
             if (reader.current.type === HTMLToken.Content) {
                 reader.move();
@@ -280,9 +279,9 @@ export class HTMLDocument {
         return html;
     }
 
-    static fromString(text: string, filename?: string, settings: IParseSettings = defaultParseSettings): HTMLDocument {
+    static fromString(text: string, filename: string, settings: IParseSettings = defaultParseSettings): HTMLDocument {
         const reader = stringToTokens(text, { file: filename });
-        const document = HTMLDocument.fromTokens(reader, settings);
+        const document = HTMLDocument.fromTokens(reader, settings, filename);
         if (filename) document.filename = filename;
         reader.expect(HTMLToken.EOF);
         return document;

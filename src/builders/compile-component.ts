@@ -4,7 +4,7 @@ import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { join } from "path";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
-import { IPrismSettings, makePrismSettings } from "../settings";
+import { IFinalPrismSettings } from "../settings";
 import { fileBundle } from "../bundled-files";
 
 /**
@@ -13,10 +13,8 @@ import { fileBundle } from "../bundled-files";
  */
 export async function compileSingleComponent(
     componentPath: string,
-    cwd: string,
-    partialSettings: Partial<IPrismSettings>
+    settings: IFinalPrismSettings
 ): Promise<void> {
-    const settings = makePrismSettings(cwd, partialSettings);
     const features: IRuntimeFeatures = { 
         conditionals: false, 
         isomorphic: settings.context === "isomorphic", 
@@ -31,7 +29,8 @@ export async function compileSingleComponent(
 
     const bundledClientModule = await getPrismClient(false);
     treeShakeBundle(features, bundledClientModule);
-    const bundledStylesheet = new Stylesheet();
+    bundledClientModule.filename = join(settings.absoluteOutputPath, "component.js");
+    const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, "component.css"));
 
     // This bundles all the components together into a single client module, single stylesheet
     addComponentToBundle(component, bundledClientModule, bundledStylesheet);
@@ -47,14 +46,17 @@ export async function compileSingleComponent(
         comments: settings.comments
     };
 
-    bundledClientModule.writeToFile(clientRenderSettings, join(settings.absoluteOutputPath, "component.js"));
-    bundledStylesheet.writeToFile(clientRenderSettings, join(settings.absoluteOutputPath, "component.css"));
+    bundledClientModule.writeToFile(clientRenderSettings);
+    bundledStylesheet.writeToFile(clientRenderSettings);
 
     if (settings.context === "isomorphic") {
-        const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!);
+        if (settings.backendLanguage === "rust") {
+            throw Error("Not implemented: compile-component --backendLanguage rust")
+        }
+        const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!, "server.ts");
         bundledServerModule.filename = join(settings.absoluteOutputPath, "component.server.js");
         for (const [, comp] of Component.registeredComponents) {
-            bundledServerModule.combine(comp.serverModule!);
+            bundledServerModule.combine(comp.serverModule! as Module);
         }
         bundledServerModule.removeImportsAndExports();
         bundledServerModule.writeToFile({

@@ -1,12 +1,11 @@
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { TypeSignature } from "./type-signature";
-import { IRenderSettings, defaultRenderSettings, ScriptLanguages, TokenReader, IConstruct } from "../../../helpers";
-import { IStatement } from "../statements/statement";
+import { IRenderSettings, defaultRenderSettings, ScriptLanguages, TokenReader, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 
-export class AsExpression implements IConstruct {
+export class AsExpression implements IRenderable {
     constructor(
-        public value: IValue, 
+        public value: ValueTypes, 
         public asType: TypeSignature
     ) { }
 
@@ -21,7 +20,7 @@ export class AsExpression implements IConstruct {
     }
 }
 
-export class TypeStatement implements IStatement {
+export class TypeDeclaration implements IRenderable {
     constructor(
         public name: TypeSignature,
         public value: TypeSignature,
@@ -37,13 +36,13 @@ export class TypeStatement implements IStatement {
         return acc;
     }
 
-    static fromTokens(reader: TokenReader<JSToken>): TypeStatement {
+    static fromTokens(reader: TokenReader<JSToken>): TypeDeclaration {
         reader.expectNext(JSToken.Type);
         // LHS can have generics so parse it as so
         const name = TypeSignature.fromTokens(reader);
         // TODO catch type x | y = 2; etc
         reader.expectNext(JSToken.Assign);
         const value = TypeSignature.fromTokens(reader);
-        return new TypeStatement(name, value);
+        return new TypeDeclaration(name, value);
     }
 }

@@ -1,4 +1,4 @@
-import { IRenderSettings, defaultRenderSettings, IConstruct, TokenReader } from "../../../helpers";
+import { IRenderSettings, defaultRenderSettings, IRenderable, TokenReader } from "../../../helpers";
 import type { TemplateLiteral } from "./template-literal";
 import type { Expression } from "./expression";
 import type { ObjectLiteral } from "./object";
@@ -11,7 +11,7 @@ import type { ClassDeclaration } from "../constructs/class";
 import { JSToken } from "../../javascript";
 
 // All constructs that can be used as values:
-export type IValue = Value
+export type ValueTypes = Value
     | TemplateLiteral
     | Expression
     | ObjectLiteral
@@ -38,12 +38,12 @@ export const literalTypes = new Set([JSToken.NumberLiteral, JSToken.StringLitera
 /**
  * Represents string literals, number literals (inc bigint), boolean literals, "null" and "undefined"
  */
-export class Value implements IConstruct {
+export class Value implements IRenderable {
     value: string | null; // TODO value is null if value is undefined
 
     constructor(
-        value: string | number | boolean | null,
         public type: Type,
+        value?: string | number | boolean,
     ) {
         if (typeof value === "number" || typeof value === "boolean") {
             this.value = value.toString();
@@ -58,11 +58,11 @@ export class Value implements IConstruct {
     static fromTokens(reader: TokenReader<JSToken>) {
         let value: Value;
         if (reader.current.type === JSToken.NumberLiteral) {
-            value = new Value(reader.current.value!, Type.number);
+            value = new Value(Type.number, reader.current.value!);
         } else if (reader.current.type === JSToken.StringLiteral) {
-            value = new Value(reader.current.value!, Type.string);
+            value = new Value(Type.string, reader.current.value!);
         } else if (reader.current.type === JSToken.True || reader.current.type === JSToken.False) {
-            value = new Value(reader.current.type === JSToken.True, Type.string);
+            value = new Value(Type.boolean, reader.current.value! === "true");
         } else {
             throw reader.throwExpect("Expected literal value");
         }
@@ -71,15 +71,16 @@ export class Value implements IConstruct {
     }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
-        if (this.type === Type.string) {
-            // Place string value + escape double quotes
-            return `"${this.value?.replace(/"/g, "\\\"")}"`;
-        } else if (this.type === Type.undefined) {
-            return "undefined";
-        } else {
-            return this.value!; // TODO temp impl for null
+        switch (this.type) {
+            case Type.string: return `"${this.value?.replace?.(/"/g, "\\\"") ?? ""}"`;
+            case Type.number: return this.value!;
+            case Type.bigint: return this.value!;
+            case Type.boolean: return this.value!;
+            case Type.undefined: return "undefined";
+            case Type.object: return "null";
+            default: throw Error(`Cannot render value of type "${Type[this.type]}"`)
         }
     }
 }
 
-export const nullValue = Object.freeze(new Value("null", Type.object));
+export const nullValue = Object.freeze(new Value(Type.object));

@@ -1,24 +1,24 @@
-import { TokenReader, IConstruct, makeRenderSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
+import { TokenReader, makeRenderSettings, ScriptLanguages, IRenderSettings, getImportPath } from "../../helpers";
 import { JSToken, stringToTokens } from "../javascript";
-import { Decorator, ClassDeclaration } from "./constructs/class";
-import { IStatement, ParseStatement } from "./statements/statement";
+import { ClassDeclaration } from "./constructs/class";
+import { StatementTypes, parseStatement } from "./statements/statement";
 import { ExportStatement, ImportStatement } from "./statements/import-export";
-import { IValue } from "./value/value";
+import { ValueTypes } from "./value/value";
 import { VariableDeclaration } from "./statements/variable";
 import { renderBlock } from "./constructs/block";
 import { readFile, writeFile } from "../../filesystem";
+import { IModule } from "../../abstract-asts";
 
-export class Module implements IConstruct {
+export class Module implements IModule<StatementTypes> {
 
     name?: string;
-    statements: Array<IStatement>;
+    statements: Array<StatementTypes>;
     classes: Array<ClassDeclaration> = []; // TODO lazy
     imports: Array<ImportStatement> = []; // TODO lazy
     exports: Array<ExportStatement> = []; // TODO lazy
-    filename?: string;
 
     // Registers a module to the cache
-    static registerCachedModule(module: Module, underFilename?: string)  {
+    static registerCachedModule(module: Module, underFilename?: string) {
         this.cachedModules.set(underFilename ?? module.filename!, module);
     }
 
@@ -27,10 +27,9 @@ export class Module implements IConstruct {
     public static cachedModules: Map<string, Module> = new Map();
 
     constructor(
-        statements: Array<IStatement> = [],
-        filename?: string
+        public filename: string,
+        statements: Array<StatementTypes> = [],
     ) {
-        this.filename = filename;
         for (const statement of statements) {
             if (statement instanceof ImportStatement) this.imports.push(statement);
             else if (statement instanceof ExportStatement) {
@@ -41,8 +40,8 @@ export class Module implements IConstruct {
         }
         this.statements = statements;
     }
-    
-    static fromString(text: string, filename: string | null = null, columnOffset?: number, lineOffset?: number): Module {
+
+    static fromString(text: string, filename: string, columnOffset?: number, lineOffset?: number): Module {
         const reader = stringToTokens(text, {
             file: filename,
             columnOffset,
@@ -66,33 +65,18 @@ export class Module implements IConstruct {
         return module;
     }
 
-    static fromTokens(reader: TokenReader<JSToken>, filename: string | null = null): Module {
-        const mod = new Module();
-        if (filename) mod.filename = filename;
-
-        // Accumulate decorators for classes
-        const decoratorAccumulator: Set<Decorator> = new Set();
+    static fromTokens(reader: TokenReader<JSToken>, filename: string): Module {
+        const mod = new Module(filename);
 
         while (reader.current.type !== JSToken.EOF) {
             // Parse the statement
-            const statement = ParseStatement(reader);
-
-            if (statement instanceof Decorator) {
-                decoratorAccumulator.add(statement);
-                continue;
-            } else if (statement instanceof ClassDeclaration) {
-                // Set class decorators and clear accumulator
-                statement.decorators = [...decoratorAccumulator];
-                decoratorAccumulator.clear();
-            }
+            const statement = parseStatement(reader);
 
             // If class add to Module.classes
             if (statement instanceof ClassDeclaration) {
                 mod.classes.push(statement);
             } else if (statement instanceof ExportStatement && statement.exported instanceof ClassDeclaration) {
                 mod.classes.push(statement.exported);
-                statement.exported.decorators = [...decoratorAccumulator];
-                decoratorAccumulator.clear();
             }
 
             // Add to imports
@@ -146,14 +130,14 @@ export class Module implements IConstruct {
         module2.statements = module2.statements.filter(statement => !(
             statement instanceof ImportStatement && module2ToThisModule.startsWith(statement.from)
         ));
-            
+
         this.statements.push(...module2.statements);
     }
 
     /**
      * Helper method that adds value to the module exported members
      */
-    addExport(exported: IValue) {
+    addExport(exported: ValueTypes) {
         const exportStatement = new ExportStatement(exported);
         this.statements.push(exportStatement);
     }

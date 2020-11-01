@@ -1,14 +1,18 @@
-import { IStatement, ParseStatement } from "./statement";
+import { parseStatement } from "./statement";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ClassDeclaration } from "../constructs/class";
 import { FunctionDeclaration } from "../constructs/function";
-import { TokenReader, IRenderSettings, ScriptLanguages, ModuleFormat, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, ScriptLanguages, ModuleFormat, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { InterfaceDeclaration } from "../types/interface";
+import { ValueTypes } from "../value/value";
+import { TypeDeclaration } from "../types/statements";
+import { VariableReference } from "../value/variable";
+import { Expression } from "../value/expression";
 
 const extensions = [".ts", ".js"];
 
-export class ImportStatement implements IStatement {
+export class ImportStatement implements IRenderable {
 
     variable: VariableDeclaration | null;
 
@@ -117,10 +121,10 @@ export class ImportStatement implements IStatement {
     }
 }
 
-export class ExportStatement implements IStatement {
+export class ExportStatement implements IRenderable {
 
     constructor(
-        public exported: IStatement,
+        public exported: ValueTypes,
         public isDefault: boolean = false,
     ) { }
 
@@ -134,13 +138,16 @@ export class ExportStatement implements IStatement {
             if (!serializedExport) return "";
             return acc + serializedExport;
         } else if (settings.moduleFormat === ModuleFormat.CJS) {
-            if (this.exported instanceof ClassDeclaration || this.exported instanceof FunctionDeclaration || this.exported instanceof VariableDeclaration || this.exported instanceof InterfaceDeclaration) {
+            if (this.exported instanceof ClassDeclaration ||
+                this.exported instanceof FunctionDeclaration ||
+                this.exported instanceof VariableDeclaration ||
+                this.exported instanceof InterfaceDeclaration) {
                 /**
                  * this.exported is rendered first because: `export function x() {}` !== module.exports.x = function x() {}. As in the second example x is not hoisted or something like that...
                  */
                 let acc = this.exported.render(settings);
                 if (!acc) return "";
-                
+
                 acc += "\n";
                 acc += "module.exports";
 
@@ -168,8 +175,18 @@ export class ExportStatement implements IStatement {
             isDefault = true;
             reader.move();
         }
-        const exported = ParseStatement(reader);
-        return new ExportStatement(exported, isDefault);
+        const exported = parseStatement(reader);
+        if (!(
+            exported instanceof ClassDeclaration ||
+            exported instanceof FunctionDeclaration ||
+            exported instanceof TypeDeclaration ||
+            exported instanceof VariableDeclaration ||
+            exported instanceof VariableReference ||
+            exported instanceof Expression ||
+            exported instanceof InterfaceDeclaration)
+        ) {
+            throw Error(`Invalid exported member "${exported.constructor.name}"`);
+        }
+        return new ExportStatement(exported as ValueTypes, isDefault);
     }
-
 }

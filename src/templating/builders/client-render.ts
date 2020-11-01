@@ -1,7 +1,7 @@
 import { HTMLElement, TextNode, HTMLComment, Node } from "../../chef/html/html";
 import { Expression, Operation } from "../../chef/javascript/components/value/expression";
 import { VariableReference } from "../../chef/javascript/components/value/variable";
-import { Value, IValue, Type } from "../../chef/javascript/components/value/value";
+import { Value, ValueTypes, Type } from "../../chef/javascript/components/value/value";
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";
 import { cloneAST, aliasVariables } from "../../chef/javascript/utils/variables";
@@ -53,7 +53,7 @@ export function clientRenderPrismNode(
     aliasDataToThis: boolean = false,
     locals: Array<VariableReference> = [],
     skipOverClientExpression: boolean = false
-): IValue {
+): ValueTypes {
     if (element instanceof HTMLElement) {
         // If slot then use then loaded slotted element
         if (element.tagName === "slot") {
@@ -69,13 +69,13 @@ export function clientRenderPrismNode(
         const elementData = nodeData.get(element);
 
         // The render function (h) second argument takes 0 (falsy) if no attributes, string for a single class name and a object literal of attribute to value pairs. Mostly for minification purposes
-        const attrs: Array<[string, IValue]> = [];
+        const attrs: Array<[string, ValueTypes]> = [];
         if (element.attributes) {
             for (const [name, value] of element.attributes) {
                 if (HTMLElement.booleanAttributes.has(name)) {
-                    attrs.push([name, new Value(true, Type.boolean)])
+                    attrs.push([name, new Value(Type.boolean, "true")])
                 } else {
-                    attrs.push([name, new Value(value ?? "", Type.string)])
+                    attrs.push([name, new Value(Type.string, value ?? "")])
                 }
             }
         }
@@ -93,18 +93,18 @@ export function clientRenderPrismNode(
             }
         }
 
-        const attributeArgument: IValue = attrs.length > 0 ?
+        const attributeArgument: ValueTypes = attrs.length > 0 ?
             new ObjectLiteral(new Map(attrs)) :
             new Value(0, Type.number); // 0 is used as a falsy value;
 
 
-        let eventArgument: IValue;
+        let eventArgument: ValueTypes;
         if (elementData?.events) {
             // TODO abstract
             eventArgument = new ObjectLiteral(
                 new Map(
                     elementData?.events.map(event => {
-                        let callback: IValue;
+                        let callback: ValueTypes;
                         if (event.existsOnComponentClass) {
                             callback = new Expression({
                                 lhs: VariableReference.fromChain("this", event.callback.name, "bind"),
@@ -123,7 +123,7 @@ export function clientRenderPrismNode(
         }
 
         // TODO explain
-        let childrenArgument: Array<IValue>;
+        let childrenArgument: Array<ValueTypes>;
         if ((elementData?.conditionalExpression || elementData?.iteratorExpression) && !skipOverClientExpression) {
             if (elementData.clientRenderMethod) {
                 if (elementData.iteratorExpression) {
@@ -135,13 +135,13 @@ export function clientRenderPrismNode(
                             lhs: new Expression({
                                 lhs: new VariableReference("map", clientExpression.subject),
                                 operation: Operation.Call,
-                                rhs: VariableReference.fromChain("this", elementData.clientRenderMethod.name?.name!)
+                                rhs: VariableReference.fromChain("this", elementData.clientRenderMethod.actualName!)
                             })
                         })
                     ];
                 } else {
                     return new Expression({
-                        lhs: VariableReference.fromChain("this", elementData.clientRenderMethod.name?.name!),
+                        lhs: VariableReference.fromChain("this", elementData.clientRenderMethod.actualName!),
                         operation: Operation.Call,
                     });
                 }
@@ -180,7 +180,7 @@ export function clientRenderPrismNode(
                     aliasVariables(clientConditionExpression, thisDataVariable, locals);
 
                     return new Expression({
-                        lhs: clientConditionExpression as IValue,
+                        lhs: clientConditionExpression as ValueTypes,
                         operation: Operation.Ternary,
                         rhs: new ArgumentList([
                             renderTruthyChild,
@@ -200,7 +200,7 @@ export function clientRenderPrismNode(
 
         // Arguments for: h(tagname: string, attribute: 0 | string | object, events: 0 | object, ...children: Array<string>)
         const argumentList = new ArgumentList([
-            new Value(element.tagName, Type.string),
+            new Value(Type.string, element.tagName),
             attributeArgument,
             eventArgument,
             ...childrenArgument
@@ -219,7 +219,7 @@ export function clientRenderPrismNode(
             aliasVariables(clonedValue, thisDataVariable, locals);
             return clonedValue;
         }
-        return textNodeValue ?? new Value(element.text, Type.string);
+        return textNodeValue ?? new Value(Type.string, element.text);
     } else if (element instanceof HTMLComment) {
         const isFragment = nodeData.get(element)?.isFragment;
         if (!isFragment) throw Error("Client side rendering of non-fragment comment supported");
@@ -227,7 +227,7 @@ export function clientRenderPrismNode(
         return new Expression({
             lhs: new VariableReference("createComment"), // Create comment function in render.ts
             operation: Operation.Call,
-            rhs: element.comment ? new Value(element.comment, Type.string) : new ArgumentList
+            rhs: element.comment ? new Value(Type.string, element.comment) : new ArgumentList
         });
     } else {
         throw Error(`Unsupported building of ${element!.constructor.name}`)

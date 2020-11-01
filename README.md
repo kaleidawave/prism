@@ -1,9 +1,10 @@
-# <img src="static/logo.png" height="24" /> Prism Compiler
+# <img src="static/logo.png" height="24" /> Prism Compiler 
 
 [![Twitter](https://img.shields.io/badge/-@kaleidawave-blue?style=flat-square&logo=twitter)](https://twitter.com/kaleidawave) 
 [![Issues](https://img.shields.io/github/issues/kaleidawave/prism?style=flat-square)](https://github.com/kaleidawave/prism/issues) 
 [![Stars](https://img.shields.io/github/stars/kaleidawave/prism?style=flat-square)](https://github.com/kaleidawave/prism/stargazers)
-![Node Version](https://img.shields.io/node/v/@kaleidawave/prism)
+[![On NPM](https://img.shields.io/github/package-json/v/kaleidawave/prism?color=red&logo=npm&style=flat-square)](https://www.npmjs.com/package/@kaleidawave/prism)
+![Node Version](https://img.shields.io/node/v/@kaleidawave/prism?style=flat-square&logo=node.js)
 
 Prism is *experimental* a compiler that takes declarative component definitions and creates lightweight web apps. Prism is built from the ground up. All HTML, CSS and JS parsing and rendering is done under a internal library known as [chef](https://github.com/kaleidawave/prism/tree/main/src/chef). 
 
@@ -26,11 +27,11 @@ Prism compiles down to native web components. Prism takes HTML templates and com
 
 #### Data bindings:
 
-Prism compiles a tree ahead of time onto the component definition. The tree contains hooks which can called update the dom view to match the data. A background library watches objects so data updates are based on regular js syntax and no calls to a function. The implementation leaves data reactivity to runtime so that can update the properties of web components but compiles bindings at build time to avoid vdom overhead.
+Prism compiles a tree ahead of time onto the component definition. The tree contains hooks which when called update the dom view to match the data. A background library watches objects so data updates are based on regular js syntax and no calls to a function. The implementation leaves data reactivity to runtime so that can update the properties of web components but compiles bindings at build time to avoid vdom overhead.
 
 #### Server side data hydration from markup:
 
-As well as compiling client bundles Prism can also compile functions for generating the markup on the server. The design of the reactive tree also can react to set events and *get* events. This means that Prism components can replicate the data used to the generate the markup on the client. Other approaches normally send down a JSON blob to handle the client state being up to date with server markup. This approach should reduce payload size. This system is completely lazy and getting the data is a on a single property basis. The server functions are fast string concatenations. The hope is that Prism could soon output backend languages than just [JavaScript & TypeScript 👀](https://github.com/kaleidawave/prism/issues/19). 
+As well as compiling client bundles Prism can also compile functions for generating the markup on the server. The design of the reactive tree also can react to set events and *get* events. This means that Prism components can replicate the data used to the generate the markup on the client. Other approaches normally send down a JSON blob to handle the client state being up to date with server markup. This approach should reduce payload size. This system is completely lazy and getting the data is a on a single property basis. The server functions are fast string concatenations. Prism can compile server render functions for JavaScript, TypeScript and Rust backends. [More coming later](https://github.com/kaleidawave/prism/issues/19). 
 
 #### Size comparisons:
 
@@ -222,6 +223,26 @@ Prism components extend the `HTMLElement` class. This allows for several benefit
 One of the problems of web component is that to issue a single component with a framework like React, Vue or Angular you also have to package the framework runtime with the component. This means if you implement a web component built with vue and another built with React into you plain js site you have a huge bundle size with two frameworks bundled. Web component are meant to be modular and lightweight which is not the case when 90% of the component is just framework runtime. 
 
 Prism attempts to move more information to build time so that the runtime is minimal. As it leaves reactivity to runtime it allows data changes to be reflected in the view. It also provides the ability to detect mutation so array methods like `push` and `pop` can be used. 
+
+#### Rust backend compilation:
+
+As of 1.3.0 prism supports compiling server render functions to native rust functions. These functions are framework independent, fast string concatenations and strongly typed. Obviously transpiling between is incredibly difficult and while Prism can create its own Rust ast it can't really convert custom use code from TS to Rust. So there is a decorator that can be added to functions `@useRustStatement` that will insert the value into the Rust module rather than the existing function definition. This code can do an import or as shown in the example below redefine the function:
+
+```html
+<template>
+    <h1>{uppercase(x)}</h1>
+</template>
+
+<script>
+    @useRustStatement(`fn uppercase(string: String) -> String { return string.to_uppercase(); }`)
+    function uppercase(str: string) {
+        return str.toUpperCase();
+    }
+
+    @Globals(uppercase)
+    class SomeComponent extends Component<{x: string}> {}
+</script>
+```
 
 #### Other decorators and methods:
 

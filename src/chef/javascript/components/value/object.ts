@@ -1,17 +1,17 @@
-import { IValue } from "./value";
-import { TokenReader, IRenderSettings, makeRenderSettings, IRenderOptions, defaultRenderSettings, IConstruct } from "../../../helpers";
+import { ValueTypes } from "./value";
+import { TokenReader, IRenderSettings, makeRenderSettings, IRenderOptions, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
 import { Expression } from "./expression";
 import { VariableReference, tokenAsIdent } from "./variable";
 import { FunctionDeclaration, functionPrefixes } from "../constructs/function";
 
-type ObjectLiteralKey = string | IValue;
+type ObjectLiteralKey = string | ValueTypes;
 
-export class ObjectLiteral implements IConstruct {
+export class ObjectLiteral implements IRenderable {
 
     constructor(
-        public values: Map<ObjectLiteralKey, IValue> = new Map(),
-        public spreadValues: Set<IValue> = new Set()
+        public values: Map<ObjectLiteralKey, ValueTypes> = new Map(),
+        public spreadValues: Set<ValueTypes> = new Set()
     ) {
         for (const [, value] of values) {
             if (value instanceof FunctionDeclaration) {
@@ -75,10 +75,10 @@ export class ObjectLiteral implements IConstruct {
         return acc + "}";
     }
 
-    static fromTokens(reader: TokenReader<JSToken>): IValue {
+    static fromTokens(reader: TokenReader<JSToken>): ValueTypes {
         reader.expectNext(JSToken.OpenCurly);
-        const values: Map<ObjectLiteralKey, IValue> = new Map();
-        const spreadValues: Set<IValue> = new Set();
+        const values: Map<ObjectLiteralKey, ValueTypes> = new Map();
+        const spreadValues: Set<ValueTypes> = new Set();
         const objectLiteral = new ObjectLiteral(values, spreadValues);
         while (reader.current.type !== JSToken.CloseCurly) {
             const funcModifiers: Set<JSToken> = new Set();
@@ -100,8 +100,7 @@ export class ObjectLiteral implements IConstruct {
             // If function
             if (reader.peek()?.type === JSToken.OpenBracket) {
                 const func = FunctionDeclaration.fromTokens(reader, objectLiteral, funcModifiers);
-                key = func.name!.name!;
-                values.set(key, func);
+                values.set(func.actualName!, func);
 
                 if (reader.current.type as JSToken === JSToken.CloseCurly) break;
                 reader.expectNext(JSToken.Comma);

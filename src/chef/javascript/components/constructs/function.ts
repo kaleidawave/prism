@@ -1,14 +1,16 @@
-import { TokenReader, IRenderSettings, IConstruct, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, IRenderable, makeRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { JSToken, stringToTokens } from "../../javascript";
-import { IValue } from "../value/value";
+import { ValueTypes } from "../value/value";
 import { TypeSignature } from "../types/type-signature";
-import { IStatement, ReturnStatement } from "../statements/statement";
+import { StatementTypes, ReturnStatement } from "../statements/statement";
 import { Expression } from "../value/expression";
 import { parseBlock, renderBlock } from "./block";
-import { ClassDeclaration, Decorator } from "./class";
+import { ClassDeclaration } from "./class";
 import { VariableDeclaration, VariableContext } from "../statements/variable";
 import { ObjectLiteral } from "../value/object";
 import { Module } from "../module";
+import { IFunctionDeclaration } from "../../../abstract-asts";
+import { Decorator } from "../types/decorator";
 
 export const functionPrefixes = [JSToken.Get, JSToken.Set, JSToken.Async];
 
@@ -28,8 +30,8 @@ export function parseFunctionParams(reader: TokenReader<JSToken>): Array<Variabl
     return params;
 }
 
-export class ArgumentList implements IConstruct {
-    constructor(public args: IValue[] = []) { }
+export class ArgumentList implements IRenderable {
+    constructor(public args: ValueTypes[] = []) { }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
         const renderedArgs = this.args.map(arg => arg.render(settings, { inline: true }));
@@ -44,7 +46,7 @@ export class ArgumentList implements IConstruct {
     }
 
     static fromTokens(reader: TokenReader<JSToken>): ArgumentList {
-        const args: Array<IValue> = [];
+        const args: Array<ValueTypes> = [];
         reader.expectNext(JSToken.OpenBracket);
         while (reader.current.type !== JSToken.CloseBracket) {
             const arg = Expression.fromTokens(reader);
@@ -66,19 +68,19 @@ interface FunctionOptions {
     bound: boolean, // If "this" refers to function scope
     isGenerator: boolean,
     isStatic: boolean,
-    decorators: Set<Decorator>,
+    decorators?: Array<Decorator>,
     returnType?: TypeSignature,
     isAbstract: boolean, // TODO implement on IClassMember
 }
 
-export class FunctionDeclaration implements IConstruct, FunctionOptions {
+export class FunctionDeclaration implements IFunctionDeclaration, FunctionOptions {
     name?: TypeSignature; // Null signifies anonymous function 
     returnType?: TypeSignature;
-    statements: Array<IStatement>;
+    statements: Array<StatementTypes>;
     parameters: Array<VariableDeclaration>;
     parent: ClassDeclaration | ObjectLiteral | Module;
 
-    decorators: Set<Decorator>;
+    decorators?: Array<Decorator>;
 
     bound: boolean = true; // If "this" returns to function context
     getSet?: GetSet;
@@ -87,10 +89,14 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
     isStatic: boolean = false;
     isAbstract: boolean = false;
 
+    get actualName() {
+        return this.name?.name ?? null;
+    }
+
     constructor(
         name: TypeSignature | string | null = null,
         parameters: string[] | VariableDeclaration[] = [],
-        statements: Array<IStatement> = [],
+        statements: Array<StatementTypes> = [],
         options: Partial<FunctionOptions> = {}
     ) {
         if (name) {
@@ -122,8 +128,8 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
      * Helper method for generating a argument list for calling this function. Basically implements named named parameters by generating a in order list of arguments
      * @param argumentMap 
      */
-    buildArgumentListFromArguments(argumentMap: Map<string, IValue>): ArgumentList {
-        const args: Array<IValue> = [];
+    buildArgumentListFromArgumentsMap(argumentMap: Map<string, ValueTypes>): ArgumentList {
+        const args: Array<ValueTypes> = [];
         for (const param of this.parameters) {
             const arg = argumentMap.get(param.name);
             // TODO or optional
@@ -141,6 +147,9 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
     render(settings: IRenderSettings = defaultRenderSettings): string {
         settings = makeRenderSettings(settings);
         let acc = "";
+        if (this.decorators) {
+            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n");
+        }
 
         if (this.isAbstract && settings.scriptLanguage !== ScriptLanguages.Typescript) return acc;
 
@@ -235,7 +244,6 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
         reader: TokenReader<JSToken>,
         parent?: ClassDeclaration | ObjectLiteral,
         modifiers?: Set<JSToken>,
-        decorators?: Set<Decorator>
     ): FunctionDeclaration {
         let async = false;
         if (reader.current.type === JSToken.Async) {
@@ -287,7 +295,6 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
                     isAsync: async,
                     getSet,
                     returnType,
-                    decorators: new Set(decorators)
                 });
             }
 
@@ -301,8 +308,7 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
                 isStatic,
                 isAsync: async,
                 getSet,
-                returnType,
-                decorators: new Set(decorators)
+                returnType
             });
         } else {
             let params: VariableDeclaration[];
@@ -314,7 +320,7 @@ export class FunctionDeclaration implements IConstruct, FunctionOptions {
                 params = parseFunctionParams(reader);
             }
             reader.expectNext(JSToken.ArrowFunction);
-            let statements: IStatement[];
+            let statements: StatementTypes[];
             if (reader.current.type as JSToken !== JSToken.OpenCurly) {
                 // If next token is void assume it is not meant to return
                 if (reader.peek()?.type === JSToken.Void) {

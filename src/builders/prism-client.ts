@@ -1,15 +1,13 @@
 import { Module } from "../chef/javascript/components/module";
-import { getRoutes, injectRoutes } from "./client-side-routing";
+import { injectRoutes } from "./client-side-routing";
 import { fileBundle } from "../bundled-files";
 import { join } from "path";
-import { dynamicUrlToString } from "../chef/dynamic-url";
-import { flatElements, HTMLDocument, HTMLElement } from "../chef/html/html";
-import { defaultTemplateHTML, IFinalPrismSettings } from "../settings";
 import { FunctionDeclaration } from "../chef/javascript/components/constructs/function";
 import { ExportStatement } from "../chef/javascript/components/statements/import-export";
 import { ClassDeclaration } from "../chef/javascript/components/constructs/class";
 import { VariableDeclaration } from "../chef/javascript/components/statements/variable";
 import { Comment } from "../chef/javascript/components/statements/comments";
+import { ValueTypes } from "../chef/javascript/components/value/value";
 
 export const clientModuleFilenames = [
     "component.ts",
@@ -35,7 +33,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && statement.exported.name?.name === "createComment"
         ));
 
-        const otherStatements = Module.fromString(fileBundle.get("others.ts")!).statements;
+        const otherStatements = Module.fromString(fileBundle.get("others.ts")!, "others.ts").statements;
         const componentClass = (bundle.statements.find(statement =>
             statement instanceof ExportStatement && statement.exported instanceof ClassDeclaration && statement.exported.name?.name === "Component"
         ) as ExportStatement).exported as ClassDeclaration;
@@ -53,20 +51,20 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
         componentClass.members = componentClass.members.filter(member => !(
             !(member instanceof Comment) && (
                 member instanceof VariableDeclaration && member.name === "_ifSwapElemCache" ||
-                member instanceof FunctionDeclaration && member.name?.name === "setElem"
+                member instanceof FunctionDeclaration && member.actualName === "setElem"
             )
         ));
 
         // Remove conditionalSwap and tryAssignData
         bundle.statements = bundle.statements.filter(statement => !(
             statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration &&
-            ["conditionalSwap", "tryAssignData"].includes(statement.exported.name?.name!)
+            ["conditionalSwap", "tryAssignData"].includes(statement.exported.actualName!)
         ));
     }
     if (!runtimeFeatures.observableArrays) {
         // Remove createObservableArray, isArrayHoley and setLength function
         bundle.statements = bundle.statements.filter(statement => !(
-            statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && ["createObservableArray", "isArrayHoley", "setLength"].includes(statement.exported.name?.name!)
+            statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && ["createObservableArray", "isArrayHoley", "setLength"].includes(statement.exported.actualName!)
         ));
     }
     if (!runtimeFeatures.svg) {
@@ -82,7 +80,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement.exported.name?.name === "h") as ExportStatement;
 
         (renderFunction.exported as FunctionDeclaration).statements =
-            (Module.fromString(fileBundle.get("others.ts")!).statements
+            (Module.fromString(fileBundle.get("others.ts")!, "others.ts").statements
                 .find(statement =>
                     statement instanceof FunctionDeclaration &&
                     statement.name?.name === "h"
@@ -97,7 +95,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement.exported.name?.name === "createObservable"
         ));
 
-        const createObservableObject = Module.fromString(fileBundle.get("others.ts")!)
+        const createObservableObject = Module.fromString(fileBundle.get("others.ts")!, "others.ts")
             .statements.find(statement =>
                 statement instanceof FunctionDeclaration && statement.name?.name === "createObservableObject"
             );
@@ -106,7 +104,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement instanceof ExportStatement &&
             statement.exported instanceof FunctionDeclaration &&
             statement.exported.name?.name === "createObservableObject"
-        ) as ExportStatement).exported = createObservableObject!;
+        ) as ExportStatement).exported = createObservableObject as ValueTypes;
     }
 }
 
@@ -115,8 +113,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
  * @param clientSideRouting Include the client router module (including injecting routes)
  */
 export async function getPrismClient(clientSideRouting: boolean = true): Promise<Module> {
-    const bundle = new Module();
-    bundle.filename = "prism.js";
+    const bundle = new Module("prism.js");
     for (const clientLib of clientModuleFilenames) {
         const module = Module.fromString(fileBundle.get(clientLib)!, join("bundle", clientLib));
         if (clientLib.endsWith("router.ts")) {
@@ -126,51 +123,4 @@ export async function getPrismClient(clientSideRouting: boolean = true): Promise
         bundle.combine(module);
     }
     return bundle;
-}
-
-/**
- * Creates the underlining index document including references in the script to the script and style bundle.
- */
-export async function buildIndexHtml(settings: IFinalPrismSettings): Promise<HTMLDocument> {
-    // Read the included template or one specified by settings
-    let document: HTMLDocument;
-    if (settings.templatePath === defaultTemplateHTML) {
-        document = HTMLDocument.fromString(fileBundle.get("template.html")!);
-    } else {
-        document = await HTMLDocument.fromFile(settings.absoluteTemplatePath);
-    }
-
-    for (const element of flatElements(document)) {
-        if (element.tagName === "slot") {
-            const slotFor = element.attributes?.get("for") ?? "content";
-
-            // Injecting router
-            if (slotFor === "content") {
-                let swapElement: HTMLElement;
-                const routes = getRoutes();
-                // TODO temp implementation if only a single page
-                if (routes.length === 1 && dynamicUrlToString(routes[0][0]) === "/") {
-                    // Swap with router
-                    // TODO could static render if doesn't require data + add "data-ssr" attribute
-                    // TODO component may have load function
-                    // TODO may have layout
-                    swapElement = new HTMLElement(routes[0][1].tag, null, [], element.parent);
-                } else {
-                    // Swap with the only registered page component
-                    swapElement = new HTMLElement("router-component", null, [], element.parent);
-                }
-                // Swap in the router-component at the position of the component
-                element.parent!.children.splice(element.parent!.children.indexOf(element), 1, swapElement);
-            } else {
-                // TODO not sure why it delete other for slots
-                element.parent!.children.splice(element.parent!.children.indexOf(element), 1);
-            }
-        } else if (element.tagName === "head") {
-            // TODO link up the names of these assets
-            element.children.push(new HTMLElement("script", new Map([["type", "module"], ["src", "/bundle.js"]])));
-            element.children.push(new HTMLElement("link", new Map([["rel", "stylesheet"], ["href", "/bundle.css"]])));
-        }
-    }
-
-    return document;
 }

@@ -1,4 +1,4 @@
-import { IValue, Value, Type } from "../components/value/value";
+import { ValueTypes, Value, Type } from "../components/value/value";
 import { TemplateLiteral } from "../components/value/template-literal";
 import { Expression, Operation } from "../components/value/expression";
 import { FunctionDeclaration, ArgumentList } from "../components/constructs/function";
@@ -14,7 +14,7 @@ import { replaceVariables, cloneAST } from "./variables";
  * TODO only accepts expression has one variables. Should consider other variables in the expression as arguments 
  * @param expression 
  */
-export function buildReverseFunction(expression: IValue): FunctionDeclaration {
+export function buildReverseFunction(expression: ValueTypes): FunctionDeclaration {
     const func = new FunctionDeclaration(null, ["value"], [], { bound: false });
     const reverseExpression = reverseValue(cloneAST(expression));
     func.statements.push(new ReturnStatement(reverseExpression));
@@ -23,7 +23,7 @@ export function buildReverseFunction(expression: IValue): FunctionDeclaration {
 
 const value = new VariableReference("value");
 
-export function reverseValue(expression: IValue | ArgumentList): IValue {
+export function reverseValue(expression: ValueTypes | ArgumentList): ValueTypes {
 
     if (expression instanceof VariableReference) {
         return value;
@@ -88,7 +88,7 @@ export function reverseTemplateLiteral(templateLiteral: TemplateLiteral): Expres
 }
 
 // TODO better place for these:
-export function isIIFE(value: IValue) {
+export function isIIFE(value: ValueTypes) {
     return value instanceof Expression &&
         value.operation === Operation.Call &&
         value.lhs instanceof Group &&
@@ -100,12 +100,12 @@ export function isIIFE(value: IValue) {
  * @example ((t) => t * 2)(8) -> 8 * 2
  * @param iife a IIFE 
  */
-export function compileIIFE(iife: Expression): IValue {
+export function compileIIFE(iife: Expression): ValueTypes {
     const func: FunctionDeclaration = (iife.lhs as Group).value as FunctionDeclaration;
     if (func.statements.length !== 1) {
         throw Error("Cannot compile IIFE");
     }
-    let statement: IValue | null = cloneAST((func.statements[0] as ReturnStatement).returnValue!);
+    let statement: ValueTypes | null = cloneAST((func.statements[0] as ReturnStatement).returnValue!);
     if (!statement) throw Error("IIFE must have return value to be compiled");
     for (const [index, value] of (iife.rhs as ArgumentList).args.entries()) {
         const targetArgument = func.parameters[index];

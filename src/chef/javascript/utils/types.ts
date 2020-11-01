@@ -1,6 +1,6 @@
 import { Module } from "../components/module";
 import { TypeSignature } from "../components/types/type-signature";
-import { TypeStatement } from "../components/types/statements";
+import { TypeDeclaration } from "../components/types/statements";
 import { InterfaceDeclaration } from "../components/types/interface";
 import { ImportStatement, ExportStatement } from "../components/statements/import-export";
 import { resolve, dirname } from "path";
@@ -91,7 +91,7 @@ async function typeFromName(
         if (statement instanceof ExportStatement) statement = statement.exported;
 
         // TODO does not take into account generics 
-        if (statement instanceof TypeStatement && statement.name!.name! === name) {
+        if (statement instanceof TypeDeclaration && statement.name!.name! === name) {
             type = await typeSignatureToIType(statement.value, module, name);
         } else if (statement instanceof InterfaceDeclaration && statement.name!.name! === name) {
             const mappedTypePromiseArray =

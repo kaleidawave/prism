@@ -1,7 +1,6 @@
-import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
+import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { tokenAsIdent } from "../value/variable";
-import { IStatement } from "../statements/statement";
 import { parseFunctionParams } from "../constructs/function";
 import { literalTypes, Value } from "../value/value";
 
@@ -19,7 +18,7 @@ interface FunctionSignature {
 /**
  * Represents a type declaration. Used by class to parse generics
  */
-export class TypeSignature implements IStatement, TypeWithArgs {
+export class TypeSignature implements IRenderable, TypeWithArgs {
     name?: string;
     value?: Value;
     typeArguments?: Array<TypeSignature>;

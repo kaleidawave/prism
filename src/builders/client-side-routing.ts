@@ -1,7 +1,7 @@
 import { Component } from "../component";
 import { Module } from "../chef/javascript/components/module";
 import { ArrayLiteral } from "../chef/javascript/components/value/array";
-import { Value, Type, IValue } from "../chef/javascript/components/value/value";
+import { Value, Type, ValueTypes } from "../chef/javascript/components/value/value";
 import { DynamicUrl, dynamicUrlToRegexPattern } from "../chef/dynamic-url";
 import { ClassDeclaration } from "../chef/javascript/components/constructs/class";
 import { RegExpLiteral } from "../chef/javascript/components/value/regex";
@@ -38,7 +38,7 @@ export function setNotFoundRoute(component: Component) {
 export function injectRoutes(routerModule: Module): void {
 
     // Use the bundled router and get the router component
-    const routerComponent: ClassDeclaration = routerModule.classes.find(cls => cls.name!.name === "Router")!;
+    const routerComponent: ClassDeclaration = routerModule.classes.find(cls => cls.actualName === "Router")!;
 
     // Build up array that map patterns to components and their possible layout
     const routePairArray = new ArrayLiteral();
@@ -57,14 +57,14 @@ export function injectRoutes(routerModule: Module): void {
     });
 
     for (const [url, component] of routes) {
-        const parts: Array<IValue> = [];
+        const parts: Array<ValueTypes> = [];
         // TODO could to dynamic import for code splitting
         parts.push(dynamicUrlToRegexPattern(url));
 
         // Push the component tag and if the the page requires a layout
-        parts.push(new Value(component.tag, Type.string));
+        parts.push(new Value(Type.string, component.tag));
         if (component.usesLayout) {
-            parts.push(new Value(component.usesLayout.tag, Type.string));
+            parts.push(new Value(Type.string, component.usesLayout.tag,));
         }
 
         routePairArray.elements.push(new ArrayLiteral(parts));
@@ -73,11 +73,11 @@ export function injectRoutes(routerModule: Module): void {
     // If there is a not found route append a always matching regex pattern
     // Important that this comes last as not to return early on other patterns
     if (notFoundRoute) {
-        const parts: Array<IValue> = [];
+        const parts: Array<ValueTypes> = [];
         parts.push(new RegExpLiteral(".?")); // This regexp matches on anything inc empty strings
-        parts.push(new Value(notFoundRoute.tag, Type.string));
+        parts.push(new Value(Type.string, notFoundRoute.tag));
         if (notFoundRoute.usesLayout) {
-            parts.push(new Value(notFoundRoute.usesLayout.tag, Type.string));
+            parts.push(new Value(Type.string, notFoundRoute.usesLayout.tag));
         }
         routePairArray.elements.push(new ArrayLiteral(parts));
     }

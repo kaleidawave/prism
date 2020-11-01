@@ -35,7 +35,7 @@ export enum ModuleFormat {
 }
 
 export enum ScriptLanguages {
-    Javascript, Typescript
+    Javascript, Typescript, Rust
 }
 
 /**
@@ -63,8 +63,8 @@ export function makeRenderSettings(partialSettings: Partial<IRenderSettings>): I
     return { ...defaultRenderSettings, ...partialSettings };
 }
 
-export interface IConstruct {
-    render(settings?: Partial<IRenderSettings>, options?: Partial<IRenderOptions>): string;
+export interface IRenderable {
+    render(settings: IRenderSettings, options?: Partial<IRenderOptions>): string;
 }
 
 /**

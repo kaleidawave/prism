@@ -1,5 +1,5 @@
 import { HTMLElement, Node } from "./chef/html/html";
-import { IValue } from "./chef/javascript/components/value/value";
+import { ValueTypes } from "./chef/javascript/components/value/value";
 import { assignToObjectMap } from "./helpers";
 import { NodeData } from "./templating/template";
 
@@ -39,7 +39,7 @@ function buildMetaTag(metadata: object, nodeData: WeakMap<Node, NodeData>): HTML
  * TODO send also node data as well
  * @param metadata 
  */
-export function buildMetaTags(metadata: Map<string, string | IValue>): {
+export function buildMetaTags(metadata: Map<string, string | ValueTypes>): {
     metadataTags: Array<HTMLElement>,
     nodeData: WeakMap<Node, NodeData>
 } {

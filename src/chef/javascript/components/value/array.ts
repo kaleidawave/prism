@@ -1,5 +1,5 @@
-import { IValue } from "./value";
-import { TokenReader, IRenderSettings, defaultRenderSettings, IConstruct } from "../../../helpers";
+import { ValueTypes } from "./value";
+import { TokenReader, IRenderSettings, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
 import { Expression } from "./expression";
 
@@ -7,10 +7,10 @@ import { Expression } from "./expression";
  * Represents a array literal 
  * @example `[1,2,3]`
  */
-export class ArrayLiteral implements IConstruct {
+export class ArrayLiteral implements IRenderable {
 
     constructor (
-        public elements: IValue[] = []
+        public elements: ValueTypes[] = []
     ) {}
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
@@ -28,7 +28,7 @@ export class ArrayLiteral implements IConstruct {
         return acc + "]"
     }
     
-    static fromTokens(reader: TokenReader<JSToken>): IValue {
+    static fromTokens(reader: TokenReader<JSToken>): ValueTypes {
         const array = new ArrayLiteral();
         reader.expectNext(JSToken.OpenSquare);
         while (reader.current.type !== JSToken.CloseSquare) {

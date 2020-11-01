@@ -1,5 +1,5 @@
 import { IEvent, IBinding, Locals, PartialBinding, VariableReferenceArray, ForLoopVariable, NodeData } from "./template";
-import { IValue, Value, Type } from "../chef/javascript/components/value/value";
+import { ValueTypes, Value, Type } from "../chef/javascript/components/value/value";
 import { HTMLElement, HTMLDocument, Node } from "../chef/html/html";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
@@ -148,7 +148,7 @@ function getSingleElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData
     return new Expression({
         lhs: VariableReference.fromChain("this", "getElem"),
         operation: Operation.Call,
-        rhs: new ArgumentList([new Value(identifier, Type.string)])
+        rhs: new ArgumentList([new Value(Type.string, identifier)])
     });
 }
 
@@ -157,7 +157,7 @@ function getSingleElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData
  * @param ancestor a ancestor of the descendant
  * @param element a descendant of the descendant
  */
-export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>): IValue {
+export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>): ValueTypes {
     const { multiple, nullable: isRootElementNullable } = nodeData.get(element)!;
 
     if (!multiple) {
@@ -180,7 +180,7 @@ export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeDat
     }
 
     // Point is now end
-    let statement: IValue = getSingleElement(point, nodeData);
+    let statement: ValueTypes = getSingleElement(point, nodeData);
     let indexer = 0;
 
     // Reverse as worked upwards but statement works downwards
@@ -199,7 +199,7 @@ export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeDat
             statement = new Expression({
                 lhs: childrenValue,
                 operation: isRootElementNullable ? Operation.OptionalIndex : Operation.Index,
-                rhs: new Value(indexes[i], Type.number)
+                rhs: new Value(Type.number, indexes[i])
             });
         }
     }
