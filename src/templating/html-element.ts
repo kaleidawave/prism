@@ -25,8 +25,8 @@ export function parseHTMLElement(
     assignToObjectMap(templateData.nodeData, element, "multiple", multiple);
 
     // If imported element:
-    if (templateConfig.importedComponents.has(element.tagName)) {
-        const component = templateConfig.importedComponents.get(element.tagName)!;
+    if (templateConfig.tagNameToComponentMap.has(element.tagName)) {
+        const component = templateConfig.tagNameToComponentMap.get(element.tagName)!;
 
         if (!component) {
             throw Error(`Cannot find imported component of name ${element.tagName}`)
@@ -47,7 +47,7 @@ export function parseHTMLElement(
         }
 
         // Modify the tag to match mentioned component tag (used by client side render)
-        element.tagName = component.tag;
+        element.tagName = component.tagName;
         // Used for binding ssr function call to component render function
         assignToObjectMap(templateData.nodeData, element, "component", component);
     }     

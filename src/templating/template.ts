@@ -95,7 +95,7 @@ export interface ITemplateData {
 
 export interface ITemplateConfig {
     ssrEnabled: boolean,
-    importedComponents: Map<string, Component>,
+    tagNameToComponentMap: Map<string, Component>,
     doClientSideRouting: boolean
 }
 

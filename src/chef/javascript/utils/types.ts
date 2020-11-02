@@ -13,6 +13,7 @@ export interface IType {
     indexed?: IType,
 }
 
+// TODO use WeakMap
 // Cache found types
 interface ModuleWithResolvedTypes extends Module {
     _typeMap?: Map<string, IType>
@@ -72,6 +73,8 @@ async function typeFromName(
 ): Promise<IType> {
     if (inbuiltTypes.has(name)) return inbuiltTypes.get(name)!;
 
+    if (!module._typeMap) module._typeMap = new Map();
+
     // TODO replace hardcoded array implementation
     if (name === "Array") {
         return {
@@ -83,17 +86,20 @@ async function typeFromName(
 
     if (module._typeMap?.has(name)) return module._typeMap.get(name)!;
 
+
     let type: IType | null = null;
     const statementsToLookThrough = imported ? module.exports : module.statements;
 
-    for (let statement of statementsToLookThrough) {
-        // TODO kinda temp
-        if (statement instanceof ExportStatement) statement = statement.exported;
+    for (const statementInMod of statementsToLookThrough) {
+        const statement = statementInMod instanceof ExportStatement ? statementInMod.exported : statementInMod;
 
         // TODO does not take into account generics 
         if (statement instanceof TypeDeclaration && statement.name!.name! === name) {
             type = await typeSignatureToIType(statement.value, module, name);
         } else if (statement instanceof InterfaceDeclaration && statement.name!.name! === name) {
+            type = { name };
+            module._typeMap!.set(name, type);
+
             const mappedTypePromiseArray =
                 Array.from(statement.members).map(([name, signature]) =>
                     typeSignatureToIType(signature, module).then((result) => {
@@ -101,7 +107,7 @@ async function typeFromName(
                     })
                 );
             const resolvedTypes = await Promise.all(mappedTypePromiseArray);
-            type = { name, properties: new Map(resolvedTypes) }
+            type.properties =  new Map(resolvedTypes);
 
             // If extends type
             if (statement.extendsType) {
@@ -135,7 +141,5 @@ async function typeFromName(
     }
 
     if (type === null) throw Error(`Could not find type: ${name} in module`);
-    if (!module._typeMap) module._typeMap = new Map();
-    module._typeMap!.set(name, type);
     return type;
 }

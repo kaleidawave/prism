@@ -147,8 +147,8 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
     render(settings: IRenderSettings = defaultRenderSettings): string {
         settings = makeRenderSettings(settings);
         let acc = "";
-        if (this.decorators) {
-            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n");
+        if (this.decorators && settings.scriptLanguage === ScriptLanguages.Typescript) {
+            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n") + "\n";
         }
 
         if (this.isAbstract && settings.scriptLanguage !== ScriptLanguages.Typescript) return acc;

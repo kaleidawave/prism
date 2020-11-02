@@ -62,9 +62,9 @@ export function injectRoutes(routerModule: Module): void {
         parts.push(dynamicUrlToRegexPattern(url));
 
         // Push the component tag and if the the page requires a layout
-        parts.push(new Value(Type.string, component.tag));
+        parts.push(new Value(Type.string, component.tagName));
         if (component.usesLayout) {
-            parts.push(new Value(Type.string, component.usesLayout.tag,));
+            parts.push(new Value(Type.string, component.usesLayout.tagName,));
         }
 
         routePairArray.elements.push(new ArrayLiteral(parts));
@@ -75,9 +75,9 @@ export function injectRoutes(routerModule: Module): void {
     if (notFoundRoute) {
         const parts: Array<ValueTypes> = [];
         parts.push(new RegExpLiteral(".?")); // This regexp matches on anything inc empty strings
-        parts.push(new Value(Type.string, notFoundRoute.tag));
+        parts.push(new Value(Type.string, notFoundRoute.tagName));
         if (notFoundRoute.usesLayout) {
-            parts.push(new Value(Type.string, notFoundRoute.usesLayout.tag));
+            parts.push(new Value(Type.string, notFoundRoute.usesLayout.tagName));
         }
         routePairArray.elements.push(new ArrayLiteral(parts));
     }

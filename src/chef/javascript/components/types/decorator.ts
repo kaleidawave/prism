@@ -20,7 +20,7 @@ export class Decorator implements IRenderable {
     }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {
-        let acc = this.name;
+        let acc = "@" + this.name;
         if (this._argumentList) {
             acc += this._argumentList.render(settings);
         }

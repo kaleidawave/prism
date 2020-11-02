@@ -66,7 +66,7 @@ export async function compileSingleComponent(
     if (settings.buildTimings) console.timeEnd("Render and write script & style bundle");
 
     console.log(`Wrote out component.js and component.css to ${settings.outputPath}`);
-    console.log(`Built web component, use with "<${component.tag}></${component.tag}>" or "document.createElement("${component.tag}")"`);
+    console.log(`Built web component, use with "<${component.tagName}></${component.tagName}>" or "document.createElement("${component.tagName}")"`);
 }
 
 /**
@@ -82,6 +82,7 @@ function addComponentToBundle(component: Component, scriptBundle: Module, styleB
     if (component.stylesheet && styleBundle) {
         styleBundle.combine(component.stylesheet);
     }
+    // TODO cyclic imports
     for (const [, importedComponent] of component.importedComponents) {
         addComponentToBundle(importedComponent, scriptBundle, styleBundle);
     }

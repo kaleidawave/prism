@@ -49,7 +49,7 @@ export class Component {
     isLayout: boolean = false;
 
     className: string; // The class name of the component
-    tag!: string; // Tag for component. Defaults to (ClassName)-component
+    tagName!: string; // Tag for component. Defaults to (ClassName)-component
 
     needsData: boolean = false; // If the component has any data and needs to be passed data
     hasSlots: boolean = false; // If the component has slots
@@ -180,7 +180,6 @@ export class Component {
 
         // Retrieve imported components
         this.imports = [];
-        // TODO #21 add ["This", this] to imported components to enable recursive components
         this.importedComponents = new Map();
         Component.parsingComponents.add(this.filename);
         for (const import_ of this.clientModule.imports) {
@@ -212,9 +211,9 @@ export class Component {
                             throw Error("Tag name must have one argument of type string");
                         }
 
-                        this.tag = (decorator.args[0] as Value).value!;
-                        if (Component.registeredTags.has(this.tag)) {
-                            throw Error(`"${this.filename}" - "${this.tag}" already registered under another component`);
+                        this.tagName = (decorator.args[0] as Value).value!;
+                        if (Component.registeredTags.has(this.tagName)) {
+                            throw Error(`"${this.filename}" - "${this.tagName}" already registered under another component`);
                         }
                         break;
                     case "Page":
@@ -332,14 +331,14 @@ export class Component {
         }
 
         // If tag decorator not defined create a tag from the className
-        if (typeof this.tag === "undefined") {
+        if (typeof this.tagName === "undefined") {
             // MySuperElement -> my-super-element
             const name = this.className.split(/([A-Z](?:[a-z]+))/g).filter(Boolean);
             // Web component tag name must contain dash
             if (name.length === 1) {
                 name.push("component");
             }
-            this.tag = name.join("-").toLowerCase();
+            this.tagName = name.join("-").toLowerCase();
         }
 
         // Add default data
@@ -351,10 +350,15 @@ export class Component {
 
         let templateData: ITemplateData;
         try {
+            const tagToComponentMap = new Map(this.importedComponents);
+            // Enables recursive components via <This> or using the <*TagName*>
+            tagToComponentMap.set("This", this);
+            tagToComponentMap.set(this.tagName, this);
+
             templateData = parseTemplate(this.templateElement, {
                 ssrEnabled: settings.context === "isomorphic",
                 doClientSideRouting: settings.clientSideRouting,
-                importedComponents: this.importedComponents
+                tagNameToComponentMap: tagToComponentMap
             }, this.globals);
         } catch (error) {
             // Append the component filename to the error message
@@ -499,7 +503,7 @@ export class Component {
         // Parse stylesheet
         if (this.stylesheet) {
             // Prefix all rules in the style tag to be descendants of the tag name
-            const thisTagSelector: ISelector = { tagName: this.tag }
+            const thisTagSelector: ISelector = { tagName: this.tagName }
             for (const rule of this.stylesheet.rules) {
                 if (rule instanceof Rule) {
                     rule.selectors = rule.selectors.map(selector1 => prefixSelector(selector1, thisTagSelector));
@@ -568,7 +572,7 @@ export class Component {
         this.customElementDefineStatement = new Expression({
             lhs: VariableReference.fromChain("window", "customElements", "define"),
             operation: Operation.Call,
-            rhs: new ArgumentList([new Value(Type.string, this.tag), new VariableReference(this.className)])
+            rhs: new ArgumentList([new Value(Type.string, this.tagName), new VariableReference(this.className)])
         });
 
         this.clientModule.statements.push(this.customElementDefineStatement);
@@ -641,7 +645,7 @@ export class Component {
             const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
 
             // Generate a tag of self (instead of using template) (reuses template.element.children)
-            this.componentHtmlTag = new HTMLElement(this.tag, componentAttributes, this.templateElement.children, this.templateElement.parent);
+            this.componentHtmlTag = new HTMLElement(this.tagName, componentAttributes, this.templateElement.children, this.templateElement.parent);
 
             if (!(this.isPage || this.isLayout)) {
                 assignToObjectMap(this.templateData.nodeData, this.componentHtmlTag, "rawAttribute", new VariableReference("attributes"));
