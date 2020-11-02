@@ -165,6 +165,13 @@ export function serverRenderPrismNode(
                     [serverAliasedExpression.variable.toReference(), ...locals]
                 )
             }, chunks)
+        } else if (elementData?.rawInnerHTML) {
+            const aliasedRawInnerHTML: ValueTypes = cloneAST(elementData?.rawInnerHTML);
+            aliasVariables(aliasedRawInnerHTML, dataVariable, locals);
+            addChunk({
+                value: aliasedRawInnerHTML,
+                escape: false
+            }, chunks);
         } else {
             for (const child of element.children) {
                 const parts = serverRenderPrismNode(child, nodeData, serverRenderSettings, locals);

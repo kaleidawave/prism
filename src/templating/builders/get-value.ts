@@ -67,6 +67,12 @@ export function makeGetFromBinding(
                 operation: Operation.NotEqual,
                 rhs: new Value(Type.object)
             });
+            break;
+        case BindingAspect.InnerHTML:
+            getSource = isElementNullable ? 
+                newOptionalVariableReference("innerHTML", elementStatement) :
+                new VariableReference("innerHTML", elementStatement);
+            break;
         default:
             throw Error(`Not implemented - get hookup for binding of type ${BindingAspect[binding.aspect]}`)
     }
@@ -150,7 +156,7 @@ export function getLengthFromIteratorBinding(binding: IBinding, nodeData: WeakMa
                 rhs: new VariableReference("length")
             }),
             operation: Operation.NullCoalescing,
-            rhs: new Value(0, Type.number)
+            rhs: new Value(Type.number, 0)
         });
     } else {
         return new VariableReference("length", new VariableReference("children", getElemExpression));

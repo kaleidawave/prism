@@ -20,12 +20,13 @@ export function conditionalSwap(this: Component<any>, p: boolean, id: string, el
 }
 
 /**
- * Luckily CharacterData and Component have a assignable data property
+ * Assign to e if it exists
  * @param e Component instance or CharacterData to assign to
  * @param v Value to attempt to assign
+ * @param p Property to assign to (defaults to "data")
  */
-export function tryAssignData(e: CharacterData | Component<any> | null, v: any) {
-    if (e) e.data = v;
+export function tryAssignData(e: CharacterData | Component<any> | null, v: any, p = "data") {
+    if (e) Reflect.set(e, p, v);
 }
 
 /**

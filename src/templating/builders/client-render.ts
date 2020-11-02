@@ -93,11 +93,6 @@ export function clientRenderPrismNode(
             }
         }
 
-        const attributeArgument: ValueTypes = attrs.length > 0 ?
-            new ObjectLiteral(new Map(attrs)) :
-            new Value(0, Type.number); // 0 is used as a falsy value;
-
-
         let eventArgument: ValueTypes;
         if (elementData?.events) {
             // TODO abstract
@@ -119,7 +114,7 @@ export function clientRenderPrismNode(
                 )
             );
         } else {
-            eventArgument = new Value(0, Type.number);
+            eventArgument = new Value(Type.number, 0);
         }
 
         // TODO explain
@@ -189,12 +184,21 @@ export function clientRenderPrismNode(
                     })
                 }
             }
+        } else if (elementData?.rawInnerHTML) {
+            const aliasedRawInnerHTMLValue = cloneAST(elementData.rawInnerHTML);
+            aliasVariables(aliasedRawInnerHTMLValue, thisDataVariable, locals);
+            attrs.push(["innerHTML", aliasedRawInnerHTMLValue]);
+            childrenArgument = [];
         } else {
             // TODO explain including case where children.length === 0
             childrenArgument =
                 element.children.map(element => clientRenderPrismNode(element, nodeData, aliasDataToThis, locals))
         }
 
+        
+        const attributeArgument: ValueTypes = attrs.length > 0 ?
+            new ObjectLiteral(new Map(attrs)) :
+            new Value(Type.number, 0); // 0 is used as a falsy value
 
         // TODO trim trailing 0's
 

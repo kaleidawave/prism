@@ -50,8 +50,8 @@ export function parseHTMLElement(
         element.tagName = component.tagName;
         // Used for binding ssr function call to component render function
         assignToObjectMap(templateData.nodeData, element, "component", component);
-    }     
-    
+    }
+
     if (element.tagName === "svg") {
         templateData.hasSVG = true;
     }
@@ -104,7 +104,7 @@ export function parseHTMLElement(
                     nodeIdentifier: identifier,
                     element: element,
                     // Router.bind is a method will which call Router.goTo using the href of the element
-                    callback: VariableReference.fromChain("Router", "bind") as VariableReference, 
+                    callback: VariableReference.fromChain("Router", "bind") as VariableReference,
                     event: "click",
                     required: false, // A 
                     existsOnComponentClass: false
@@ -152,9 +152,9 @@ export function parseHTMLElement(
                     dynamicAttributes.set("style", styleTemplateLiteral);
                 } else {
                     assignToObjectMap(
-                        templateData.nodeData, 
-                        element, 
-                        "dynamicAttributes", 
+                        templateData.nodeData,
+                        element,
+                        "dynamicAttributes",
                         new Map([["style", styleTemplateLiteral]])
                     );
                 }
@@ -192,9 +192,9 @@ export function parseHTMLElement(
                     dynamicAttributes.set(subject, expression);
                 } else {
                     assignToObjectMap(
-                        templateData.nodeData, 
-                        element, 
-                        "dynamicAttributes", 
+                        templateData.nodeData,
+                        element,
+                        "dynamicAttributes",
                         new Map([[subject, expression]])
                     );
                 }
@@ -244,6 +244,19 @@ export function parseHTMLElement(
                     case "if":
                         childrenParsed = true;
                         parseIfNode(element, templateData, templateConfig, locals, localData, multiple);
+                        break;
+                    case "html":
+                        if (element.children.length > 0) throw Error(`Element with #html cannot have any children`);
+                        if (!value) throw Error(`Expected value for #html construct`);
+                        const htmlValue = Expression.fromString(value);
+                        assignToObjectMap(templateData.nodeData, element, "rawInnerHTML", htmlValue);
+                        addBinding(
+                            { aspect: BindingAspect.InnerHTML, element, expression: htmlValue },
+                            localData,
+                            locals,
+                            templateData.bindings
+                        );
+                        element.attributes.delete(name);
                         break;
                     default:
                         throw Error(`Unknown / unsupported construct "#${subject}"`);

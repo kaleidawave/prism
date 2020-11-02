@@ -32,6 +32,7 @@ interface FullNodeData {
     multiple: boolean // If the element can exist multiple times in the DOM
 
     rawAttribute: ValueTypes, // A name of a variable that does <div ${*rawAttribute*}>
+    rawInnerHTML: ValueTypes, // Raw (unescaped) innerHTML value
 
     // A expression that has to return a truthy value to render (also used for determine that it was a #if node)
     conditionalExpression: ValueTypes,
@@ -56,6 +57,7 @@ export enum BindingAspect {
     Attribute, // Affects a specific attribute of a node
     Data, // A components data
     InnerText, // Affects the inner text value of a node
+    InnerHTML, // Affects raw inner HTML
     Iterator, // Affects the number of a children under a node / iterator
     Conditional, // Affects if a node is rendered TODO not visible but exists
     DocumentTitle, // Affects the document title

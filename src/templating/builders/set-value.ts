@@ -61,7 +61,7 @@ export function makeSetFromBinding(
             }
             break;
         case BindingAspect.Conditional: {
-            const {clientRenderMethod, identifier} = nodeData.get(binding.element) ?? {};
+            const { clientRenderMethod, identifier } = nodeData.get(binding.element) ?? {};
 
             const callConditionalSwapFunction = new Expression({
                 lhs: VariableReference.fromChain("conditionalSwap", "call"),
@@ -141,6 +141,26 @@ export function makeSetFromBinding(
                 rhs: newValue!
             }));
             break;
+        case BindingAspect.InnerHTML: {
+            if (isElementNullable) {
+                statements.push(new Expression({
+                    lhs: new VariableReference("tryAssignData"),
+                    operation: Operation.Call,
+                    rhs: new ArgumentList([
+                        elementStatement,
+                        newValue!,
+                        new Value(Type.string, "innerHTML")
+                    ])
+                }));
+            } else {
+                statements.push(new Expression({
+                    lhs: new VariableReference("innerHTML", elementStatement),
+                    operation: Operation.Assign,
+                    rhs: newValue!
+                }));
+            }
+            break;
+        }
         case BindingAspect.Style:
             const styleObject = new VariableReference("style", elementStatement);
             // Converts background-color -> backgroundColor which is the key JS uses
