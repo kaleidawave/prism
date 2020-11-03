@@ -82,7 +82,7 @@ export function reverseTemplateLiteral(templateLiteral: TemplateLiteral): Expres
         return new Expression({
             lhs: VariableReference.fromChain("value", "slice"),
             operation: Operation.Call,
-            rhs: new ArgumentList(sliceArguments.map(value => new Value(value, Type.number)))
+            rhs: new ArgumentList(sliceArguments.map(value => new Value(Type.number, value)))
         });
     }
 }

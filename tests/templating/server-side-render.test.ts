@@ -21,7 +21,7 @@ test("Attributes", () => {
     dom.attributes!.set("id", "123");
     dom.attributes!.set("hidden", null);
 
-    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings).entries[0]).toBe(`<div title="abc" id="123" hidden></div>`);
+    expect(serverRenderPrismNode(dom, new WeakMap, serverRenderSettings)[0]).toBe(`<div title="abc" id="123" hidden></div>`);
 });
 
 test("Dynamic Attributes", () => {
@@ -29,7 +29,7 @@ test("Dynamic Attributes", () => {
     const nodeData = new WeakMap;
     assignToObjectMap(nodeData, div, "dynamicAttributes", new Map([["title", new VariableReference("someTitle")]]))
 
-    expect(serverRenderPrismNode(div, nodeData, serverRenderSettings).entries).toMatchObject([
+    expect(serverRenderPrismNode(div, nodeData, serverRenderSettings)).toMatchObject([
         `<div title="`,
         {
             value: { name: "someTitle" },

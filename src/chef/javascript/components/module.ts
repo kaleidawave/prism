@@ -41,7 +41,7 @@ export class Module implements IModule<StatementTypes> {
         this.statements = statements;
     }
 
-    static fromString(text: string, filename: string, columnOffset?: number, lineOffset?: number): Module {
+    static fromString(text: string, filename: string = "anom.js", columnOffset?: number, lineOffset?: number): Module {
         const reader = stringToTokens(text, {
             file: filename,
             columnOffset,

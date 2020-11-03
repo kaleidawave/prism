@@ -1,7 +1,7 @@
 import { ITemplateConfig, parseTemplate } from "../../src/templating/template";
 import { HTMLElement } from "../../src/chef/html/html";
 
-const templateConfig: ITemplateConfig  = {doClientSideRouting: false, importedComponents: new Map, ssrEnabled: false}
+const templateConfig: ITemplateConfig  = {doClientSideRouting: false, tagNameToComponentMap: new Map, ssrEnabled: false}
 
 test("Events", () => {
     const template = `<template>

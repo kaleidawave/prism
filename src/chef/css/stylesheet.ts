@@ -37,7 +37,7 @@ export class Stylesheet implements IFile {
         return acc;
     }
 
-    static fromString(content: string, filename: string, columnOffset?: number, lineOffset?: number): Stylesheet {
+    static fromString(content: string, filename: string = "anom.css", columnOffset?: number, lineOffset?: number): Stylesheet {
         const reader = stringToTokens(content, {
             file: filename,
             columnOffset,

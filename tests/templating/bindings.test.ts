@@ -1,10 +1,10 @@
 import { HTMLElement } from "../../src/chef/html/html";
-import { parseTemplate, ITemplateConfig, ValueAspect } from "../../src/templating/template";
+import { parseTemplate, ITemplateConfig, BindingAspect } from "../../src/templating/template";
 import { VariableReference } from "../../src/chef/javascript/components/value/variable";
 import { ForIteratorExpression } from "../../src/chef/javascript/components/statements/for";
 import { Operation } from "../../src/chef/javascript/components/value/expression";
 
-const templateConfig: ITemplateConfig  = {doClientSideRouting: false, importedComponents: new Map, ssrEnabled: false}
+const templateConfig: ITemplateConfig  = {doClientSideRouting: false, tagNameToComponentMap: new Map, ssrEnabled: false}
 
 test("Dynamic attribute", () => {
     const template = `<template>
@@ -16,7 +16,7 @@ test("Dynamic attribute", () => {
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
-    expect(bindings[0].aspect).toBe(ValueAspect.Attribute);
+    expect(bindings[0].aspect).toBe(BindingAspect.Attribute);
     expect(bindings[0].element).toBe(templateElement.children[0]);
     expect(bindings[0].attribute).toBe("src");
     expect(bindings[0].expression).toBeInstanceOf(VariableReference);
@@ -34,7 +34,7 @@ test("Dynamic text", () => {
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
-    expect(bindings[0].aspect).toBe(ValueAspect.InnerText);
+    expect(bindings[0].aspect).toBe(BindingAspect.InnerText);
     expect(bindings[0].element).toBe(templateElement.children[0]);
     expect(bindings[0].fragmentIndex).toBe(0);
     expect(bindings[0].expression).toBeInstanceOf(VariableReference);
@@ -52,7 +52,7 @@ test("Dynamic text alongside text", () => {
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
-    expect(bindings[0].aspect).toBe(ValueAspect.InnerText);
+    expect(bindings[0].aspect).toBe(BindingAspect.InnerText);
     expect(bindings[0].fragmentIndex).toBe(1);
 });
 
@@ -68,7 +68,7 @@ test("Dynamic text with multiple variables", () => {
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
-    expect(bindings[0].aspect).toBe(ValueAspect.InnerText);
+    expect(bindings[0].aspect).toBe(BindingAspect.InnerText);
     expect(bindings[0].referencesVariables).toHaveLength(2);
 });
 
@@ -82,7 +82,7 @@ test("Existence", () => {
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
-    expect(bindings[0].aspect).toBe(ValueAspect.Conditional);
+    expect(bindings[0].aspect).toBe(BindingAspect.Conditional);
     expect(bindings[0].element).toBe(templateElement.children[0]);
 });
 
@@ -98,7 +98,7 @@ test("Iteration", () => {
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
-    expect(bindings[0].aspect).toBe(ValueAspect.Iterator);
+    expect(bindings[0].aspect).toBe(BindingAspect.Iterator);
     expect(bindings[0].expression).toBeInstanceOf(ForIteratorExpression);
     expect((bindings[0].expression as ForIteratorExpression).variable.name).toBe("x");
     expect((bindings[0].expression as ForIteratorExpression).operation).toBe(Operation.Of);
@@ -118,7 +118,7 @@ test("Variable under iteration", () => {
 
     const { bindings } = parseTemplate(templateElement, templateConfig);
     expect(bindings).toHaveLength(2);
-    const variableDependency = bindings.find(dep => dep.aspect === ValueAspect.InnerText)!;
+    const variableDependency = bindings.find(dep => dep.aspect === BindingAspect.InnerText)!;
     expect(variableDependency).toBeTruthy();
     expect(variableDependency.referencesVariables[0]).toMatchObject([
         "y",
@@ -136,7 +136,7 @@ test("Dynamic style", () => {
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
-    expect(bindings[0].aspect).toBe(ValueAspect.Style);
+    expect(bindings[0].aspect).toBe(BindingAspect.Style);
     expect(bindings[0].styleKey).toBe("color");
     expect(bindings[0].expression).toBeInstanceOf(VariableReference);
     expect((bindings[0].expression as VariableReference).name).toBe("someVar");

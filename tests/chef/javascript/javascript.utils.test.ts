@@ -96,10 +96,10 @@ describe("Replace variables", () => {
         const expr = new Expression({
             lhs: new VariableReference("myNum"),
             operation: Operation.Multiply,
-            rhs: new Value(5, Type.number)
+            rhs: new Value(Type.number, 5)
         });
 
-        replaceVariables(expr, new Value(4, Type.number), [new VariableReference("myNum")]);
+        replaceVariables(expr, new Value(Type.number, 4), [new VariableReference("myNum")]);
 
         expect(expr).toMatchObject({
             lhs: { value: "4", type: Type.number },
@@ -135,13 +135,13 @@ test("Compile IIFE", () => {
                     new Expression({
                         lhs: new VariableReference("test"),
                         operation: Operation.Multiply,
-                        rhs: new Value(8, Type.number)
+                        rhs: new Value(Type.number, 8)
                     })
                 )
             ])
         ),
         operation: Operation.Call,
-        rhs: new ArgumentList([new Value(2, Type.number)])
+        rhs: new ArgumentList([new Value(Type.number, 2)])
     });
 
     const compiled = compileIIFE(iife);
@@ -155,10 +155,10 @@ test("Compile IIFE", () => {
 });
 
 describe("Types", () => {
-    test("Properties from interface", () => {
+    test("Properties from interface", async () => {
         const mod = Module.fromString(`interface A {foo: string}`);
 
-        const typeMap = typeSignatureToIType(new TypeSignature("A"), mod);
+        const typeMap = await typeSignatureToIType(new TypeSignature("A"), mod);
         expect(typeMap.name).toBe("A");
         expect(typeMap.properties?.has("foo")).toBeTruthy();
         expect(typeMap.properties!.get("foo")).toMatchObject({ name: "string" });
@@ -178,10 +178,10 @@ describe("Types", () => {
         expect(type_).toMatchObject({name: "string"});
     });
 
-    test("Resolves string union", () => {
+    test("Resolves string union", async () => {
         const mod = Module.fromString(`type Z = "a" | "b" | "c"`);
 
-        const type_ = typeSignatureToIType(new TypeSignature("Z"), mod);
+        const type_ = await typeSignatureToIType(new TypeSignature("Z"), mod);
         expect(type_).toMatchObject({name: "string"});
     });
 });

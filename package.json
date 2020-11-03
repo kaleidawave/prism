@@ -2,7 +2,7 @@
   "name": "@kaleidawave/prism",
   "version": "1.2.1",
   "description": "Isomorphic web app compiler",
-  "main": "out/index.js",
+  "main": "out/node.js",
   "scripts": {
     "test": "jest",
     "build-web": "echo \"TODO npm run build-web\"",

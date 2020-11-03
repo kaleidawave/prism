@@ -14,22 +14,22 @@ import { ObjectLiteral } from "../../../src/chef/javascript/components/value/obj
 import { ClassDeclaration } from "../../../src/chef/javascript/components/constructs/class";
 import { RegExpLiteral, RegExpressionFlags } from "../../../src/chef/javascript/components/value/regex";
 import { ImportStatement, ExportStatement } from "../../../src/chef/javascript/components/statements/import-export";
-import { ModuleFormat, ScriptLanguages, getSettings, defaultRenderSettings } from "../../../src/chef/helpers";
+import { ModuleFormat, ScriptLanguages, makeRenderSettings, defaultRenderSettings } from "../../../src/chef/helpers";
 import { TypeSignature } from "../../../src/chef/javascript/components/types/type-signature";
 import { TryBlock, CatchBlock } from "../../../src/chef/javascript/components/statements/try-catch";
 import { SwitchStatement } from "../../../src/chef/javascript/components/statements/switch";
 import { InterfaceDeclaration } from "../../../src/chef/javascript/components/types/interface";
 import { EnumDeclaration } from "../../../src/chef/javascript/components/types/enum";
 
-const minificationSettings = getSettings({ minify: true });
-const typescriptSettings = getSettings({ scriptLanguage: ScriptLanguages.Typescript, minify: true });
+const minificationSettings = makeRenderSettings({ minify: true });
+const typescriptSettings = makeRenderSettings({ scriptLanguage: ScriptLanguages.Typescript, minify: true });
 
 describe("Chaining, indexing, calling", () => {
     test("Console.log", () => {
         const expr = new Expression({
             lhs: VariableReference.fromChain("console", "log"),
             operation: Operation.Call,
-            rhs: new ArgumentList([new Value("Hello World", Type.string)])
+            rhs: new ArgumentList([new Value(Type.string, "Hello World")])
         });
 
         expect(expr.render()).toBe(`console.log("Hello World")`)
@@ -39,7 +39,7 @@ describe("Chaining, indexing, calling", () => {
         const expr = new Expression({
             lhs: new VariableReference("arr"),
             operation: Operation.Index,
-            rhs: new Value(4, Type.number)
+            rhs: new Value(Type.number, 4)
         });
 
         expect(expr.render()).toBe("arr[4]");
@@ -50,8 +50,8 @@ describe("Chaining, indexing, calling", () => {
             lhs: new VariableReference("Rectangle"),
             operation: Operation.Initialize,
             rhs: new ArgumentList([
-                new Value(4, Type.number),
-                new Value(10, Type.number)
+                new Value(Type.number, 4),
+                new Value(Type.number, 10)
             ])
         });
 
@@ -71,7 +71,7 @@ describe("Variables", () => {
     });
 
     test("Value", () => {
-        const variable = new VariableDeclaration("var1", { value: new Value(42, Type.number) });
+        const variable = new VariableDeclaration("var1", { value: new Value(Type.number, 42) });
         expect(variable.render()).toBe("const var1 = 42");
     });
 
@@ -96,9 +96,9 @@ describe("Operators", () => {
     describe("Binary operators", () => {
         test("Add", () => {
             const expr = new Expression({
-                lhs: new Value(4, Type.number),
+                lhs: new Value(Type.number, 4),
                 operation: Operation.Add,
-                rhs: new Value(15, Type.number)
+                rhs: new Value(Type.number, 15)
             });
 
             expect(expr.render()).toBe("4 + 15");
@@ -106,9 +106,9 @@ describe("Operators", () => {
 
         test("Logical and", () => {
             const expr = new Expression({
-                lhs: new Value(true, Type.boolean),
+                lhs: new Value(Type.boolean, true),
                 operation: Operation.LogAnd,
-                rhs: new Value(false, Type.boolean)
+                rhs: new Value(Type.boolean, false)
             });
 
             expect(expr.render()).toBe("true && false");
@@ -172,7 +172,7 @@ describe("Operators", () => {
             const expr = new Expression({
                 lhs: new VariableReference("a"),
                 operation: Operation.Assign,
-                rhs: new Value(12, Type.number)
+                rhs: new Value(Type.number, 12)
             });
 
             expect(expr.render()).toBe("a = 12");
@@ -242,7 +242,7 @@ describe("Operators", () => {
 
         test("Yield", () => {
             const expr = new Expression({
-                lhs: new Value(2, Type.number),
+                lhs: new Value(Type.number, 2),
                 operation: Operation.Yield
             });
 
@@ -264,8 +264,8 @@ describe("Operators", () => {
             lhs: new VariableReference("myBool"),
             operation: Operation.Ternary,
             rhs: new ArgumentList([
-                new Value(4, Type.number),
-                new Value(2, Type.number)
+                new Value(Type.number, 4),
+                new Value(Type.number, 2)
             ])
         });
 
@@ -287,7 +287,7 @@ describe("Operators", () => {
             lhs: new VariableReference("func"),
             operation: Operation.OptionalCall,
             rhs: new ArgumentList([
-                new Value(4, Type.number)
+                new Value(Type.number, 4)
             ])
         });
 
@@ -297,12 +297,12 @@ describe("Operators", () => {
     test("Group", () => {
         const expr = new Expression({
             lhs: new Group(new Expression({
-                lhs: new Value(2, Type.number),
+                lhs: new Value(Type.number, 2),
                 operation: Operation.Multiply,
-                rhs: new Value(3, Type.number)
+                rhs: new Value(Type.number, 3)
             })),
             operation: Operation.Add,
-            rhs: new Value(4, Type.number)
+            rhs: new Value(Type.number, 4)
         });
 
         expect(expr.render()).toBe("(2 * 3) + 4");
@@ -343,7 +343,7 @@ describe("Function", () => {
 
         test("Parameter default value", () => {
             const func = new FunctionDeclaration("myFunc", [
-                new VariableDeclaration("x", { value: new Value(4, Type.number) })
+                new VariableDeclaration("x", { value: new Value(Type.number, 4) })
             ]);
 
             expect(func.render()).toBe("function myFunc(x = 4) {}");
@@ -370,7 +370,7 @@ describe("Function", () => {
         test("Single parameter", () => {
             const arrowFunction = new FunctionDeclaration(
                 null, ["x"],
-                [new ReturnStatement(new Value(2, Type.number))],
+                [new ReturnStatement(new Value(Type.number, 2))],
                 { bound: false }
             );
 
@@ -397,8 +397,8 @@ describe("Function", () => {
                 [new IfStatement(new Expression({
                     lhs: new VariableReference("x"),
                     operation: Operation.GreaterThan,
-                    rhs: new Value(4, Type.number)
-                }), [new ReturnStatement(new Value("abc", Type.string))])],
+                    rhs: new Value(Type.number, 4)
+                }), [new ReturnStatement(new Value(Type.string, "abc"))])],
                 { bound: false }
             );
 
@@ -425,7 +425,7 @@ describe("Conditional", () => {
             new Expression({
                 lhs: new VariableReference("num1"),
                 operation: Operation.GreaterThan,
-                rhs: new Value(3, Type.number)
+                rhs: new Value(Type.number, 3)
             }),
             []
         );
@@ -435,7 +435,7 @@ describe("Conditional", () => {
 
     test("Else statement", () => {
         const ifElseStatement = new IfStatement(
-            new Value("true", Type.boolean),
+            new Value(Type.boolean, true),
             [],
             new ElseStatement(null, [])
         );
@@ -447,8 +447,8 @@ describe("Conditional", () => {
         const switchStatement = new SwitchStatement(
             new VariableReference("x"),
             [
-                [new Value("4", Type.number), [new BreakStatement()]],
-                [new Value("5", Type.number), [new BreakStatement()]],
+                [new Value(Type.number, 4), [new BreakStatement()]],
+                [new Value(Type.number, 5), [new BreakStatement()]],
             ]
         );
 
@@ -469,11 +469,11 @@ describe("Loops", () => {
 
     test("For i loop", () => {
         const forLoop = new ForStatement(new ForStatementExpression(
-            new VariableDeclaration("i", { isConstant: false, value: new Value(0, Type.number) }),
+            new VariableDeclaration("i", { isConstant: false, value: new Value(Type.number, 0) }),
             new Expression({
                 lhs: new VariableReference("i"),
                 operation: Operation.LessThan,
-                rhs: new Value(5, Type.number)
+                rhs: new Value(Type.number, 5)
             }),
             new Expression({
                 lhs: new VariableReference("i"),
@@ -485,7 +485,7 @@ describe("Loops", () => {
     });
 
     test("While loop", () => {
-        const whileLoop = new WhileStatement(new Value("true", Type.boolean), []);
+        const whileLoop = new WhileStatement(new Value(Type.boolean, true), []);
 
         expect(whileLoop.render()).toBe("while (true) {}")
     });
@@ -515,7 +515,7 @@ describe("Class", () => {
     test("Member", () => {
         const cls = new ClassDeclaration("Class1", [
             new VariableDeclaration("member", {
-                value: new Value(7, Type.number)
+                value: new Value(Type.number, 7)
             })
         ]);
 
@@ -526,7 +526,7 @@ describe("Class", () => {
         const cls = new ClassDeclaration("Class1", [
             new VariableDeclaration("staticMember", {
                 isStatic: true,
-                value: new Value(4, Type.number)
+                value: new Value(Type.number, 4)
             })
         ]);
 
@@ -573,20 +573,20 @@ describe("Class", () => {
 describe("Values", () => {
 
     test("Null", () => {
-        expect(new Value("null", Type.object).render()).toBe("null");
+        expect(new Value(Type.object).render()).toBe("null");
     });
 
     test("Undefined", () => {
-        expect(new Value("", Type.undefined).render()).toBe("undefined");
+        expect(new Value(Type.undefined).render()).toBe("undefined");
     });
 
     test("Number", () => {
-        expect(new Value(4.5, Type.number).render()).toBe("4.5");
+        expect(new Value(Type.number, 4.5).render()).toBe("4.5");
     });
 
     test("Booleans", () => {
-        expect(new Value(true, Type.boolean).render()).toBe("true");
-        expect(new Value(false, Type.boolean).render()).toBe("false");
+        expect(new Value(Type.boolean, true).render()).toBe("true");
+        expect(new Value(Type.boolean, false).render()).toBe("false");
     });
 
     describe("Regexp", () => {
@@ -601,9 +601,9 @@ describe("Values", () => {
 
     test("Array literal", () => {
         const array = new ArrayLiteral([
-            new Value(4, Type.number),
-            new Value(2, Type.number),
-            new Value(3, Type.number)
+            new Value(Type.number, 4),
+            new Value(Type.number, 2),
+            new Value(Type.number, 3)
         ]);
 
         expect(array.render()).toBe("[4, 2, 3]");
@@ -612,8 +612,8 @@ describe("Values", () => {
     describe("Object literal", () => {
         test("Simple object literal", () => {
             const objectLiteral = new ObjectLiteral(new Map([
-                ["a", new Value(4, Type.number)],
-                ["b", new Value(12, Type.number)]
+                ["a", new Value(Type.number, 4)],
+                ["b", new Value(Type.number, 12)]
             ]));
 
             expect(objectLiteral.render(defaultRenderSettings, { inline: true })).toBe("{ a: 4, b: 12 }");
@@ -646,7 +646,7 @@ describe("Values", () => {
 });
 
 describe("import, export", () => {
-    const esmFormat = getSettings({ moduleFormat: ModuleFormat.ESM });
+    const esmFormat = makeRenderSettings({ moduleFormat: ModuleFormat.ESM });
 
     test("ESM Import", () => {
         const importStatement = new ImportStatement(new VariableDeclaration("db"), "db");
@@ -672,7 +672,7 @@ describe("import, export", () => {
         expect(importStatement.render(esmFormat)).toBe(`import "myBadSideEffectModule.js"`);
     });
 
-    const cjsFormat = getSettings({ moduleFormat: ModuleFormat.CJS });
+    const cjsFormat = makeRenderSettings({ moduleFormat: ModuleFormat.CJS });
 
     test("CJS Import (require)", () => {
         const importStatement = new ImportStatement(new VariableDeclaration("helpers"), "helpers.js");
@@ -738,8 +738,8 @@ describe("Interfaces", () => {
 describe("Enums", () => {
     test("Enum", () => {
         const enum_ = new EnumDeclaration("X", new Map([
-            ["A", new Value("0", Type.number)],
-            ["B", new Value("1", Type.number)],
+            ["A", new Value(Type.number, 0)],
+            ["B", new Value(Type.number, 1)],
         ]));
 
         expect(enum_.render(typescriptSettings)).toBe("enum X {\n    A,\n    B\n}\n");
@@ -747,8 +747,8 @@ describe("Enums", () => {
     
     test("Render enum to JS object", () => {
         const enum_ = new EnumDeclaration("X", new Map([
-            ["A", new Value("0", Type.number)],
-            ["B", new Value("1", Type.number)],
+            ["A", new Value(Type.number, 0)],
+            ["B", new Value(Type.number, 1)],
         ]));
     
         expect(enum_.render(minificationSettings)).toBe("const X=Object.freeze({A:0,B:1})");
@@ -790,7 +790,7 @@ describe("Type signatures", () => {
 
     test("Literal type", () => {
         const ts = new TypeSignature({
-            value: new Value("abc", Type.string)
+            value: new Value(Type.string, "abc")
         });
 
         expect(ts.render(typescriptSettings)).toBe(`"abc"`);

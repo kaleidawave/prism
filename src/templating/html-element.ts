@@ -89,7 +89,6 @@ export function parseHTMLElement(
 
     // If element has attributes
     if (element.attributes) {
-
         // If relative anchor tag
         if (
             element.tagName === "a" &&
@@ -119,13 +118,16 @@ export function parseHTMLElement(
             const subject = name.slice(1);
 
             // If element is multiple then can be retrieved using root parent
-            if (!multiple) {
+            if (
+                !multiple && 
+                "#$@".split("").some(prefix => name.startsWith(prefix)) && 
+                typeof templateData.nodeData.get(element)?.identifier === "undefined"
+            ) {
                 addIdentifierToElement(element, templateData.nodeData);
             }
 
             // Dynamic attributes
             if (name === "$style") {
-
                 const parts: Array<string | ValueTypes> = [];
                 for (const [key, [cssValue]] of parseStylingDeclarationsFromString(value!)) {
                     if (!cssValue || typeof cssValue === "string" || !("value" in cssValue)) {

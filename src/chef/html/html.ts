@@ -279,7 +279,7 @@ export class HTMLDocument implements IFile {
         return html;
     }
 
-    static fromString(text: string, filename: string, settings: IParseSettings = defaultParseSettings): HTMLDocument {
+    static fromString(text: string, filename: string = "anom.html", settings: IParseSettings = defaultParseSettings): HTMLDocument {
         const reader = stringToTokens(text, { file: filename });
         const document = HTMLDocument.fromTokens(reader, settings, filename);
         if (filename) document.filename = filename;

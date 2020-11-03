@@ -185,16 +185,18 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
                         newImports.push(key?.name!);
                     }
                 }
-                const path = relative(
-                    join(settings.cwd, "src"),
-                    importedComponent!.serverModule!.filename!.slice()
-                )
-                const useStatement = new UseStatement([
-                    "crate",
-                    ...path.substr(0, path.lastIndexOf('.')).split(settings.pathSplitter),
-                    newImports
-                ]);
-                comp.serverModule!.statements.push(useStatement);
+                if (importedComponent) {
+                    const path = relative(
+                        join(settings.cwd, "src"),
+                        importedComponent.serverModule!.filename!
+                    )
+                    const useStatement = new UseStatement([
+                        "crate",
+                        ...path.substr(0, path.lastIndexOf('.')).split(settings.pathSplitter),
+                        newImports
+                    ]);
+                    comp.serverModule!.statements.push(useStatement);
+                }
             }
             // Ignores other imports for now
         } else if (

@@ -31,8 +31,8 @@ bundledFilesDotTS.addExport(new VariableDeclaration("fileBundle", {
         lhs: new VariableReference("Map"),
         rhs: new ArrayLiteral(
             filenameToFileContent.map(([filename, content]) => new ArrayLiteral([
-                new Value(filename, Type.string),
-                new Value(content, Type.string)
+                new Value(Type.string, filename),
+                new Value(Type.string, content)
             ]))
         )
     })

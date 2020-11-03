@@ -13,7 +13,7 @@ import { ForStatement, ForIteratorExpression, ForStatementExpression } from "../
 import { TemplateLiteral } from "../../../src/chef/javascript/components/value/template-literal";
 import { TryBlock, ThrowStatement } from "../../../src/chef/javascript/components/statements/try-catch";
 import { InterfaceDeclaration } from "../../../src/chef/javascript/components/types/interface";
-import { AsExpression, TypeStatement } from "../../../src/chef/javascript/components/types/statements";
+import { AsExpression, TypeDeclaration } from "../../../src/chef/javascript/components/types/statements";
 import { RegExpLiteral, RegExpressionFlags } from "../../../src/chef/javascript/components/value/regex";
 import { EnumDeclaration } from "../../../src/chef/javascript/components/types/enum";
 import { ExportStatement, ImportStatement } from "../../../src/chef/javascript/components/statements/import-export";
@@ -1168,14 +1168,13 @@ describe("Classes", () => {
     test("Method decorator", () => {
         const classDeclaration = ClassDeclaration.fromString(`class Test { @enumerable(false) stuff() {} }`);
 
-        const stuffMethod = classDeclaration.methods?.get("stuff");
+        const stuffMethod = classDeclaration.methods?.get("stuff")!;
         expect(stuffMethod).toBeTruthy();
-        expect(stuffMethod!.decorators).toBeTruthy();
+        expect(stuffMethod.decorators).toBeTruthy();
 
-        const stuffMethodDecorators = Array.from(stuffMethod!.decorators);
-        expect(stuffMethodDecorators).toHaveLength(1);
-        expect(stuffMethodDecorators[0]!.args).toHaveLength(1);
-        expect(stuffMethodDecorators[0]!.args[0]).toMatchObject({ value: "false", type: Type.boolean });
+        expect(stuffMethod.decorators).toHaveLength(1);
+        expect(stuffMethod.decorators![0]!.args).toHaveLength(1);
+        expect(stuffMethod.decorators![0]!.args[0]).toMatchObject({ value: "false", type: Type.boolean });
     });
 
     test("Getter", () => {
@@ -1996,16 +1995,16 @@ describe("Typescript", () => {
 
     describe("Type statements", () => {
         test("Type alias", () => {
-            const typeAlias = Module.fromString("type numberArray = Array<number>").statements[0] as TypeStatement;
-            expect(typeAlias).toBeInstanceOf(TypeStatement);
+            const typeAlias = Module.fromString("type numberArray = Array<number>").statements[0] as TypeDeclaration;
+            expect(typeAlias).toBeInstanceOf(TypeDeclaration);
             expect(typeAlias.name.name).toBe("numberArray");
             expect(typeAlias.value.name).toBe("Array");
             expect(typeAlias.value.typeArguments).toMatchObject([{ name: "number" }]);
         });
 
         test("Nested generics", () => {
-            const typeAlias = Module.fromString("type numberStructure = Map<string, Array<number>>").statements[0] as TypeStatement;
-            expect(typeAlias).toBeInstanceOf(TypeStatement);
+            const typeAlias = Module.fromString("type numberStructure = Map<string, Array<number>>").statements[0] as TypeDeclaration;
+            expect(typeAlias).toBeInstanceOf(TypeDeclaration);
             expect(typeAlias.name.name).toBe("numberStructure");
             expect(typeAlias.value.name).toBe("Map");
             expect(typeAlias.value.typeArguments).toMatchObject([
@@ -2017,7 +2016,7 @@ describe("Typescript", () => {
         test.todo("Mapped types");
 
         test("Array shorthand", () => {
-            const typeAlias = Module.fromString("type stringArray = string[]").statements[0] as TypeStatement;
+            const typeAlias = Module.fromString("type stringArray = string[]").statements[0] as TypeDeclaration;
 
             expect(typeAlias.name.name).toBe("stringArray");
             expect(typeAlias.value.name).toBe("Array");
@@ -2027,7 +2026,7 @@ describe("Typescript", () => {
         });
 
         test("Literal types", () => {
-            const typeAlias = Module.fromString("type abcString = 'abc'").statements[0] as TypeStatement;
+            const typeAlias = Module.fromString("type abcString = 'abc'").statements[0] as TypeDeclaration;
 
             expect(typeAlias.value.value).toBeDefined();
             expect(typeAlias.value.value).toBeInstanceOf(Value);
@@ -2036,7 +2035,7 @@ describe("Typescript", () => {
         });
 
         test("Union types", () => {
-            const typeAlias = Module.fromString("type aOrB = a | b").statements[0] as TypeStatement;
+            const typeAlias = Module.fromString("type aOrB = a | b").statements[0] as TypeDeclaration;
 
             expect(typeAlias.value.name).toBe("Union");
             expect(typeAlias.value.typeArguments).toMatchObject([
@@ -2046,7 +2045,7 @@ describe("Typescript", () => {
         });
 
         test("Intersection types", () => {
-            const typeAlias = Module.fromString("type aAndBIntersection = a & b").statements[0] as TypeStatement;
+            const typeAlias = Module.fromString("type aAndBIntersection = a & b").statements[0] as TypeDeclaration;
 
             expect(typeAlias.value.name).toBe("Intersection");
             expect(typeAlias.value.typeArguments).toMatchObject([

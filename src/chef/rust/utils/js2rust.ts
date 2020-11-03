@@ -3,7 +3,7 @@ import { astTypes as JSAstTypes } from "../../javascript/javascript";
 import { VariableReference as JSVariableReference } from "../../javascript/components/value/variable";
 import { InterfaceDeclaration as JSInterfaceDeclaration } from "../../javascript/components/types/interface";
 import { TypeSignature as JSTypeSignature } from "../../javascript/components/types/type-signature";
-import { Type, Value } from "../values/value";
+import { Type, Value, ValueTypes } from "../values/value";
 import { VariableReference } from "../values/variable";
 import { StructStatement, TypeSignature } from "../statements/struct";
 import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../javascript/components/statements/import-export";
@@ -14,6 +14,9 @@ import { Module } from "../module";
 import { Expression, Operation } from "../values/expression";
 import { ArgumentList as JSArgumentList } from "../../javascript/components/constructs/function";
 import { ArgumentList } from "../statements/function";
+import { VariableDeclaration as JSVariableDeclaration } from "../../javascript/components/statements/variable";
+import { VariableDeclaration } from "../statements/variable";
+import { TemplateLiteral } from "../../javascript/components/value/template-literal";
 
 const literalTypeMap = new Map([[JSType.number, Type.number], [JSType.string, Type.string]]);
 const typeMap: Map<string, string> = new Map([
@@ -49,6 +52,15 @@ export function jsAstToRustAst(jsAst: JSAstTypes, module: Module) {
             return new TypeSignature(typeMap.get(actualName)!);
         }
 
+        if (jsAst.mappedTypes) {
+            const name = "prism_gen_" + Math.random().toString().slice(10);
+            const struct = new StructStatement(new TypeSignature(name),
+                new Map(Array.from(jsAst.mappedTypes).map(([name, type]) => [name, jsAstToRustAst(type, module)]))
+            );
+            module.statements.push(struct);
+            return new TypeSignature(name);
+        }
+
         // TODO mapped types
         return new TypeSignature(typeMap.get(jsAst.name!) ?? jsAst.name!, {
             typeArguments: jsAst.typeArguments ? jsAst.typeArguments.map(tA => jsAstToRustAst(tA, module)) : undefined
@@ -73,8 +85,28 @@ export function jsAstToRustAst(jsAst: JSAstTypes, module: Module) {
             operation,
             jsAst.rhs ? jsAstToRustAst(jsAst.rhs, module) : undefined
         )
+    } else if (jsAst instanceof TemplateLiteral) {
+        let formatString = "";
+        const formatArgs: Array<ValueTypes> = [];
+        for (const entry of jsAst.entries) {
+            if (typeof entry === "string") {
+                formatString += entry;
+            } else {
+                formatArgs.push(jsAstToRustAst(entry, module))
+            }
+        }
+        return new Expression(
+            new VariableReference("format!"),
+            Operation.Call,
+            new ArgumentList([
+                new Value(Type.string, formatString),
+                ...formatArgs
+            ])
+        )
     } else if (jsAst instanceof JSArgumentList) {
         return new ArgumentList(jsAst.args.map(arg => jsAstToRustAst(arg, module)));
+    } else if (jsAst instanceof JSVariableDeclaration) {
+        return new VariableDeclaration(jsAst.name, !jsAst.isConstant, jsAstToRustAst(jsAst.value, module));
     } else {
         throw Error(`Cannot convert "${jsAst.constructor.name}" "${jsAst.render()}" to Rust`);
     }

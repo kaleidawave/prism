@@ -1,10 +1,9 @@
 import { ClassDeclaration } from "../components/constructs/class";
-import { StatementTypes, ReturnStatement } from "../components/statements/statement";
+import { ReturnStatement } from "../components/statements/statement";
 import { Expression, Operation } from "../components/value/expression";
 import { IfStatement, ElseStatement } from "../components/statements/if";
 import { ValueTypes, Type, Value } from "../components/value/value";
 import { ArgumentList, FunctionDeclaration } from "../components/constructs/function";
-import { IRenderable } from "../../helpers";
 import { TemplateLiteral } from "../components/value/template-literal";
 import { ObjectLiteral } from "../components/value/object";
 import { VariableReference } from "../components/value/variable";
@@ -107,7 +106,7 @@ export function newOptionalVariableReferenceFromChain(...items: Array<string | n
             head = new Expression({
                 lhs: head,
                 operation: Operation.OptionalIndex,
-                rhs: new Value(currentProp, Type.number)
+                rhs: new Value(Type.number, currentProp)
             });
         } else if (typeof currentProp === "string") {
             head = new Expression({

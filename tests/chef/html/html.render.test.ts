@@ -1,12 +1,12 @@
 import { HTMLElement, TextNode } from "../../../src/chef/html/html";
-import { getSettings } from "../../../src/chef/helpers";
+import { makeRenderSettings } from "../../../src/chef/helpers";
 import { Module } from "../../../src/chef/javascript/components/module";
 import { Expression, Operation } from "../../../src/chef/javascript/components/value/expression";
 import { Value, Type } from "../../../src/chef/javascript/components/value/value";
 import { Stylesheet } from "../../../src/chef/css/stylesheet";
 import { Rule } from "../../../src/chef/css/rule";
 
-const minificationSettings = getSettings({ minify: true });
+const minificationSettings = makeRenderSettings({ minify: true });
 
 test("Renders tag", () => {
     const element = new HTMLElement("h1");
@@ -46,11 +46,11 @@ test("Renders children text nodes", () => {
 
 test("Renders modules", () => {
     const scriptElement = new HTMLElement("script");
-    scriptElement.module = new Module([
+    scriptElement.module = new Module("", [
         new Expression({
-            lhs: new Value("3", Type.number),
+            lhs: new Value(Type.number, "3"),
             operation: Operation.Add,
-            rhs: new Value("5", Type.number)
+            rhs: new Value(Type.number, "5")
         })
     ]);
 
@@ -59,7 +59,7 @@ test("Renders modules", () => {
 
 test("Renders stylesheet", () => {
     const styleElement = new HTMLElement("style");
-    styleElement.stylesheet = new Stylesheet([
+    styleElement.stylesheet = new Stylesheet("", [
         new Rule(
             [{tagName: "h1"}],
             new Map([["color", [{value: "red"}]]])

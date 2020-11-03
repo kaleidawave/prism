@@ -91,7 +91,7 @@ describe("Parses selectors", () => {
             Stylesheet.fromString("h1#user#x {}");
         } catch (error) {
             expect(error).toBeInstanceOf(ParseError);
-            expect(error).toHaveProperty("message", "CSS selector can only contain one id matcher");
+            expect(error).toHaveProperty("message", "CSS selector can only contain one id matcher in anom.css:1:11");
         }
     });
 
@@ -169,7 +169,7 @@ describe("Parses selectors", () => {
             Stylesheet.fromString("{color: red;}")
         } catch (error) {
             expect(error).toBeInstanceOf(ParseError);
-            expect(error).toHaveProperty("message", "Expected selector received \"{\"");
+            expect(error).toHaveProperty("message", "Expected selector received \"{\" at anom.css:1:1");
         }
     });
 
@@ -403,7 +403,7 @@ describe("Reads declarations", () => {
             Stylesheet.fromString("h1 {color: ; }")
         } catch (error) {
             expect(error).toBeInstanceOf(ParseError);
-            expect(error).toHaveProperty("message", `Expected value received ";"`);
+            expect(error).toHaveProperty("message", `Expected value received ";" at anom.css:1:12`);
         }
     });
 
@@ -413,7 +413,7 @@ describe("Reads declarations", () => {
             Stylesheet.fromString("h1 {color: red; ")
         } catch (error) {
             expect(error).toBeInstanceOf(ParseError);
-            expect(error).toHaveProperty("message", `Expected "}" received "End of file"`);
+            expect(error).toHaveProperty("message", `Expected "}" received "End of file" at anom.css:1:16`);
         }
     });
 })

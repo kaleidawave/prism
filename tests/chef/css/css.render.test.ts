@@ -1,9 +1,9 @@
 import { Rule } from "../../../src/chef/css/rule";
 import { AttributeMatcher } from "../../../src/chef/css/selectors";
-import { getSettings } from "../../../src/chef/helpers";
+import { makeRenderSettings } from "../../../src/chef/helpers";
 import { ImportRule, KeyFrameRule } from "../../../src/chef/css/at-rules";
 
-const minificationSettings = getSettings({ minify: true });
+const minificationSettings = makeRenderSettings({ minify: true });
 
 describe("Renders selectors", () => {
     test("Tag name", () => {

@@ -55,7 +55,7 @@ export class EnumDeclaration implements IRenderable {
                 reader.move();
                 value = Value.fromTokens(reader);
             } else {
-                value = new Value(counter++, Type.number);
+                value = new Value(Type.number, counter++);
             }
             members.set(member, value);
 

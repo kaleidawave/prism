@@ -23,7 +23,7 @@ As well as parsing, Chef can generate and serialize nodes:
 
 ```js
 > const expr = new Expression({
-    lhs: new Value(4, Type.number),
+    lhs: new Value(Type.number, 4),
     operation: Operation.Add,
     rhs: new VariableReference("x")
 });
