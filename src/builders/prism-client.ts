@@ -112,7 +112,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
  * Returns the whole Prism client as a module.
  * @param clientSideRouting Include the client router module (including injecting routes)
  */
-export async function getPrismClient(clientSideRouting: boolean = true): Promise<Module> {
+export function getPrismClient(clientSideRouting: boolean = true): Module {
     const bundle = new Module("prism.js");
     for (const clientLib of clientModuleFilenames) {
         const module = Module.fromString(fileBundle.get(clientLib)!, join("bundle", clientLib));

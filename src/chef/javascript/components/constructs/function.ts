@@ -245,9 +245,9 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
         parent?: ClassDeclaration | ObjectLiteral,
         modifiers?: Set<JSToken>,
     ): FunctionDeclaration {
-        let async = false;
+        let isAsync = false;
         if (reader.current.type === JSToken.Async) {
-            async = true;
+            isAsync = true;
             reader.move();
         }
 
@@ -292,7 +292,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
                     isAbstract: true,
                     isGenerator: generator,
                     isStatic,
-                    isAsync: async,
+                    isAsync,
                     getSet,
                     returnType,
                 });
@@ -306,7 +306,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
                 bound: true,
                 isGenerator: generator,
                 isStatic,
-                isAsync: async,
+                isAsync,
                 getSet,
                 returnType
             });
@@ -332,7 +332,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
             } else {
                 statements = parseBlock(reader);
             }
-            return new FunctionDeclaration(null, params, statements, { bound: false, isAsync: async });
+            return new FunctionDeclaration(null, params, statements, { bound: false, isAsync });
         }
     }
 

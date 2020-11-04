@@ -20,6 +20,10 @@ export class InterfaceDeclaration {
         }
     }
 
+    get actualName() {
+        return this.name.name!;
+    }
+
     render(settings: IRenderSettings = defaultRenderSettings): string {
         if (settings.scriptLanguage !== ScriptLanguages.Typescript) {
             return "";

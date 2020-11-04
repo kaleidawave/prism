@@ -5,15 +5,17 @@ import { h } from "./render";
  * Router used under Prism. Singleton
  */
 export class Router extends HTMLElement {
-    static router: HTMLElement;
+    // this router
+    static t: HTMLElement;
     // Routes are injected by prism compiler
-    static routes: Array<[RegExp, string, string]>;
+    static r: Array<[RegExp, string, string]>;
 
+    // TODO not needed under context=client
     static loadedComponent: string | null = null;
     static loadedLayout: string | null = null;
 
     connectedCallback() {
-        Router.router = this;
+        Router.t = this;
     }
 
     /* 
@@ -23,7 +25,7 @@ export class Router extends HTMLElement {
         window.onpopstate = () => {
             Router.goTo(document.location.pathname);
         }
-        const fc = Router.router.firstElementChild;
+        const fc = Router.t.firstElementChild;
         if (!fc) {
             Router.goTo(window.location.pathname, false)
         } else {
@@ -51,33 +53,35 @@ export class Router extends HTMLElement {
      * @param pushState 
      */
     static async goTo(url: string, pushState = true) {
-        let router = this.router;
+        let r = this.t;
         if (pushState) history.pushState({}, "", url)
-        for (const [pattern, component, layout] of this.routes) {
+        for (const [pattern, component, layout] of this.r) {
             const match = url.match(pattern);
             if (match) {
                 if (this.loadedComponent === component) {
                     if (layout) {
-                        await (router.firstElementChild.firstElementChild as Component<any>).load?.(match.groups);
+                        await (r.firstElementChild.firstElementChild as Component<any>).load?.(match.groups);
                     } else {
-                        await (router.firstElementChild as Component<any>).load?.(match.groups);
+                        await (r.firstElementChild as Component<any>).load?.(match.groups);
                     }
                 } else {
-                    let container = router;
+                    // Container
+                    let c = r;
                     if (layout) {   
                         if (Router.loadedLayout === layout) {
-                            container = router.firstElementChild as Component<any>;
+                            c = r.firstElementChild as Component<any>;
                         } else {
                             const newLayout = h(layout);
-                            router.firstElementChild ? router.firstElementChild.replaceWith(newLayout) : router.append(newLayout);
-                            container = newLayout;
+                            r.firstElementChild ? r.firstElementChild.replaceWith(newLayout) : r.append(newLayout);
+                            c = newLayout as HTMLElement;
                         }
                     }
                     Router.loadedComponent = component;
-                    const newComponent = h(component) as Component<any>;
-                    await newComponent.load?.(match.groups);
+                    // New Component
+                    const nC = h(component) as Component<any>;
+                    await nC.load?.(match.groups);
                     // Rendering the component is deferred until till adding to dom which is next line
-                    container.firstElementChild ? container.firstElementChild.replaceWith(newComponent) : container.append(newComponent);
+                    c.firstElementChild ? c.firstElementChild.replaceWith(nC) : c.append(nC);
                 }
                 return;
             }

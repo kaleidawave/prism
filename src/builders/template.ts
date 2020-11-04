@@ -15,7 +15,7 @@ export interface IShellData {
 /**
  * Creates the underlining index document including references in the script to the script and style bundle.
  */
-export async function parseTemplateShell(settings: IFinalPrismSettings): Promise<IShellData> {
+export function parseTemplateShell(settings: IFinalPrismSettings): IShellData {
     // Read the included template or one specified by settings
     let document: HTMLDocument;
     const nodeData: WeakMap<Node, NodeData> = new WeakMap(),
@@ -23,7 +23,7 @@ export async function parseTemplateShell(settings: IFinalPrismSettings): Promise
     if (settings.templatePath === defaultTemplateHTML) {
         document = HTMLDocument.fromString(fileBundle.get("template.html")!, "template.html");
     } else {
-        document = await HTMLDocument.fromFile(settings.absoluteTemplatePath);
+        document = HTMLDocument.fromFile(settings.absoluteTemplatePath);
     }
 
     for (const element of flatElements(document)) {

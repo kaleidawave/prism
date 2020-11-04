@@ -24,7 +24,7 @@ import type { runApplication } from "../node";
  * - Generate server module
  * - Write out scripts, stylesheets and shell.html
  */
-export async function compileApplication(settings: IFinalPrismSettings, runFunction?: typeof runApplication) {
+export function compileApplication(settings: IFinalPrismSettings, runFunction?: typeof runApplication) {
     const features: IRuntimeFeatures = {
         conditionals: false,
         isomorphic: settings.context === "isomorphic",
@@ -38,7 +38,7 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         // Only .prism files that not skipped
         // TODO what about css, js and other assets in component paths
         if (filepath.endsWith(".prism") && !filepath.endsWith(".skip.prism")) {
-            await Component.registerComponent(filepath, settings, features);
+            Component.registerComponent(filepath, settings, features);
         }
     }
     if (settings.buildTimings) console.timeEnd("Parse component files");
@@ -57,13 +57,13 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         includeExtensionsInImports: settings.deno
     };
 
-    const template = await parseTemplateShell(settings);
+    const template = parseTemplateShell(settings);
 
     // TODO versioning
     const clientScriptBundle = new Module(join(settings.absoluteOutputPath, "bundle.js"));
     const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, "bundle.css"));
 
-    const prismClient = await getPrismClient(settings.clientSideRouting);
+    const prismClient = getPrismClient(settings.clientSideRouting);
     treeShakeBundle(features, prismClient);
     clientScriptBundle.combine(prismClient);
 
@@ -71,7 +71,7 @@ export async function compileApplication(settings: IFinalPrismSettings, runFunct
         if (settings.buildTimings) console.time("Move static assets");
         // Static styles and scripts come before any component declarations
         // TODO bad that functions does side effects and returns stuff
-        const modulesAndStylesheets = await moveStaticAssets(
+        const modulesAndStylesheets = moveStaticAssets(
             settings.absoluteAssetPath,
             settings.absoluteOutputPath,
             clientRenderSettings

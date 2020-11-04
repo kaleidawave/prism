@@ -30,7 +30,7 @@ export function registerFSExistsCallback(cb: fsExistsCallback) {
     __fileSystemExistsCallback = cb;
 }
 
-export async function copyFile(from: string, to: string) {
+export function copyFile(from: string, to: string) {
     if (!__fileSystemCopyCallback) throw Error("No file system copy file callback registered");
     return __fileSystemCopyCallback(from, to);
 }
@@ -40,7 +40,7 @@ export function exists(path: string): boolean {
     return __fileSystemExistsCallback(path);
 }
 
-export async function readFile(filename: string): Promise<string> {
+export function readFile(filename: string): string {
     if (!__fileSystemReadCallback) throw Error("No file system read file callback registered");
     return __fileSystemReadCallback(filename);
 }

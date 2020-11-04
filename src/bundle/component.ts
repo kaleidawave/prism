@@ -21,7 +21,7 @@ export abstract class Component<T> extends HTMLElement {
     abstract _tree: T | undefined; // The primary observable
 
     // A callback for when triggered from a router where params are a set of URL params
-    abstract load?: (params?: Object) => Promise<any>;
+    abstract load?: (params?: Object) => Promise<void>;
 
     // CSR component
     abstract render(): Generator<HTMLElement | string>;

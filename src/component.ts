@@ -109,7 +109,7 @@ export class Component {
      * Returns a component under a filename
      * If a component has been parsed will return it from the register and not re parse it
      */
-    static async registerComponent(filepath: string, settings: IFinalPrismSettings, features: IRuntimeFeatures): Promise<Component> {
+    static registerComponent(filepath: string, settings: IFinalPrismSettings, features: IRuntimeFeatures): Component {
         if (Component.parsingComponents.has(filepath)) {
             throw Error(`Cyclic import ${filepath}`); // TODO test and better error message
         }
@@ -117,15 +117,15 @@ export class Component {
         if (Component.registeredComponents.has(filepath)) {
             return Component.registeredComponents.get(filepath)!;
         } else {
-            const component = await Component.fromFile(filepath);
-            await component.processComponent(settings, features)
+            const component = Component.fromFile(filepath);
+            component.processComponent(settings, features)
             Component.registeredComponents.set(filepath, component);
             return component;
         }
     }
 
-    static async fromFile(filename: string) {
-        const componentFile = await HTMLDocument.fromFile(filename, { comments: false });
+    static fromFile(filename: string) {
+        const componentFile = HTMLDocument.fromFile(filename, { comments: false });
         return new Component(componentFile);
     }
 
@@ -163,7 +163,7 @@ export class Component {
         this.stylesheet = styleElement?.stylesheet;
     }
 
-    async processComponent(settings: IFinalPrismSettings, runtimeFeatures: IRuntimeFeatures) {
+    processComponent(settings: IFinalPrismSettings, runtimeFeatures: IRuntimeFeatures) {
         this.relativeFilename = relative(settings.projectPath, this.filename);
 
         // Find component class
@@ -185,7 +185,7 @@ export class Component {
         for (const import_ of this.clientModule.imports) {
             // TODO other imports such as css etc
             if (import_.from.endsWith(".prism")) {
-                const component = await Component.registerComponent(resolve(dirname(this.filename), import_.from), settings, runtimeFeatures);
+                const component = Component.registerComponent(resolve(dirname(this.filename), import_.from), settings, runtimeFeatures);
                 this.importedComponents.set(component.className, component);
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
                 import_.from = relativePath + ".js";
@@ -527,7 +527,7 @@ export class Component {
         let componentDataType: IType | null = null;
         if (componentClass.base!.typeArguments?.[0]) {
             try {
-                componentDataType = await typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
+                componentDataType = typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
                 this.needsData = !Array.from(componentDataType.properties!.values())
                     .every(property => property.name === "HTMLElement");
             } catch (error) {
@@ -601,11 +601,6 @@ export class Component {
                 throw error;
             }
         }
-
-        this.clientModule.filename = join(
-            settings.absoluteOutputPath,
-            this.relativeFilename + ".js"
-        );
 
         // Used by router to detect layout at runtime from SSR content
         if (settings.context === "isomorphic" && this.isLayout) {
@@ -691,6 +686,12 @@ export class Component {
             } else {
                 tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
             }
+
+            // Set client module to now point at output path. TODO not sure why
+            this.clientModule.filename = join(
+                settings.absoluteOutputPath,
+                this.relativeFilename + ".js"
+            );
         }
     }
 }

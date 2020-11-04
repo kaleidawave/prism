@@ -25,9 +25,9 @@ export class ElseStatement implements IRenderable {
     ) { }
 
     render(settings: IRenderSettings, options?: Partial<IRenderOptions>): string {
-        let acc = "else ";
+        let acc = " else ";
         if (this.condition) acc += `if ${this.condition.render(settings)} `;
-        acc += `{\n${renderStatements(this.statements, settings)}} `;
+        acc += `{${renderStatements(this.statements, settings)}} `;
         if (this.elseStatement) acc += this.elseStatement.render(settings);
         return acc;
     }

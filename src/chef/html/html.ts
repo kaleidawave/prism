@@ -287,8 +287,8 @@ export class HTMLDocument implements IFile {
         return document;
     }
 
-    static async fromFile(filename: string, settings: IParseSettings = defaultParseSettings): Promise<HTMLDocument> {
-        const string = await readFile(filename);
+    static fromFile(filename: string, settings: IParseSettings = defaultParseSettings): HTMLDocument {
+        const string = readFile(filename);
         return HTMLDocument.fromString(string, filename, settings);
     }
 

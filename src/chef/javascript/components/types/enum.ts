@@ -13,6 +13,10 @@ export class EnumDeclaration implements IRenderable {
         public members: Map<string, Value>
     ) { }
 
+    get actualName() {
+        return name;
+    }
+
     render(settings: IRenderSettings = defaultRenderSettings): string {
         if (settings.scriptLanguage === ScriptLanguages.Typescript) {
             let acc = "enum ";

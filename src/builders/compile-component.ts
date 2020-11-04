@@ -11,10 +11,10 @@ import { fileBundle } from "../bundled-files";
  * Generate a script for a single client
  * @param componentPath 
  */
-export async function compileSingleComponent(
+export function compileSingleComponent(
     componentPath: string,
     settings: IFinalPrismSettings
-): Promise<void> {
+): void {
     const features: IRuntimeFeatures = { 
         conditionals: false, 
         isomorphic: settings.context === "isomorphic", 
@@ -24,10 +24,10 @@ export async function compileSingleComponent(
     }
 
     if (settings.buildTimings) console.time("Parse component file and its imports");
-    const component = await Component.registerComponent(componentPath, settings, features);
+    const component = Component.registerComponent(componentPath, settings, features);
     if (settings.buildTimings) console.timeEnd("Parse component file and its imports");
 
-    const bundledClientModule = await getPrismClient(false);
+    const bundledClientModule = getPrismClient(false);
     treeShakeBundle(features, bundledClientModule);
     bundledClientModule.filename = join(settings.absoluteOutputPath, "component.js");
     const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, "component.css"));

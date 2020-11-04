@@ -57,9 +57,9 @@ export class Module implements IModule<StatementTypes> {
      * Will return a module. Will cache modules and return modules if they exist in cache
      * @param filename absolute path to module
      */
-    static async fromFile(filename: string): Promise<Module> {
+    static fromFile(filename: string): Module {
         if (this.cachedModules.has(filename)) return this.cachedModules.get(filename)!;
-        const string = await readFile(filename);
+        const string = readFile(filename);
         const module = Module.fromString(string, filename);
         this.cachedModules.set(filename, module);
         return module;

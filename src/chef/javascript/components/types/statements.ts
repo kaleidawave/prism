@@ -26,6 +26,10 @@ export class TypeDeclaration implements IRenderable {
         public value: TypeSignature,
     ) { }
 
+    get actualName() {
+        return this.name.name!;
+    }
+
     render(settings: IRenderSettings = defaultRenderSettings) {
         if (settings.scriptLanguage !== ScriptLanguages.Typescript) return "";
         let acc = "type ";

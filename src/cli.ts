@@ -23,9 +23,7 @@ switch (process.argv[2]) {
             throw Error(`Output path must be a directory`);
         }
         compileSingleComponent(settings.projectPath, settings)
-            .then(() => {
-                if (settings.buildTimings) console.timeEnd("Building single component");
-            });
+        if (settings.buildTimings) console.timeEnd("Building single component");
         break;
     }
     case "compile-application":
@@ -36,9 +34,8 @@ switch (process.argv[2]) {
         if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
             throw Error(`Output path must be a directory`);
         }
-        compileApplication(settings, runApplication).then(() => {
-            if (settings.buildTimings) console.timeEnd("Building application");
-        });
+        compileApplication(settings, runApplication)
+        if (settings.buildTimings) console.timeEnd("Building application");
         break;
     }
     // Others

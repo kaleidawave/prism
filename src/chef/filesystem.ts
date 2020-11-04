@@ -8,7 +8,7 @@ export interface IFile {
 /**
  * Given a filename returns the result 
  */
-export type fsReadCallback = (filename: string) => string | Promise<string>;
+export type fsReadCallback = (filename: string) => string;
 
 let __fileSystemReadCallback: fsReadCallback | null = null;
 export function registerFSReadCallback(cb: fsReadCallback) {
@@ -30,7 +30,7 @@ let nodeReadFileSync: nodeReadFileSyncSignature | null;
  * TODO if Deno
  * @param filename 
  */
-export async function readFile(filename: string): Promise<string> {
+export function readFile(filename: string): string {
     if (__fileSystemReadCallback) {
         return __fileSystemReadCallback(filename);
     } else {

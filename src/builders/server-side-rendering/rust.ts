@@ -8,6 +8,7 @@ import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } fr
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { Module } from "../../chef/rust/module";
+import { Module as JSModule } from "../../chef/javascript/components/module";
 import { ModStatement } from "../../chef/rust/statements/mod";
 import { dirname, join, relative } from "path";
 import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
@@ -35,6 +36,7 @@ const accVariable = new VariableReference("acc");
 function statementsFromServerRenderChunks(
     serverChunks: ServerRenderedChunks,
     module: Module,
+    jsModule: JSModule,
     includeStringDef = false,
 ): Array<StatementTypes> {
     const statements: Array<StatementTypes> = includeStringDef ? [new VariableDeclaration("acc", true,
@@ -51,7 +53,7 @@ function statementsFromServerRenderChunks(
                 new ArgumentList([new Value(Type.string, chunk)])
             ));
         } else if ("value" in chunk) {
-            let value = jsAstToRustAst(chunk.value, module);
+            let value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
             if (chunk.escape) {
                 value = new Expression(
                     new VariableReference("escape"),
@@ -75,15 +77,15 @@ function statementsFromServerRenderChunks(
             ));
         } else if ("condition" in chunk) {
             statements.push(new IfStatement(
-                jsAstToRustAst(chunk.condition, module),
-                statementsFromServerRenderChunks(chunk.truthyRenderExpression, module),
-                new ElseStatement(null, statementsFromServerRenderChunks(chunk.truthyRenderExpression, module))
+                jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes,
+                statementsFromServerRenderChunks(chunk.truthyRenderExpression, module, jsModule),
+                new ElseStatement(null, statementsFromServerRenderChunks(chunk.truthyRenderExpression, module, jsModule))
             ));
         } else if ("subject" in chunk) {
             statements.push(new ForStatement(
                 chunk.variable,
-                jsAstToRustAst(chunk.subject, module),
-                statementsFromServerRenderChunks(chunk.childRenderExpression, module)
+                jsAstToRustAst(chunk.subject, module, jsModule) as ValueTypes,
+                statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule)
             ));
         } else if ("func" in chunk) {
             // TODO temp fix
@@ -118,7 +120,8 @@ function statementsFromServerRenderChunks(
 /** Builds a `format!(...)` expression. Cannot be used for condition and iterator data */
 function formatExpressionFromServerChunks(
     serverChunks: ServerRenderedChunks,
-    module: Module
+    module: Module,
+    jsModule: JSModule,
 ): Expression {
     let formatString = "";
     const args: Array<ValueTypes> = [];
@@ -127,7 +130,7 @@ function formatExpressionFromServerChunks(
             formatString += chunk;
         } else if ("value" in chunk) {
             formatString += "{}";
-            const value = jsAstToRustAst(chunk.value, module);
+            const value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
             // Creates `&escape(*value*.to_string()).to_string()`:
             args.push(new Expression(
                 new Expression(
@@ -226,7 +229,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
             comp.serverModule.statements.push(new DynamicStatement(argString));
         } else {
             // TODO function with @rustConditionalImport decorator
-            const rustStatement = jsAstToRustAst(statement, comp.serverModule);
+            const rustStatement = jsAstToRustAst(statement, comp.serverModule, comp.clientModule);
             if (rustStatement instanceof StructStatement) {
                 comp.serverModule.statements.push(new DeriveStatement(["Clone", "Debug"]));
             }
@@ -234,7 +237,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
         }
     }
 
-    const rustRenderParameters: Array<[string, TypeSignature]> = comp.serverRenderParameters.map((vD) => [vD.name, jsAstToRustAst(vD.typeSignature!, comp.serverModule!)]);
+    const rustRenderParameters: Array<[string, TypeSignature]> = comp.serverRenderParameters.map((vD) => [vD.name, jsAstToRustAst(vD.typeSignature!, comp.serverModule!, comp.clientModule) as TypeSignature]);
 
     const name = "render_" + comp.tagName.replace(/-/g, "_").replace(/[A-Z]/g, (s, i) => i ? `_${s.toLowerCase()}` : s.toLowerCase());
     const componentRenderFunctionName = name + "_component";
@@ -242,7 +245,8 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
     comp.serverRenderFunction = new FunctionDeclaration(componentRenderFunctionName, rustRenderParameters, new TypeSignature("String"), [], true);
 
     const serverRenderChunks = serverRenderPrismNode(comp.componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
-    comp.serverRenderFunction.statements = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, true);
+    comp.serverRenderFunction.statements 
+        = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, comp.clientModule, true);
 
     if (comp.usesLayout) {
         const returnLayoutWrap = new ReturnStatement(new Expression(
@@ -258,7 +262,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
     if (comp.isPage) {
         let metadataString: ValueTypes;
         if (comp.metaDataChunks.length > 0) {
-            metadataString = formatExpressionFromServerChunks(comp.metaDataChunks, comp.serverModule);
+            metadataString = formatExpressionFromServerChunks(comp.metaDataChunks, comp.serverModule, comp.clientModule);
         } else {
             metadataString = new Expression(
                 new VariableReference("to_string", new Value(Type.string, "")),
@@ -324,7 +328,8 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
     const serverChunks = serverRenderPrismNode(template.document, template.nodeData, {
         minify: settings.minify, addDisableToElementWithEvents: false
     });
-    const renderHTMLStatements = statementsFromServerRenderChunks(serverChunks, baseServerModule, true);
+    const renderHTMLStatements 
+        = statementsFromServerRenderChunks(serverChunks, baseServerModule, new JSModule(""), true);
 
     // Create function with content and meta slot parameters
     const pageRenderFunction = new FunctionDeclaration(
