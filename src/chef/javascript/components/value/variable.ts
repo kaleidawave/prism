@@ -140,7 +140,7 @@ export class VariableReference implements IRenderable {
                 head = new Expression({
                     lhs: head,
                     operation: Operation.Index,
-                    rhs: new Value(currentProp, Type.number)
+                    rhs: new Value(Type.number, currentProp)
                 });
             } else if (typeof currentProp === "string") {
                 head = new VariableReference(currentProp, head);

@@ -14,7 +14,7 @@ export class EnumDeclaration implements IRenderable {
     ) { }
 
     get actualName() {
-        return name;
+        return this.name!;
     }
 
     render(settings: IRenderSettings = defaultRenderSettings): string {

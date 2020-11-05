@@ -124,7 +124,7 @@ export class ImportStatement implements IRenderable {
 export class ExportStatement implements IRenderable {
 
     constructor(
-        public exported: ValueTypes,
+        public exported: ValueTypes | InterfaceDeclaration,
         public isDefault: boolean = false,
     ) { }
 

@@ -64,6 +64,7 @@ export function jsAstToRustAst(jsAst: JSAstTypes, rustModule: Module, jsModule: 
         return new StructStatement(
             jsAstToRustAst(jsAst.name, rustModule, jsModule) as TypeSignature,
             new Map(members),
+            new Map,
             true // TODO temp will say its true for now ...
         );
     } else if (jsAst instanceof JSTypeSignature) {
@@ -135,7 +136,12 @@ export function jsAstToRustAst(jsAst: JSAstTypes, rustModule: Module, jsModule: 
             ])
         );
     } else if (jsAst instanceof JSArgumentList) {
-        return new ArgumentList(jsAst.args.map(arg => jsAstToRustAst(arg, rustModule, jsModule) as ValueTypes));
+        return new ArgumentList(jsAst.args.map(arg => 
+            new Expression(
+                (jsAstToRustAst(arg, rustModule, jsModule) as ValueTypes),
+                Operation.Borrow
+            )
+        ));
     } else if (jsAst instanceof JSVariableDeclaration) {
         return new VariableDeclaration(
             jsAst.name,

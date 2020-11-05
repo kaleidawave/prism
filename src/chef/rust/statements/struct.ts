@@ -1,9 +1,12 @@
 import { IRenderable, IRenderOptions, IRenderSettings } from "../../helpers";
+import { DynamicStatement } from "../dynamic-statement";
+import { DeriveStatement } from "./derive";
 
 export class StructStatement implements IRenderable {
     constructor (
         public name: TypeSignature,
         public members: Map<string, TypeSignature>,
+        public memberAttributes: Map<string, DeriveStatement | DynamicStatement> = new Map(),
         public isPublic: boolean = false,
         public privateMembers: Set<string> = new Set()
     ) {}
@@ -15,6 +18,10 @@ export class StructStatement implements IRenderable {
         if (this.members.size > 0) acc += "\n";
         for (const [name, type] of this.members) {
             acc += " ".repeat(settings.indent);
+            if (this.memberAttributes.has(name)) {
+                acc += this.memberAttributes.get(name)!.render(settings);   
+                acc += "\n" + " ".repeat(settings.indent);
+            }
             if (!this.privateMembers.has(name)) acc += "pub ";
             acc += `${name}: ${type.render(settings)},\n`;
         }

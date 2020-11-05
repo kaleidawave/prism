@@ -222,8 +222,18 @@ export function clientRenderPrismNode(
             const clonedValue = cloneAST(textNodeValue);
             aliasVariables(clonedValue, thisDataVariable, locals);
             return clonedValue;
+        } else {
+            // Expand out html symbols
+            const value = element.text.replace(/&#(x)?(.*?);/g, (_, x, v) => {
+                // If hexadecimal
+                if (x) {
+                    return "\\u" + v.padStart(4, "0");
+                } else {
+                    return "\\u" + parseInt(v).toString(16).padStart(4, "0");
+                }
+            });
+            return new Value(Type.string, value);
         }
-        return textNodeValue ?? new Value(Type.string, element.text);
     } else if (element instanceof HTMLComment) {
         const isFragment = nodeData.get(element)?.isFragment;
         if (!isFragment) throw Error("Client side rendering of non-fragment comment supported");

@@ -27,18 +27,19 @@ export function makeGetFromBinding(
     let getSource: ValueTypes;
     switch (binding.aspect) {
         case BindingAspect.InnerText:
+            if (typeof binding.fragmentIndex === "undefined") throw Error("Encountered binding with invalid fragment index");
             if (isElementNullable) {
                 getSource = newOptionalVariableReferenceFromChain(
                     elementStatement,
                     "childNodes",
-                    binding.fragmentIndex!,
+                    binding.fragmentIndex,
                     "data"
                 );
             } else {
                 getSource = VariableReference.fromChain(
                     elementStatement,
                     "childNodes",
-                    binding.fragmentIndex!,
+                    binding.fragmentIndex,
                     "data"
                 );
             }
@@ -77,44 +78,7 @@ export function makeGetFromBinding(
             throw Error(`Not implemented - get hookup for binding of type ${BindingAspect[binding.aspect]}`)
     }
 
-    let value: ValueTypes
-    if (dataType.name === "number") {
-        value = new Expression({
-            lhs: new VariableReference("parseFloat"),
-            operation: Operation.Call,
-            rhs: getSource
-        });
-    } else if (dataType.name === "Date") {
-        value = new Expression({
-            lhs: new VariableReference("Date"),
-            operation: Operation.Initialize,
-            rhs: getSource
-        });
-    } else if (dataType.name === "boolean") {
-        // Temp fix for the fact data attributes (which are not in HTMLElement.booleanAttribute set)
-        // will be rendered out like data-post-liked="true" or data-post-liked="false"
-        if (binding.aspect === BindingAspect.Attribute && !HTMLElement.booleanAttributes.has(binding.attribute!)) {
-            value = new Expression({
-                lhs: getSource,
-                operation: Operation.StrictEqual,
-                rhs: new Value(Type.string)
-            });
-        } else {
-            value = new Expression({
-                lhs: getSource,
-                operation: Operation.StrictNotEqual,
-                rhs: new Value(Type.object)
-            });
-        }
-    } else if (dataType.name === "string" && !settings.minify) {
-        value = new Expression({
-            lhs: new VariableReference("trim", getSource),
-            operation: isElementNullable ? Operation.OptionalCall : Operation.Call
-        });
-    } else {
-        value = getSource;
-    }
-
+    let value: ValueTypes = getSource;
     // If not a variable reference try build a reverser for the value
     if (!(binding.expression instanceof VariableReference) && !(binding.expression instanceof ForIteratorExpression)) {
         // "buildReverseFunction" will throw error if the expression cannot be reversed 
@@ -129,6 +93,41 @@ export function makeGetFromBinding(
 
         // Can reduce the function by replace the paramter variables with the arguments
         value = compileIIFE(iife);
+    }
+
+    if (dataType.name === "number") {
+        value = new Expression({
+            lhs: new VariableReference("parseFloat"),
+            operation: Operation.Call,
+            rhs: value
+        });
+    } else if (dataType.name === "Date") {
+        value = new Expression({
+            lhs: new VariableReference("Date"),
+            operation: Operation.Initialize,
+            rhs: value
+        });
+    } else if (dataType.name === "boolean") {
+        // Temp fix for the fact data attributes (which are not in HTMLElement.booleanAttribute set)
+        // will be rendered out like data-post-liked="true" or data-post-liked="false"
+        if (binding.aspect === BindingAspect.Attribute && !HTMLElement.booleanAttributes.has(binding.attribute!)) {
+            value = new Expression({
+                lhs: value,
+                operation: Operation.StrictEqual,
+                rhs: new Value(Type.string)
+            });
+        } else {
+            value = new Expression({
+                lhs: value,
+                operation: Operation.StrictNotEqual,
+                rhs: new Value(Type.object)
+            });
+        }
+    } else if (dataType.name === "string" && !settings.minify) {
+        value = new Expression({
+            lhs: new VariableReference("trim", value),
+            operation: isElementNullable ? Operation.OptionalCall : Operation.Call
+        });
     }
 
     return value;

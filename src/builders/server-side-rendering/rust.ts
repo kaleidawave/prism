@@ -12,17 +12,19 @@ import { Module as JSModule } from "../../chef/javascript/components/module";
 import { ModStatement } from "../../chef/rust/statements/mod";
 import { dirname, join, relative } from "path";
 import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
-import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../chef/javascript/components/statements/import-export";
-import { FunctionDeclaration as JSFunctionDeclaration } from "../../chef/javascript/components/constructs/function";
+import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement, ExportStatement } from "../../chef/javascript/components/statements/import-export";
 import { UseStatement } from "../../chef/rust/statements/use";
 import { ElseStatement, IfStatement } from "../../chef/rust/statements/if";
 import { ForStatement } from "../../chef/rust/statements/for";
 import { basename } from "path";
 import { IShellData } from "../template";
 import { jsAstToRustAst } from "../../chef/rust/utils/js2rust";
-import { DeriveStatement } from "../../chef/rust/statements/derive";
-import { TemplateLiteral } from "../../chef/javascript/components/value/template-literal";
+import { InterfaceDeclaration as TSInterfaceDeclaration } from "../../chef/javascript/components/types/interface";
 import { DynamicStatement } from "../../chef/rust/dynamic-statement";
+import { Comment as JSComment } from "../../chef/javascript/components/statements/comments";
+import { TemplateLiteral as JSTemplateLiteral } from "../../chef/javascript/components/value/template-literal";
+import { Type as JSType, Value as JSValue } from "../../chef/javascript/components/value/value";
+import { findSourceMap } from "module";
 
 /** The variable which points to the String that is appended to */
 const accVariable = new VariableReference("acc");
@@ -79,7 +81,7 @@ function statementsFromServerRenderChunks(
             statements.push(new IfStatement(
                 jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes,
                 statementsFromServerRenderChunks(chunk.truthyRenderExpression, module, jsModule),
-                new ElseStatement(null, statementsFromServerRenderChunks(chunk.truthyRenderExpression, module, jsModule))
+                new ElseStatement(null, statementsFromServerRenderChunks(chunk.falsyRenderExpression, module, jsModule))
             ));
         } else if ("subject" in chunk) {
             statements.push(new ForStatement(
@@ -203,35 +205,53 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
             }
             // Ignores other imports for now
         } else if (
-            statement instanceof JSFunctionDeclaration &&
-            statement.decorators?.some?.(decorator => decorator.name === jsToRustDecoratorName)
+            statement instanceof JSComment
         ) {
             /** 
-             * Conditional swap out function for value in decorator argument e.g
-             * @useRustCode("use crate_x::{func1};")
+             * Conditional inject statement if compiling under rust e.g
+             * /* @useRustStatement use crate_x::{func1};") * /
+             * 
+             * As this function will not be included into the rust
              * function func1() {
              *    ..js engine dependant logic...
              * }
+             * 
              * Currently very flexible with `DynamicStatement`
              * Expects that the rust code in the argument string introduces a function of the same name 
              * and parameters into the module / scope
              */
-
-            const arg = statement.decorators.find(decorator => decorator.name === jsToRustDecoratorName)?.args[0];
-            let argString: string;
-            if (arg instanceof Value && arg.type === Type.string) {
-                argString = arg.value;
-            } else if (arg instanceof TemplateLiteral && arg.entries.length === 1 && typeof arg.entries[0] === "string") {
-                argString = arg.entries[0];
-            } else {
-                throw Error(`Invalid arg for @${jsToRustDecoratorName}`);
+            const useRustStatementMatch = statement.comment.match(/@useRustStatement/);
+            if (useRustStatementMatch) {
+                const rustCode = statement.comment.slice(useRustStatementMatch.index! + "@useRustStatement".length)
+                comp.serverModule.statements.push(new DynamicStatement(rustCode.trim()));
             }
-            comp.serverModule.statements.push(new DynamicStatement(argString));
-        } else {
-            // TODO function with @rustConditionalImport decorator
+        } else if (
+            statement instanceof TSInterfaceDeclaration ||
+            statement instanceof JSImportStatement ||
+            statement instanceof JSExportStatement
+        ) {
             const rustStatement = jsAstToRustAst(statement, comp.serverModule, comp.clientModule);
             if (rustStatement instanceof StructStatement) {
-                comp.serverModule.statements.push(new DeriveStatement(["Clone", "Debug"]));
+                const memberDecorators = statement instanceof ExportStatement ? 
+                    (statement.exported as TSInterfaceDeclaration).memberDecorators : 
+                    (statement as TSInterfaceDeclaration).memberDecorators;
+                for (const [name, decorator] of memberDecorators) {
+                    if (decorator.name === "useRustStatement") {
+                        const firstArg = decorator.args[0];
+                        if (!firstArg || decorator.args.length > 1) { 
+                            throw Error("@useRustStatement must have a single string or template literal arg");
+                        }
+                        let value: string;
+                        if (firstArg instanceof JSValue && firstArg.type === JSType.string) {
+                            value = firstArg.value!;
+                        } else if (firstArg instanceof JSTemplateLiteral && typeof firstArg.entries[0] === "string") {
+                            value = firstArg.entries[0];
+                        } else {
+                            throw Error("@useRustStatement must have a single string or template literal arg")
+                        }
+                        rustStatement.memberAttributes.set(name, new DynamicStatement(value));
+                    }
+                }
             }
             if (rustStatement) comp.serverModule.statements.push(rustStatement);
         }
@@ -245,7 +265,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
     comp.serverRenderFunction = new FunctionDeclaration(componentRenderFunctionName, rustRenderParameters, new TypeSignature("String"), [], true);
 
     const serverRenderChunks = serverRenderPrismNode(comp.componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
-    comp.serverRenderFunction.statements 
+    comp.serverRenderFunction.statements
         = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, comp.clientModule, true);
 
     if (comp.usesLayout) {
@@ -328,7 +348,7 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
     const serverChunks = serverRenderPrismNode(template.document, template.nodeData, {
         minify: settings.minify, addDisableToElementWithEvents: false
     });
-    const renderHTMLStatements 
+    const renderHTMLStatements
         = statementsFromServerRenderChunks(serverChunks, baseServerModule, new JSModule(""), true);
 
     // Create function with content and meta slot parameters

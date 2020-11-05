@@ -2,15 +2,18 @@ import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings } 
 import { commentTokens, JSToken } from "../../javascript";
 import { TypeSignature } from "./type-signature";
 import { tokenAsIdent } from "../value/variable";
+import { Decorator } from "./decorator";
 
 export class InterfaceDeclaration {
 
     name: TypeSignature;
+    public decorators?: Array<Decorator>;
 
     constructor(
         name: string | TypeSignature,
         public extendsType: TypeSignature | null,
         public members: Map<string, TypeSignature> = new Map(),
+        public memberDecorators: Map<string, Decorator> = new Map(), // One decorator per member for now
         public optionalProperties: Set<string> = new Set()
     ) {
         if (typeof name === "string") {
@@ -28,7 +31,11 @@ export class InterfaceDeclaration {
         if (settings.scriptLanguage !== ScriptLanguages.Typescript) {
             return "";
         }
-        let acc = "interface ";
+        let acc = "";
+        if (this.decorators && settings.scriptLanguage === ScriptLanguages.Typescript) {
+            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n") + "\n";
+        }
+        acc += "interface ";
         acc += this.name.render(settings);
         if (this.extendsType) {
             acc += " extends ";
@@ -69,6 +76,7 @@ export class InterfaceDeclaration {
         }
 
         const members: Map<string, TypeSignature> = new Map();
+        const memberDecorators: Map<string, Decorator> = new Map();
         // Could use Map<string, {type: TypeSignature, optional: boolean}> but that seems to create to much objects
         const optionalKeys: Set<string> = new Set();
         reader.expectNext(JSToken.OpenCurly)
@@ -76,6 +84,11 @@ export class InterfaceDeclaration {
             if (commentTokens.includes(reader.current.type)) {
                 reader.move();
                 continue;
+            }
+
+            let decorator: Decorator | null = null;
+            if (reader.current.type === JSToken.At) {
+                decorator = Decorator.fromTokens(reader);
             }
 
             let key: string;
@@ -98,6 +111,8 @@ export class InterfaceDeclaration {
             const typeSig = TypeSignature.fromTokens(reader);
             members.set(key, typeSig);
 
+            if (decorator) memberDecorators.set(key, decorator);
+
             while (commentTokens.includes(reader.current.type)) {
                 reader.move();
             }
@@ -107,6 +122,6 @@ export class InterfaceDeclaration {
             if (reader.current.type === JSToken.Comma || reader.current.type === JSToken.SemiColon) reader.move();
         }
         reader.move();
-        return new InterfaceDeclaration(name, extendsType, members, optionalKeys);
+        return new InterfaceDeclaration(name, extendsType, members, memberDecorators, optionalKeys);
     }
 }

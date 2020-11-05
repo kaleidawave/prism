@@ -66,14 +66,18 @@ export function parseStatement(reader: TokenReader<JSToken>): StatementTypes {
             while (reader.current.type === JSToken.At) {
                 decorators.push(Decorator.fromTokens(reader));
             }
-            const statement = parseStatement(reader);
-            const clsOrFunc = statement instanceof ExportStatement ? statement.exported : statement;
-            if (clsOrFunc instanceof FunctionDeclaration || clsOrFunc instanceof ClassDeclaration) {
-                clsOrFunc.decorators = decorators;
+            const parsedStatement = parseStatement(reader);
+            const statement = parsedStatement instanceof ExportStatement ? parsedStatement.exported : parsedStatement;
+            if (
+                statement instanceof FunctionDeclaration || 
+                statement instanceof ClassDeclaration || 
+                statement instanceof InterfaceDeclaration
+            ) {
+                statement.decorators = decorators;
             } else {
                 reader.throwExpect("Expected class or function to proceed decorator");
             }
-            return clsOrFunc;
+            return statement;
         case JSToken.Interface: return InterfaceDeclaration.fromTokens(reader);
         case JSToken.Break: return BreakStatement.fromTokens(reader);
         case JSToken.Continue: return ContinueStatement.fromTokens(reader);
