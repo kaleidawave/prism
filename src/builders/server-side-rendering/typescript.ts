@@ -15,73 +15,72 @@ import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/
 import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
-import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
+import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { IShellData } from "../template";
+
+function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes {
+    if (typeof serverChunk === "string") {
+        return new Value(Type.string, serverChunk);
+    } else if ("value" in serverChunk) {
+        if (serverChunk.escape) {
+            return new Expression({
+                lhs: new VariableReference("escape"),
+                operation: Operation.Call,
+                rhs: serverChunk.value
+            });
+        } else {
+            return serverChunk.value;
+        }
+    } else if ("condition" in serverChunk) {
+        return new Expression({
+            lhs: serverChunk.condition as ValueTypes,
+            operation: Operation.Ternary,
+            rhs: new ArgumentList([
+                templateLiteralFromServerRenderChunks(serverChunk.truthyRenderExpression),
+                templateLiteralFromServerRenderChunks(serverChunk.falsyRenderExpression)
+            ])
+        });
+    } else if ("subject" in serverChunk) {
+        return new Expression({
+            lhs: new VariableReference("join", new Expression({
+                lhs: new VariableReference("map", serverChunk.subject),
+                operation: Operation.Call,
+                rhs: new FunctionDeclaration(
+                    null,
+                    [serverChunk.variable],
+                    [new ReturnStatement(
+                        templateLiteralFromServerRenderChunks(serverChunk.childRenderExpression)
+                    )],
+                    { bound: false }
+                )
+            })),
+            operation: Operation.Call,
+            rhs: new Value(Type.string)
+        });
+    } else if ("func" in serverChunk) {
+        const args = new Map(
+            Array.from(serverChunk.args).map(([name, value]) => {
+                if (typeof value === "object" && "argument" in value) return [name, value.argument];
+                else if (Array.isArray(value)) return [name, templateLiteralFromServerRenderChunks(value)]
+                else return [name, renderServerChunk(value)];
+            })
+        );
+        return new Expression({
+            lhs: new VariableReference(serverChunk.func.actualName!),
+            operation: Operation.Call,
+            rhs: serverChunk.func.buildArgumentListFromArgumentsMap(args)
+        });
+    } else {
+        throw Error();
+    }
+}
 
 /**
  * Creates a `TemplateLiteral`
  * @param serverChunks Array of chunks
  */
 function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunks): TemplateLiteral {
-    const templateLiteral = new TemplateLiteral();
-    for (const chunk of serverChunks) {
-        if (typeof chunk === "string") {
-            templateLiteral.addEntry(chunk);
-        } else if ("value" in chunk) {
-            if (chunk.escape) {
-                templateLiteral.addEntry(new Expression({
-                    lhs: new VariableReference("escape"),
-                    operation: Operation.Call,
-                    rhs: chunk.value
-                }));
-            } else {
-                templateLiteral.addEntry(chunk.value);
-            }
-        } else if ("condition" in chunk) {
-            templateLiteral.addEntry(new Expression({
-                lhs: chunk.condition as ValueTypes,
-                operation: Operation.Ternary,
-                rhs: new ArgumentList([
-                    templateLiteralFromServerRenderChunks(chunk.truthyRenderExpression),
-                    templateLiteralFromServerRenderChunks(chunk.falsyRenderExpression)
-                ])
-            }))
-        } else if ("subject" in chunk) {
-            templateLiteral.addEntry(
-                new Expression({
-                    lhs: new VariableReference("join", new Expression({
-                        lhs: new VariableReference("map", chunk.subject),
-                        operation: Operation.Call,
-                        rhs: new FunctionDeclaration(
-                            null,
-                            [chunk.variable],
-                            [new ReturnStatement(
-                                templateLiteralFromServerRenderChunks(chunk.childRenderExpression)
-                            )],
-                            { bound: false }
-                        )
-                    })),
-                    operation: Operation.Call,
-                    rhs: new Value(Type.string)
-                })
-            );
-        } else if ("func" in chunk) {
-            // TODO temp fix
-            if (chunk.args.has("attributes")) {
-                // @ts-ignore chunk.args isn't used again so can overwrite value to be in ts base...
-                chunk.args.set("attributes", templateLiteralFromServerRenderChunks(chunk.args.get("attributes")!));
-            }
-            templateLiteral.addEntry(
-                new Expression({
-                    lhs: new VariableReference(chunk.func.actualName!),
-                    operation: Operation.Call,
-                    rhs: chunk.func.buildArgumentListFromArgumentsMap(chunk.args)
-                })
-            );
-        }
-        chunk
-    }
-    return templateLiteral;
+    return new TemplateLiteral(serverChunks.map(serverChunk => renderServerChunk(serverChunk)));
 }
 
 export function makeTsComponentServerModule(comp: Component, settings: IFinalPrismSettings, ssrSettings: IServerRenderSettings): void {
@@ -231,7 +230,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
     // Renders the component around the HTML document
     if (comp.isPage) imports.push(new VariableDeclaration("renderHTML"));
     // Escapes HTML values
-    if (comp.needsData) imports.push(new VariableDeclaration("escape")); 
+    if (comp.needsData) imports.push(new VariableDeclaration("escape"));
 
     if (imports.length > 0) {
         comp.serverModule!.addImport(

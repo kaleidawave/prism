@@ -4,7 +4,7 @@ import { VariableDeclaration } from "../../chef/rust/statements/variable";
 import { Expression, Operation } from "../../chef/rust/values/expression";
 import { Type, Value, ValueTypes } from "../../chef/rust/values/value";
 import { VariableReference } from "../../chef/rust/values/variable";
-import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
+import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { Module } from "../../chef/rust/module";
@@ -24,7 +24,7 @@ import { DynamicStatement } from "../../chef/rust/dynamic-statement";
 import { Comment as JSComment } from "../../chef/javascript/components/statements/comments";
 import { TemplateLiteral as JSTemplateLiteral } from "../../chef/javascript/components/value/template-literal";
 import { Type as JSType, Value as JSValue } from "../../chef/javascript/components/value/value";
-import { findSourceMap } from "module";
+import { IType } from "../../chef/javascript/utils/types";
 
 /** The variable which points to the String that is appended to */
 const accVariable = new VariableReference("acc");
@@ -39,6 +39,7 @@ function statementsFromServerRenderChunks(
     serverChunks: ServerRenderedChunks,
     module: Module,
     jsModule: JSModule,
+    dataType: IType | null,
     includeStringDef = false,
 ): Array<StatementTypes> {
     const statements: Array<StatementTypes> = includeStringDef ? [new VariableDeclaration("acc", true,
@@ -52,20 +53,10 @@ function statementsFromServerRenderChunks(
             statements.push(new Expression(
                 new VariableReference("push_str", accVariable),
                 Operation.Call,
-                new ArgumentList([new Value(Type.string, chunk)])
+                new Value(Type.string, chunk)
             ));
         } else if ("value" in chunk) {
-            let value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
-            if (chunk.escape) {
-                value = new Expression(
-                    new VariableReference("escape"),
-                    Operation.Call,
-                    new Expression(
-                        new VariableReference("to_string", value),
-                        Operation.Call
-                    )
-                );
-            }
+            const value = serverChunkToValue(chunk, module, jsModule, dataType);
             statements.push(new Expression(
                 new VariableReference("push_str", accVariable),
                 Operation.Call,
@@ -78,27 +69,50 @@ function statementsFromServerRenderChunks(
                 )
             ));
         } else if ("condition" in chunk) {
+            let value = jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes;
+            // TODO does not work for for loop and nested variables...
+            // TODO numbers and strings to convert to Rust as does not have falsy values
+            if (value instanceof VariableReference && dataType?.properties?.get(value.name)?.isOptional) {
+                value = new Expression(
+                    new VariableReference("is_some", value),
+                    Operation.Call,
+                )
+            }
             statements.push(new IfStatement(
-                jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes,
-                statementsFromServerRenderChunks(chunk.truthyRenderExpression, module, jsModule),
-                new ElseStatement(null, statementsFromServerRenderChunks(chunk.falsyRenderExpression, module, jsModule))
+                value,
+                statementsFromServerRenderChunks(chunk.truthyRenderExpression, module, jsModule, dataType),
+                new ElseStatement(null, statementsFromServerRenderChunks(chunk.falsyRenderExpression, module, jsModule, dataType))
             ));
         } else if ("subject" in chunk) {
             statements.push(new ForStatement(
                 chunk.variable,
                 jsAstToRustAst(chunk.subject, module, jsModule) as ValueTypes,
-                statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule)
+                statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule, dataType)
             ));
         } else if ("func" in chunk) {
-            // TODO temp fix
-            if (chunk.args.has("attributes")) {
-                // @ts-ignore chunk.args isn't used again so can overwrite value to be in ts base...
-                // chunk.args.set("attributes", templateLiteralFromServerRenderChunks(chunk.args.get("attributes")!));
-                chunk.args.set("attributes", new Expression(
-                    new VariableReference("to_string", new Value(Type.string, "")),
-                    Operation.Call
-                ));
-            }
+            const args = new Map(
+                Array.from(chunk.args)
+                    .map(([name, value]) => {
+                        if (typeof value === "object" && "argument" in value) {
+                            return [name, jsAstToRustAst(value.argument, module, jsModule)]
+                        } else {
+                            if (Array.isArray(value)) {
+                                if (value.length === 0) {
+                                    return [name, new Expression(new VariableReference("to_string", new Value(Type.string, "")), Operation.Call)]
+                                } else if (value.length === 1) {
+                                    return [name, serverChunkToValue(value[0], module, jsModule, dataType)];
+                                } else if (value.some((chunk: any) => "condition" in chunk || "subject" in chunk)) {
+                                    return [name, formatExpressionFromServerChunks(value, module, jsModule)];
+                                } else {
+                                    // TODO generate function on module and call the created function
+                                    throw Error("Not implemented - Rust render component slotted content");
+                                }
+                            } else {
+                                return [name, serverChunkToValue(value, module, jsModule, dataType)];
+                            }
+                        }
+                    })
+            );
             statements.push(new Expression(
                 new VariableReference("push_str", accVariable),
                 Operation.Call,
@@ -107,7 +121,7 @@ function statementsFromServerRenderChunks(
                         new Expression(
                             new VariableReference(chunk.func.actualName!),
                             Operation.Call,
-                            chunk.func.buildArgumentListFromArgumentsMap(chunk.args)
+                            chunk.func.buildArgumentListFromArgumentsMap(args)
                         ),
                         Operation.Borrow
                     )
@@ -117,6 +131,43 @@ function statementsFromServerRenderChunks(
     }
     if (includeStringDef) statements.push(new ReturnStatement(accVariable))
     return statements;
+}
+
+function serverChunkToValue(
+    chunk: ServerRenderChunk,
+    module: Module,
+    jsModule: JSModule,
+    dataType: IType | null = null
+): ValueTypes {
+    if (typeof chunk === "string") {
+        return new Expression(
+            new VariableReference("to_string", new Value(Type.string, chunk)),
+            Operation.Call
+        );
+    } else if ("value" in chunk) {
+        let value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
+        // TODO does not work for for loop and nested variables...
+        if (value instanceof VariableReference && dataType?.properties?.get(value.name)?.isOptional) {
+            value = new Expression(
+                new VariableReference("unwrap", value),
+                Operation.Call,
+            )
+        }
+        value = new Expression(
+            new VariableReference("to_string", value),
+            Operation.Call
+        );
+        if (chunk.escape) {
+            value = new Expression(
+                new VariableReference("escape"),
+                Operation.Call,
+                value
+            );
+        }
+        return value;
+    } else {
+        throw Error(`Not implemented - producing rust expression from chunk "${chunk}" `);
+    }
 }
 
 /** Builds a `format!(...)` expression. Cannot be used for condition and iterator data */
@@ -162,7 +213,7 @@ function formatExpressionFromServerChunks(
     );
 }
 
-const jsToRustDecoratorName = "useRustStatement";
+const jsToRustDecoratorName = "@useRustStatement";
 
 /**
  * Builds a rust module that has a public function for rendering a component to js
@@ -220,9 +271,9 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
              * Expects that the rust code in the argument string introduces a function of the same name 
              * and parameters into the module / scope
              */
-            const useRustStatementMatch = statement.comment.match(/@useRustStatement/);
+            const useRustStatementMatch = statement.comment.match(jsToRustDecoratorName);
             if (useRustStatementMatch) {
-                const rustCode = statement.comment.slice(useRustStatementMatch.index! + "@useRustStatement".length)
+                const rustCode = statement.comment.slice(useRustStatementMatch.index! + jsToRustDecoratorName.length)
                 comp.serverModule.statements.push(new DynamicStatement(rustCode.trim()));
             }
         } else if (
@@ -232,13 +283,13 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
         ) {
             const rustStatement = jsAstToRustAst(statement, comp.serverModule, comp.clientModule);
             if (rustStatement instanceof StructStatement) {
-                const memberDecorators = statement instanceof ExportStatement ? 
-                    (statement.exported as TSInterfaceDeclaration).memberDecorators : 
+                const memberDecorators = statement instanceof ExportStatement ?
+                    (statement.exported as TSInterfaceDeclaration).memberDecorators :
                     (statement as TSInterfaceDeclaration).memberDecorators;
                 for (const [name, decorator] of memberDecorators) {
                     if (decorator.name === "useRustStatement") {
                         const firstArg = decorator.args[0];
-                        if (!firstArg || decorator.args.length > 1) { 
+                        if (!firstArg || decorator.args.length > 1) {
                             throw Error("@useRustStatement must have a single string or template literal arg");
                         }
                         let value: string;
@@ -266,7 +317,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
 
     const serverRenderChunks = serverRenderPrismNode(comp.componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
     comp.serverRenderFunction.statements
-        = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, comp.clientModule, true);
+        = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, comp.clientModule, comp.componentDataType, true);
 
     if (comp.usesLayout) {
         const returnLayoutWrap = new ReturnStatement(new Expression(
@@ -282,6 +333,7 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
     if (comp.isPage) {
         let metadataString: ValueTypes;
         if (comp.metaDataChunks.length > 0) {
+            // TODO doesn't work because value has also been used. Needs some tweaking with borrow
             metadataString = formatExpressionFromServerChunks(comp.metaDataChunks, comp.serverModule, comp.clientModule);
         } else {
             metadataString = new Expression(
@@ -349,7 +401,7 @@ export function buildPrismServerModule(template: IShellData, settings: IFinalPri
         minify: settings.minify, addDisableToElementWithEvents: false
     });
     const renderHTMLStatements
-        = statementsFromServerRenderChunks(serverChunks, baseServerModule, new JSModule(""), true);
+        = statementsFromServerRenderChunks(serverChunks, baseServerModule, new JSModule(""), null, true);
 
     // Create function with content and meta slot parameters
     const pageRenderFunction = new FunctionDeclaration(

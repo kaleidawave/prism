@@ -78,14 +78,14 @@ export function constructBindings(
 
             const isomorphicContext = settings.context === "isomorphic";
             const isReversibleBinding = binding.aspect !== BindingAspect.Iterator;
-            const alreadyHasReturnValue = Boolean(dataPoint.getReturnValue);
 
-            if ((isomorphicContext && isReversibleBinding && !alreadyHasReturnValue) || binding.aspect === BindingAspect.Data) {
+            if (
+                (isomorphicContext && isReversibleBinding && !dataPoint.getReturnValue) ||
+                binding.aspect === BindingAspect.Data) {
                 try {
                     dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings)
-                } catch (error) { 
-                }
-            }   
+                } catch { }
+            }
 
             if (binding.aspect === BindingAspect.Iterator) {
                 if (!dataPoint.pushStatements) dataPoint.pushStatements = [];
@@ -164,7 +164,7 @@ function generateBranch(
         const setFunc = new FunctionDeclaration("set", ["value", ...positionalArgs], point.setStatements, { parent: variableContainer, bound: true });
         variableContainer.values.set("set", setFunc);
     }
-        
+
     if (point.type) {
         if (ignoredTypes.has(point.type.name!)) {
             // TODO temp for get rid of type: "object"

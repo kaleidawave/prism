@@ -11,13 +11,10 @@ export interface IType {
     name?: string,
     properties?: Map<string, IType>,
     indexed?: IType,
+    isOptional?: boolean
 }
 
-// TODO use WeakMap
-// Cache found types
-interface ModuleWithResolvedTypes extends Module {
-    _typeMap?: Map<string, IType>
-}
+const resolvedModuleTypeMap: WeakMap<Module, Map<string, IType>> = new WeakMap();
 
 // TODO hardcoded, doesn't contain any properties, needs to read from lib.d.ts
 export const inbuiltTypes: Map<string, IType> = new Map(
@@ -32,24 +29,29 @@ export const inbuiltTypes: Map<string, IType> = new Map(
  */
 export function typeSignatureToIType(
     typeSignature: TypeSignature,
-    module: ModuleWithResolvedTypes,
+    module: Module,
+    isOptional: boolean = false,
     name?: string
 ): IType {
     if (typeSignature.name) {
+        let type: IType;
         if (typeSignature.name === "Union") {
             if (typeSignature.typeArguments!.every(typeArg => typeArg.value?.type === Type.string)) {
-                return inbuiltTypes.get("string")!;
+                type = inbuiltTypes.get("string")!;
             } else if (typeSignature.typeArguments!.every(typeArg => typeArg.value?.type === Type.number)) {
-                return inbuiltTypes.get("number")!;
+                type = inbuiltTypes.get("number")!;
+            } else {
+                throw Error(`Cannot get type from "${typeSignature.render()}"`);
             }
+        } else {
+            type = typeFromName(typeSignature.name, module, typeSignature.typeArguments);
         }
-
-        return typeFromName(typeSignature.name, module, typeSignature.typeArguments);
-    }
-
-    if (typeSignature.mappedTypes) {
+        type.isOptional = isOptional;
+        return type;
+    } else if (typeSignature.mappedTypes) {
         return {
             name,
+            isOptional,
             properties: new Map(
                 Array.from(typeSignature.mappedTypes)
                     .map(([name, signature]) =>
@@ -57,10 +59,10 @@ export function typeSignatureToIType(
                     )
             )
         }
+    } else {
+        // TODO 
+        throw Error("Not implemented");
     }
-
-    // TODO 
-    throw Error("Not implemented");
 }
 
 /**
@@ -71,13 +73,11 @@ export function typeSignatureToIType(
  */
 function typeFromName(
     name: string,
-    module: ModuleWithResolvedTypes,
+    module: Module,
     typeArguments?: Array<TypeSignature>,
-    imported: boolean = false
+    imported: boolean = false,
 ): IType {
-    if (inbuiltTypes.has(name)) return inbuiltTypes.get(name)!;
-
-    if (!module._typeMap) module._typeMap = new Map();
+    if (inbuiltTypes.has(name)) return { ...inbuiltTypes.get(name)!};
 
     // TODO replace hardcoded array implementation
     if (name === "Array") {
@@ -88,29 +88,38 @@ function typeFromName(
         }
     }
 
-    if (module._typeMap?.has(name)) return module._typeMap.get(name)!;
+    if (resolvedModuleTypeMap.get(module)?.has(name)) return resolvedModuleTypeMap.get(module)?.get(name)!;
 
-    const [statement] = findTypeDeclaration(module, name, imported);
+    const [statement, fromModule] = findTypeDeclaration(module, name, imported);
 
     // TODO does not take into account generics 
     if (statement instanceof TypeDeclaration) {
-        return typeSignatureToIType(statement.value, module, name);
+        return typeSignatureToIType(statement.value, fromModule, false, name);
     } else if (statement instanceof InterfaceDeclaration) {
         let type: IType = { name };
+        if (!resolvedModuleTypeMap.has(fromModule)) resolvedModuleTypeMap.set(fromModule, new Map());
         // Assign now for recursive reasons
-        module._typeMap!.set(name, type);
+        resolvedModuleTypeMap.get(fromModule)!.set(name, type);
 
         type.properties = new Map(
             Array.from(statement.members)
                 .map(([name, signature]) =>
-                    [name, typeSignatureToIType(signature, module)]
+                    [
+                        name,
+                        typeSignatureToIType(
+                            signature,
+                            fromModule,
+                            statement.optionalProperties.has(name),
+                            statement.actualName
+                        )
+                    ]
                 )
         );
 
         // If extends type
         if (statement.extendsType) {
             // Get the type
-            const extendsType = typeSignatureToIType(statement.extendsType, module);
+            const extendsType = typeSignatureToIType(statement.extendsType, fromModule);
 
             // Add the declarations to the existing type
             for (const [key, value] of extendsType.properties!) {

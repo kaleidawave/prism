@@ -8,6 +8,14 @@ import { IFunctionDeclaration } from "../../chef/abstract-asts";
 
 const dataVariable = new VariableReference("data");
 
+export type ServerRenderChunk = string
+    | ConditionalServerRenderExpression
+    | LoopServerRenderExpression
+    | ServerRenderExpression
+    | FunctionCallServerRenderExpression;
+
+export type ServerRenderedChunks = Array<ServerRenderChunk>;
+
 export interface IServerRenderSettings {
     minify: boolean,
     addDisableToElementWithEvents: boolean
@@ -20,7 +28,7 @@ export interface ServerRenderExpression {
 
 export interface FunctionCallServerRenderExpression {
     func: IFunctionDeclaration,
-    args: Map<string, ServerRenderedChunks>
+    args: Map<string, ServerRenderChunk | ServerRenderedChunks | { argument: ValueTypes }>
 }
 
 export interface ConditionalServerRenderExpression {
@@ -35,15 +43,7 @@ export interface LoopServerRenderExpression {
     childRenderExpression: ServerRenderedChunks
 }
 
-type ServerChunk = string
-    | ConditionalServerRenderExpression
-    | LoopServerRenderExpression
-    | ServerRenderExpression
-    | FunctionCallServerRenderExpression
-
-export type ServerRenderedChunks = Array<ServerChunk>;
-
-function addChunk(chunk: ServerChunk, chunks: Array<ServerChunk>) {
+function addChunk(chunk: ServerRenderChunk, chunks: Array<ServerRenderChunk>) {
     if (typeof chunk === "string" && chunks.length > 0 && typeof chunks[chunks.length - 1] === "string") {
         chunks[chunks.length - 1] += chunk;
     } else {
@@ -96,7 +96,7 @@ export function serverRenderPrismNode(
 
             // A render function for a component goes attributes, componentData, contentSlot, ...context. With all of those being optional apart from contentSlot
 
-            const renderArgs: Map<string, ServerRenderedChunks> = new Map();
+            const renderArgs: Map<string, ServerRenderedChunks | ServerRenderChunk | { argument: ValueTypes }> = new Map();
 
             if (element.attributes) {
                 renderArgs.set("attributes", serverRenderNodeAttribute(element, nodeData, locals));
@@ -117,14 +117,14 @@ export function serverRenderPrismNode(
             }
 
             if (componentsData) {
-                const aliasedData = cloneAST(componentsData);
+                const aliasedData: ValueTypes = cloneAST(componentsData);
                 aliasVariables(aliasedData, dataVariable, locals)
-                renderArgs.set("data", aliasedData);
+                renderArgs.set("data", { argument: aliasedData });
             }
 
             if (component.clientGlobals) {
                 for (const clientGlobal of component.clientGlobals) {
-                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, [{ value: clientGlobal[0], escape: true }]);
+                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, { argument: clientGlobal[0] });
                 }
             }
 
@@ -225,8 +225,8 @@ export function serverRenderPrismNode(
 }
 
 export function serverRenderNodeAttribute(
-    element: HTMLElement, 
-    nodeData: WeakMap<Node, NodeData>, 
+    element: HTMLElement,
+    nodeData: WeakMap<Node, NodeData>,
     locals: Array<VariableReference>
 ) {
     const chunks: ServerRenderedChunks = [];

@@ -104,6 +104,7 @@ export class Component {
     componentHtmlTag: HTMLElement;
     // ServerRenderedChunks used for generating the concatenation for <head>
     metaDataChunks: ServerRenderedChunks;
+    componentDataType: IType | null;
 
     /**
      * Returns a component under a filename
@@ -535,6 +536,7 @@ export class Component {
                 throw error;
             }
         }
+        this.componentDataType = componentDataType;
 
         /**
          * Recursively detects if some part of the the type has an Array

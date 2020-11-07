@@ -206,9 +206,7 @@ export class Expression implements IRenderable {
             || operation === Operation.Initialize
             || operation === Operation.OptionalCall
         ) {
-            if (!rhs) {
-                this.rhs = new ArgumentList();
-            } else if (!(rhs instanceof ArgumentList)) {
+            if (rhs && !(rhs instanceof ArgumentList)) {
                 this.rhs = new ArgumentList([rhs]);
             }
         }
@@ -219,13 +217,13 @@ export class Expression implements IRenderable {
         if (otherOperators.has(this.operation) || this.operation === Operation.Ternary) {
             switch (this.operation) {
                 case Operation.Call:
-                    return this.lhs.render(settings) + this.rhs!.render(settings);
+                    return this.lhs.render(settings) + (this.rhs?.render?.(settings) ?? "()");
                 case Operation.Index:
                     return `${this.lhs.render(settings)}[${this.rhs!.render(settings)}]`;
                 case Operation.TypeOf:
                     return `typeof ${this.lhs.render(settings)}`;
                 case Operation.Initialize:
-                    return `new ${this.lhs.render(settings)}${this.rhs!.render(settings)}`;
+                    return `new ${this.lhs.render(settings)}${this.rhs?.render?.(settings) ?? "()"}`;
                 case Operation.Ternary:
                     let acc = this.lhs.render(settings);
                     if (!settings.minify) acc += " ";
@@ -254,7 +252,7 @@ export class Expression implements IRenderable {
                     return "..." + this.lhs.render(settings);
                 case Operation.OptionalChain:
                 case Operation.OptionalCall:
-                    return this.lhs.render(settings) + "?." + this.rhs!.render(settings);
+                    return this.lhs.render(settings) + "?." + (this.rhs?.render?.(settings) ?? "()");
                 case Operation.OptionalIndex:
                     return `${this.lhs.render(settings)}?.[${this.rhs!.render(settings)}]`;
                 case Operation.Yield:

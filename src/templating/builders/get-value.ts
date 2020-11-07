@@ -58,19 +58,23 @@ export function makeGetFromBinding(
             }
             break;
         case BindingAspect.Data:
-            getSource = isElementNullable ? 
-                newOptionalVariableReference("data", elementStatement) : 
+            getSource = isElementNullable ?
+                newOptionalVariableReference("data", elementStatement) :
                 new VariableReference("data", elementStatement);
             break;
         case BindingAspect.Conditional:
-            getSource = new Expression({
-                lhs: elementStatement,
-                operation: Operation.NotEqual,
-                rhs: new Value(Type.object)
-            });
+            if (dataType.name === "boolean") {
+                getSource = new Expression({
+                    lhs: elementStatement,
+                    operation: Operation.NotEqual,
+                    rhs: new Value(Type.object)
+                });
+            } else {
+                throw Error(`Cannot reverse Conditional binding to return value of type "${dataType.name}"`);
+            }
             break;
         case BindingAspect.InnerHTML:
-            getSource = isElementNullable ? 
+            getSource = isElementNullable ?
                 newOptionalVariableReference("innerHTML", elementStatement) :
                 new VariableReference("innerHTML", elementStatement);
             break;
@@ -123,7 +127,7 @@ export function makeGetFromBinding(
                 rhs: new Value(Type.object)
             });
         }
-    } else if (dataType.name === "string" && !settings.minify) {
+    } else if (dataType.name === "string" && !settings.minify && [BindingAspect.Attribute, BindingAspect.InnerText].includes(binding.aspect)) {
         value = new Expression({
             lhs: new VariableReference("trim", value),
             operation: isElementNullable ? Operation.OptionalCall : Operation.Call
