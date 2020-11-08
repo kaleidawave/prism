@@ -76,7 +76,7 @@ export function createObservableObject<T>(
                 Reflect.set(t, p, v);
             }
             // Try call set handlers
-            c.set?.call?.(this, v, ...i)
+            c?.set?.call?.(this, v, ...i)
             return true;
         },
         has(_, p) {

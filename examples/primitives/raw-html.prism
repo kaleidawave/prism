@@ -1,0 +1,9 @@
+<template>
+    <h1>Raw HTML:</h1>
+    <p #html="html"></p>
+</template>
+
+<script>
+    @Default({html: "<h1>Hello World</h1"})
+    class RawHTMLComponent extends Component<{html: string}> {}
+</script>

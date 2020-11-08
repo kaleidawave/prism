@@ -83,5 +83,5 @@ export function injectRoutes(routerModule: Module): void {
     }
 
     // Add the routes as a static member to the router class
-    routerComponent.staticFields!.get("routes")!.value = routePairArray;
+    routerComponent.staticFields!.get("r")!.value = routePairArray;
 }

@@ -11,8 +11,10 @@ export class Router extends HTMLElement {
     static r: Array<[RegExp, string, string]>;
 
     // TODO not needed under context=client
-    static loadedComponent: string | null = null;
-    static loadedLayout: string | null = null;
+    // loaded component
+    static lc: string | null = null;
+    // loaded layout
+    static ll: string | null = null;
 
     connectedCallback() {
         Router.t = this;
@@ -30,10 +32,10 @@ export class Router extends HTMLElement {
             Router.goTo(window.location.pathname, false)
         } else {
             if ((fc as Component<any>)?.layout) {
-                Router.loadedLayout = (fc as Component<any>).tagName.toLowerCase();
-                Router.loadedComponent = ((fc as Component<any>).firstElementChild as Component<any>).tagName.toLowerCase();
+                Router.ll = (fc as Component<any>).tagName.toLowerCase();
+                Router.lc = ((fc as Component<any>).firstElementChild as Component<any>).tagName.toLowerCase();
             } else {
-                Router.loadedComponent = (fc as Component<any>).tagName.toLowerCase();
+                Router.lc = (fc as Component<any>).tagName.toLowerCase();
             }
         }
     }
@@ -50,36 +52,38 @@ export class Router extends HTMLElement {
      * Only reason its async is for awaiting page load
      * TODO explain
      * @param url 
-     * @param pushState 
+     * @param ps push state
      */
-    static async goTo(url: string, pushState = true) {
+    static async goTo(url: string, ps = true) {
         let r = this.t;
-        if (pushState) history.pushState({}, "", url)
-        for (const [pattern, component, layout] of this.r) {
-            const match = url.match(pattern);
-            if (match) {
-                if (this.loadedComponent === component) {
-                    if (layout) {
-                        await (r.firstElementChild.firstElementChild as Component<any>).load?.(match.groups);
+        if (ps) history.pushState({}, "", url)
+        // pattern component layout
+        for (const [p, comp, lay] of this.r) {
+            // match
+            const m = url.match(p);
+            if (m) {
+                if (this.lc === comp) {
+                    if (lay) {
+                        await (r.firstElementChild.firstElementChild as Component<any>).load?.(m.groups);
                     } else {
-                        await (r.firstElementChild as Component<any>).load?.(match.groups);
+                        await (r.firstElementChild as Component<any>).load?.(m.groups);
                     }
                 } else {
                     // Container
                     let c = r;
-                    if (layout) {   
-                        if (Router.loadedLayout === layout) {
+                    if (lay) {   
+                        if (Router.ll === lay) {
                             c = r.firstElementChild as Component<any>;
                         } else {
-                            const newLayout = h(layout);
+                            const newLayout = h(lay);
                             r.firstElementChild ? r.firstElementChild.replaceWith(newLayout) : r.append(newLayout);
                             c = newLayout as HTMLElement;
                         }
                     }
-                    Router.loadedComponent = component;
+                    Router.lc = comp;
                     // New Component
-                    const nC = h(component) as Component<any>;
-                    await nC.load?.(match.groups);
+                    const nC = h(comp) as Component<any>;
+                    await nC.load?.(m.groups);
                     // Rendering the component is deferred until till adding to dom which is next line
                     c.firstElementChild ? c.firstElementChild.replaceWith(nC) : c.append(nC);
                 }

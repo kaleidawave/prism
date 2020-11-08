@@ -47,13 +47,13 @@ function createObservableObject<T>(
                         Object.fromEntries(Object.keys(r).map(k => [k, r[k]]))))
             }
             // Get the respective (c)hunk on the mapping tree
-            if (m[p]) return;
+            if (!m[p]) return;
             return t[p];
         },
         // target, prop, value, receiver
         set: (t, p, v) => {
             // Try call set handlers
-            m[p].set?.call?.(this, v)
+            m[p]?.set?.call?.(this, v)
             return Reflect.set(t, p, v)
         },
         has(_, p) {
