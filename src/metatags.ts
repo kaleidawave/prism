@@ -36,7 +36,6 @@ function buildMetaTag(metadata: object, nodeData: WeakMap<Node, NodeData>): HTML
 /**
  * Creates a series of standard meta tags used for seo and 
  * TODO stricter metadata types (possible string enums)
- * TODO send also node data as well
  * @param metadata 
  */
 export function buildMetaTags(metadata: Map<string, string | ValueTypes>): {

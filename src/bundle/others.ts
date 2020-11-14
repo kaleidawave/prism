@@ -15,7 +15,6 @@ function h(tn: string, a: Object | 0 = 0, v: Object | 0 = 0, ...c: Array<HTMLEle
     const e = document.createElement(tn);
     if (a) {
         oE(a, ([k, v]) => {
-            // TODO temp, haven't figured the weird characteristics of IDL attributes and SVG
             if (k in e) {
                 e[k] = v;
             } else {

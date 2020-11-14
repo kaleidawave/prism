@@ -86,7 +86,7 @@ export class MediaRule {
 export class KeyFrameRule {
     constructor(
         public name: string, // Name of keyframes
-        public declarations: Map<"to" | "from" | number, Map<string, CSSValue>> // TODO does not take into account that the multiple times can be mapped to the same declarations
+        public declarations: Map<"to" | "from" | number, Map<string, CSSValue>> // TODO does not take into account there can be multiple positions matched to the same declaration e.g. 68%, 72% {}
     ) { }
 
     static fromTokens(reader: TokenReader<CSSToken>): KeyFrameRule {

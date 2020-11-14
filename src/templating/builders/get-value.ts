@@ -21,8 +21,8 @@ export function makeGetFromBinding(
 ): ValueTypes {
 
     // If the element is multiple get the "pivot" of that element and building a chain
-    const elementStatement = getElement(binding.element, nodeData);
-    const isElementNullable: boolean = nodeData.get(binding.element)?.nullable ?? false;
+    const elementStatement = binding.element ? getElement(binding.element, nodeData) : null; 
+    const isElementNullable = binding.element ? nodeData.get(binding.element)?.nullable ?? false : false;
 
     let getSource: ValueTypes;
     switch (binding.aspect) {
@@ -30,14 +30,14 @@ export function makeGetFromBinding(
             if (typeof binding.fragmentIndex === "undefined") throw Error("Encountered binding with invalid fragment index");
             if (isElementNullable) {
                 getSource = newOptionalVariableReferenceFromChain(
-                    elementStatement,
+                    elementStatement!,
                     "childNodes",
                     binding.fragmentIndex,
                     "data"
                 );
             } else {
                 getSource = VariableReference.fromChain(
-                    elementStatement,
+                    elementStatement!,
                     "childNodes",
                     binding.fragmentIndex,
                     "data"
@@ -47,9 +47,9 @@ export function makeGetFromBinding(
         case BindingAspect.Attribute:
             const attribute = binding.attribute!;
             if (HTMLElement.booleanAttributes.has(attribute)) {
-                getSource = isElementNullable ? newOptionalVariableReference("data", elementStatement) : new VariableReference("data", elementStatement);
+                getSource = isElementNullable ? newOptionalVariableReference("data", elementStatement!) : new VariableReference("data", elementStatement!);
             } else {
-                const getAttributeRef = isElementNullable ? newOptionalVariableReference("getAttribute", elementStatement) : new VariableReference("getAttribute", elementStatement);
+                const getAttributeRef = isElementNullable ? newOptionalVariableReference("getAttribute", elementStatement!) : new VariableReference("getAttribute", elementStatement!);
                 getSource = new Expression({
                     lhs: getAttributeRef,
                     operation: isElementNullable ? Operation.OptionalCall : Operation.Call,
@@ -59,13 +59,13 @@ export function makeGetFromBinding(
             break;
         case BindingAspect.Data:
             getSource = isElementNullable ?
-                newOptionalVariableReference("data", elementStatement) :
-                new VariableReference("data", elementStatement);
+                newOptionalVariableReference("data", elementStatement!) :
+                new VariableReference("data", elementStatement!);
             break;
         case BindingAspect.Conditional:
             if (dataType.name === "boolean") {
                 getSource = new Expression({
-                    lhs: elementStatement,
+                    lhs: elementStatement!,
                     operation: Operation.NotEqual,
                     rhs: new Value(Type.object)
                 });
@@ -75,8 +75,8 @@ export function makeGetFromBinding(
             break;
         case BindingAspect.InnerHTML:
             getSource = isElementNullable ?
-                newOptionalVariableReference("innerHTML", elementStatement) :
-                new VariableReference("innerHTML", elementStatement);
+                newOptionalVariableReference("innerHTML", elementStatement!) :
+                new VariableReference("innerHTML", elementStatement!);
             break;
         default:
             throw Error(`Not implemented - get hookup for binding of type ${BindingAspect[binding.aspect]}`)
@@ -143,11 +143,11 @@ export function makeGetFromBinding(
 export function getLengthFromIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): ValueTypes {
     if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
 
-    const getElemExpression = getElement(binding.element, nodeData);
+    const getElemExpression = getElement(binding.element!, nodeData);
 
     // TODO this a temp fix for some conditionals being based on empty arrays but
     // makes the assumption that if parent component is not rendered due to #if="someArr.length > 0"
-    if (nodeData.get(binding.element)?.nullable) {
+    if (nodeData.get(binding.element!)?.nullable) {
         return new Expression({
             lhs: new Expression({
                 lhs: new Expression({

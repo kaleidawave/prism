@@ -24,11 +24,12 @@ export function getRoutes() {
 }
 
 /**
- * TODO check no overwrite
  * @param component 
  */
 export function setNotFoundRoute(component: Component) {
-    if (notFoundRoute) throw Error(`Component "${component.filename}" cannot be set to all routes as "${notFoundRoute.filename}" is already set to match on all routes`);
+    if (notFoundRoute) {
+        throw Error(`Component "${component.filename}" cannot be set to all routes as "${notFoundRoute.filename}" is already set to match on all routes`);
+    }
     notFoundRoute = component;
 }
 
@@ -46,7 +47,7 @@ export function injectRoutes(routerModule: Module): void {
     // Sort routes so that fixed routes take prevalence over dynamic routes
     routes.sort((r1, r2) => {
         const r1hasDynamicParts = r1[0].some(part => typeof part === "object"),
-              r2hasDynamicParts = r2[0].some(part => typeof part === "object");
+            r2hasDynamicParts = r2[0].some(part => typeof part === "object");
         if (r1hasDynamicParts === r2hasDynamicParts) {
             return 0;
         } else if (r1hasDynamicParts && !r2hasDynamicParts) {

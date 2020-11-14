@@ -1,4 +1,5 @@
 import { join } from "path";
+import { readDirectory, pathInformation } from "./filesystem";
 
 /**
  * Parses command line arguments to map
@@ -35,21 +36,15 @@ export function isUppercase(char: string): boolean {
     return charCode >= 65 && charCode <= 90
 }
 
-let nodeReadDirSync: ((path: string) => Array<string>) | null = null;
-let nodeLStatSync: ((path: string) => { isDirectory: () => boolean }) | null = null;
-
 /**
  * Recursively yields absolute file paths in a folder
  * @param folder 
  * @yields full filepath
  */
 export function* filesInFolder(folder: string): Generator<string> {
-    if (!nodeReadDirSync) nodeReadDirSync = require("fs").readdirSync;
-    if (!nodeLStatSync) nodeLStatSync = require("fs").lstatSync;
-
-    for (const member of nodeReadDirSync!(folder)) {
+    for (const member of readDirectory(folder)) {
         const memberPath = join(folder, member);
-        if (nodeLStatSync!(memberPath).isDirectory()) {
+        if (pathInformation(memberPath).isDirectory()) {
             yield* filesInFolder(memberPath);
         } else {
             yield memberPath;
@@ -59,15 +54,15 @@ export function* filesInFolder(folder: string): Generator<string> {
 
 /**
  * like `arr.findIndex` but returns the rightmost index first. 
- * returns -1 if cannot find index that matches predicate (TODO temp)
- * @param arr 
- * @param predicate 
+ * @param arr Array to search
+ * @param predicate Predicate to test against
+ * @throws If cannot find element that matches `predicate`
  */
 export function findLastIndex<T>(arr: Array<T>, predicate: (arg0: T) => boolean): number {
     for (let i = arr.length - 1; i >= 0; i--) {
         if (predicate(arr[i])) return i;
     }
-    return -1;
+    throw Error("Could not find element in arr that matched predicate");
 }
 
 /**

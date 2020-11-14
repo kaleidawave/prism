@@ -54,7 +54,11 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteTemplatePath: string,
 }
 
-export function makePrismSettings(cwd: string, pathSplitter: string, partialSettings: Partial<IPrismSettings>, ): IFinalPrismSettings {
+export function makePrismSettings(
+    cwd: string, 
+    pathSplitter: string, 
+    partialSettings: Partial<IPrismSettings> = {}
+): IFinalPrismSettings {
     const projectPath = partialSettings.projectPath ?? defaultSettings.projectPath;
     const outputPath = partialSettings.outputPath ?? defaultSettings.outputPath;
     const assetPath = partialSettings.assetPath ?? join(projectPath, "assets");

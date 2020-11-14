@@ -15,8 +15,8 @@ export function makeSetFromBinding(
     globals: Array<VariableReference> = []
 ): Array<StatementTypes> {
     const statements: Array<StatementTypes> = [];
-    const elementStatement = getElement(binding.element, nodeData);
-    const isElementNullable = nodeData.get(binding.element)?.nullable ?? false;
+    const elementStatement = binding.element ? getElement(binding.element, nodeData) : null;
+    const isElementNullable = binding.element ? nodeData.get(binding.element)?.nullable ?? false : false;
 
     // getSlice will return the trailing portion from the for iterator statement thing
     const variableReference = VariableReference.fromChain(...getSlice(variable) as Array<string>) as VariableReference;
@@ -40,7 +40,7 @@ export function makeSetFromBinding(
                     operation: Operation.Call,
                     rhs: new ArgumentList([
                         newOptionalVariableReferenceFromChain(
-                            elementStatement,
+                            elementStatement!,
                             "childNodes",
                             binding.fragmentIndex!,
                         ),
@@ -50,7 +50,7 @@ export function makeSetFromBinding(
             } else {
                 statements.push(new Expression({
                     lhs: VariableReference.fromChain(
-                        elementStatement,
+                        elementStatement!,
                         "childNodes",
                         binding.fragmentIndex!,
                         "data"
@@ -61,7 +61,7 @@ export function makeSetFromBinding(
             }
             break;
         case BindingAspect.Conditional: {
-            const { clientRenderMethod, identifier } = nodeData.get(binding.element) ?? {};
+            const { clientRenderMethod, identifier } = nodeData.get(binding.element!) ?? {};
 
             const callConditionalSwapFunction = new Expression({
                 lhs: VariableReference.fromChain("conditionalSwap", "call"),
@@ -77,7 +77,7 @@ export function makeSetFromBinding(
             break;
         }
         case BindingAspect.Iterator: {
-            const clientRenderFunction = nodeData.get(binding.element)!.clientRenderMethod!;
+            const clientRenderFunction = nodeData.get(binding.element!)!.clientRenderMethod!;
 
             const renderNewElement = new Expression({
                 lhs: VariableReference.fromChain("this", clientRenderFunction.actualName!),
@@ -87,8 +87,8 @@ export function makeSetFromBinding(
 
             const addNewElementToTheParent = new Expression({
                 lhs: isElementNullable ?
-                    newOptionalVariableReferenceFromChain(elementStatement, "append") :
-                    VariableReference.fromChain(elementStatement, "append"),
+                    newOptionalVariableReferenceFromChain(elementStatement!, "append") :
+                    VariableReference.fromChain(elementStatement!, "append"),
                 operation: isElementNullable ? Operation.OptionalCall : Operation.Call,
                 rhs: renderNewElement
             });
@@ -100,12 +100,12 @@ export function makeSetFromBinding(
             const attribute = binding.attribute!;
             if (HTMLElement.booleanAttributes.has(attribute)) {
                 statements.push(new Expression({
-                    lhs: new VariableReference(attribute, elementStatement),
+                    lhs: new VariableReference(attribute, elementStatement!),
                     operation: Operation.Assign,
                     rhs: newValue!
                 }));
             } else {
-                const setAttributeRef = isElementNullable ? newOptionalVariableReference("setAttribute", elementStatement) : new VariableReference("setAttribute", elementStatement);
+                const setAttributeRef = isElementNullable ? newOptionalVariableReference("setAttribute", elementStatement!) : new VariableReference("setAttribute", elementStatement!);
                 statements.push(new Expression({
                     lhs: setAttributeRef,
                     operation: isElementNullable ? Operation.OptionalCall : Operation.Call,
@@ -122,13 +122,13 @@ export function makeSetFromBinding(
                     lhs: new VariableReference("tryAssignData"),
                     operation: Operation.Call,
                     rhs: new ArgumentList([
-                        elementStatement,
+                        elementStatement!,
                         newValue!
                     ])
                 }));
             } else {
                 statements.push(new Expression({
-                    lhs: new VariableReference("data", elementStatement),
+                    lhs: new VariableReference("data", elementStatement!),
                     operation: Operation.Assign,
                     rhs: newValue!
                 }));
@@ -147,14 +147,14 @@ export function makeSetFromBinding(
                     lhs: new VariableReference("tryAssignData"),
                     operation: Operation.Call,
                     rhs: new ArgumentList([
-                        elementStatement,
+                        elementStatement!,
                         newValue!,
                         new Value(Type.string, "innerHTML")
                     ])
                 }));
             } else {
                 statements.push(new Expression({
-                    lhs: new VariableReference("innerHTML", elementStatement),
+                    lhs: new VariableReference("innerHTML", elementStatement!),
                     operation: Operation.Assign,
                     rhs: newValue!
                 }));
@@ -162,7 +162,7 @@ export function makeSetFromBinding(
             break;
         }
         case BindingAspect.Style:
-            const styleObject = new VariableReference("style", elementStatement);
+            const styleObject = new VariableReference("style", elementStatement!);
             // Converts background-color -> backgroundColor which is the key JS uses
             const styleKey = binding.styleKey!.replace(/(?:-)([a-z])/g, (_, m) => m.toUpperCase());
             statements.push(new Expression({
@@ -180,7 +180,7 @@ export function makeSetFromBinding(
 
 export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): StatementTypes {
     if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
-    const getElemExpression = getElement(binding.element, nodeData);
+    const getElemExpression = getElement(binding.element!, nodeData);
 
     // Uses the setLength helper to assist with sorting cache and removing from DOM
     return new Expression({

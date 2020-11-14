@@ -77,13 +77,21 @@ export function compileSingleComponent(
  * @param scriptBundle 
  * @param styleBundle 
  */
-function addComponentToBundle(component: Component, scriptBundle: Module, styleBundle?: Stylesheet): void {
+function addComponentToBundle(
+    component: Component, 
+    scriptBundle: Module, 
+    styleBundle?: Stylesheet, 
+    bundleComponents: Set<Component> = new Set()
+): void {
     scriptBundle.combine(component.clientModule);
     if (component.stylesheet && styleBundle) {
         styleBundle.combine(component.stylesheet);
     }
-    // TODO cyclic imports
     for (const [, importedComponent] of component.importedComponents) {
-        addComponentToBundle(importedComponent, scriptBundle, styleBundle);
+        // Handles cyclic imports
+        if (bundleComponents.has(importedComponent)) continue;
+
+        bundleComponents.add(importedComponent);
+        addComponentToBundle(importedComponent, scriptBundle, styleBundle, bundleComponents);
     }
 }

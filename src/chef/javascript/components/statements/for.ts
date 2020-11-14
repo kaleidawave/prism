@@ -15,15 +15,17 @@ const closers = new Set([JSToken.CloseSquare, JSToken.CloseCurly])
  */
 export class ForStatementExpression implements IRenderable {
 
-    // TODO these can be null
     constructor(
-        public initializer: VariableDeclaration,
-        public condition: Expression,
-        public finalExpression: Expression
+        public initializer: VariableDeclaration | null,
+        public condition: Expression | null,
+        public finalExpression: Expression | null
     ) { }
 
     static fromTokens(reader: TokenReader<JSToken>): ForStatementExpression {
-        let initialization: VariableDeclaration | null = null;
+        let condition: Expression | null = null, 
+            initialization: VariableDeclaration | null = null, 
+            finalExpression: Expression | null = null;
+
         if (reader.current.type !== JSToken.SemiColon) {
             initialization = VariableDeclaration.fromTokens(reader);
             if (!initialization.value) {
@@ -32,15 +34,13 @@ export class ForStatementExpression implements IRenderable {
             reader.move(-1);
         }
         reader.expectNext(JSToken.SemiColon);
-        let condition: Expression | null = null, finalExpression: Expression | null = null;
         if (reader.current.type !== JSToken.SemiColon) {
             condition = Expression.fromTokens(reader) as Expression;
         }
         reader.expectNext(JSToken.SemiColon);
-        if (reader.current.type !== JSToken.SemiColon) {
+        if (reader.current.type !== JSToken.CloseBracket) {
             finalExpression = Expression.fromTokens(reader) as Expression;
         }
-        // @ts-ignore TODO if all 3 are null then make it null for for(;;) {} else throw error
         return new ForStatementExpression(initialization, condition, finalExpression);
     }
 

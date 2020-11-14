@@ -137,7 +137,6 @@ export function stringToTokens(css: string, settings: ITokenizationSettings = {}
                     break;
             }
         } else if (symbolsMap.has(css[index])) {
-            // TODO temp && acc !== EOL
             if (acc.length > 0) {
                 reader.add({ type: CSSToken.Identifier, value: acc, column: column - acc.length, line });
                 acc = "";
@@ -186,7 +185,9 @@ export function stringToTokens(css: string, settings: ITokenizationSettings = {}
         }
         index++;
     }
-    if (currentLiteral !== null) throw Error("End finish"); // TODO better error message
+    if (currentLiteral !== null) {
+        reader.throwError(`Could not find end to ${Literals[currentLiteral]}`);
+    }
 
     if (acc.length > 0) {
         reader.add({ type: CSSToken.Identifier, value: acc, column: column - acc.length, line });

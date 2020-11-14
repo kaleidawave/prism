@@ -99,7 +99,11 @@ export class HTMLElement extends Node implements IRenderable {
         this.children = children;
     }
 
-    static fromTokens(reader: TokenReader<HTMLToken>, settings: IParseSettings = defaultParseSettings, parent: HTMLElement | HTMLDocument | null = null): HTMLElement {
+    static fromTokens(
+        reader: TokenReader<HTMLToken>,
+        settings: IParseSettings = defaultParseSettings,
+        parent: HTMLElement | HTMLDocument | null = null
+    ): HTMLElement {
         reader.expectNext(HTMLToken.TagStart);
         const position: IPosition = { column: reader.current.column, line: reader.current.line };
         const tagName: string = reader.current.value!;
@@ -153,9 +157,11 @@ export class HTMLElement extends Node implements IRenderable {
             if (reader.current.type === HTMLToken.TagStart) {
                 children.push(HTMLElement.fromTokens(reader, settings, element));
             } else if (reader.current.type === HTMLToken.Content) {
-                const position: IPosition = { column: reader.current.column, line: reader.current.line };
-                // Parent here can be null as it will be set in the HTMLConstructor
-                children.push(new TextNode(reader.current.value, element, position));
+                if (reader.current.value && reader.current.value.trimRight().length > 0) {
+                    const position: IPosition = { column: reader.current.column, line: reader.current.line };
+                    // Parent here can be null as it will be set in the HTMLConstructor
+                    children.push(new TextNode(reader.current.value, element, position));
+                }
                 reader.move();
             } else if (reader.current.type === HTMLToken.Comment) {
                 if (settings.comments) {

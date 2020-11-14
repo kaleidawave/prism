@@ -1,4 +1,5 @@
 import { join } from "path";
+import { readFile } from "../filesystem";
 
 export function printWarningBanner(): void {
     const message = `Warning: Prism is an experimental, expect unexpected behavior to not be caught, not for use in production`;
@@ -8,10 +9,8 @@ export function printWarningBanner(): void {
 
 export function printInfoScreen(): void {
     let version = "";
-    if (typeof window === "undefined") {
-        const packageJSON = JSON.parse(require("fs").readFileSync(join(__dirname, "../../package.json")).toString());
-        version = packageJSON.version;
-    }
+    const packageJSON = JSON.parse(readFile(join(__dirname, "../../package.json")).toString());
+    version = packageJSON.version;
     const leftOffset = Math.floor(Math.max(process.stdout.columns - 76, 0) / 2);
     console.log(
         `${" ".repeat(leftOffset)} ______   ______     __     ______     __    __    

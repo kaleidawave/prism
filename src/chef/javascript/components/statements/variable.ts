@@ -36,7 +36,7 @@ export class VariableDeclaration implements IRenderable, IVariableSettings {
     name: string;
     entries?: Map<string | number, VariableDeclaration | null>;
     value: ValueTypes;
-    typeSignature?: TypeSignature; // TODO will be Type eventually
+    typeSignature?: TypeSignature;
     parent: Module | ClassDeclaration;
     isConstant: boolean = true;
     spread: boolean = false;
@@ -157,7 +157,7 @@ export class VariableDeclaration implements IRenderable, IVariableSettings {
 
         let spread: boolean = settings.spread ?? false;
         if (settings.context === VariableContext.Parameter && reader.current.type === JSToken.Spread) {
-            spread = true; // TODO local variable spread rather than modifying settings
+            spread = true;
             reader.move();
         }
 
@@ -257,7 +257,7 @@ export class VariableDeclaration implements IRenderable, IVariableSettings {
             value = Expression.fromTokens(reader);
         }
 
-        // TODO what?
+        // Throw if constant variable is not defined a variable. Not sure why to not do for but it is written different
         if (isConstant && !value && settings.context !== VariableContext.For) {
             reader.throwExpect("Expected assignment for constant variable");
         }

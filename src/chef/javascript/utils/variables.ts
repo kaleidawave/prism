@@ -258,7 +258,11 @@ export function cloneAST(part: astTypes) {
     } else if (part instanceof ArrayLiteral) {
         return new ArrayLiteral(part.elements.map(cloneAST));
     } else if (part instanceof ForStatementExpression) {
-        return new ForStatementExpression(cloneAST(part.initializer), cloneAST(part.condition), cloneAST(part.finalExpression));
+        return new ForStatementExpression(
+            part.initializer ? cloneAST(part.initializer) : null, 
+            part.condition ? cloneAST(part.condition) : null, 
+            part.finalExpression ? cloneAST(part.finalExpression) : null
+        );
     } else {
         throw Error(`Could not clone part of instance "${part.constructor.name}"`)
     }

@@ -1,6 +1,6 @@
 import { HTMLElement, HTMLDocument, TextNode } from "./chef/html/html";
 import { ClassDeclaration } from "./chef/javascript/components/constructs/class";
-import { parseTemplate, IBinding, ITemplateData, BindingAspect } from "./templating/template";
+import { parseTemplate, IBinding, ITemplateData, BindingAspect, PartialBinding } from "./templating/template";
 import { Module as JSModule } from "./chef/javascript/components/module";
 import { buildClientRenderMethod, clientRenderPrismNode } from "./templating/builders/client-render";
 import { buildEventBindings } from "./templating/builders/server-event-bindings";
@@ -17,7 +17,7 @@ import { ObjectLiteral } from "./chef/javascript/components/value/object";
 import { TemplateLiteral } from "./chef/javascript/components/value/template-literal";
 import { Stylesheet } from "./chef/css/stylesheet";
 import { prefixSelector, ISelector } from "./chef/css/selectors";
-import { getElement, randomPrismId, thisDataVariable } from "./templating/helpers";
+import { addBinding, getElement, randomPrismId, thisDataVariable } from "./templating/helpers";
 import { ImportStatement } from "./chef/javascript/components/statements/import-export";
 import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings } from "./chef/helpers";
@@ -60,7 +60,6 @@ export class Component {
     clientModule: JSModule;
 
     serverModule?: IModule<any>; // TODO any
-    // TODO language agnostic function type
     serverRenderFunction?: IFunctionDeclaration;
     pageServerRenderFunction?: IFunctionDeclaration;
 
@@ -223,11 +222,6 @@ export class Component {
 
                         if (!correctPageDecoratorFormat) {
                             throw Error(`"${this.filename}" - Page decorator arguments must be of type string`);
-                        }
-
-                        // TODO slots have not been calculated yet
-                        if (this.hasSlots) {
-                            throw Error(`"${this.filename}": Cannot have a page with slots`);
                         }
 
                         this.isPage = true;
@@ -393,39 +387,32 @@ export class Component {
                 rhs: aliasedTitleTL
             });
             loadMethod.statements.push(titleSetter);
-
-            // TODO title bindings, element? referencesVariables...?
-            // findVariables(this.title)
-            // bindings.push({
-            //     aspect: ValueAspect.DocumentTitle, 
-            //     expression: this.title, 
-            //     referencesVariables: []
-            // })
         }
 
+        // Create methods that are needed for client side states updates
         for (const binding of templateData.bindings) {
             if (binding.aspect === BindingAspect.Iterator) {
                 const expression = binding.expression as ForIteratorExpression;
                 const renderChildren = clientRenderPrismNode(
-                    binding.element.children[0],
+                    binding.element!.children[0],
                     templateData.nodeData,
                     true,
                     [...(this.globals ?? []), expression.variable.toReference()]
                 );
-                const elementIdentifer = templateData.nodeData.get(binding.element)?.identifier!;
+                const elementIdentifer = templateData.nodeData.get(binding.element!)?.identifier!;
                 const renderMethod = new FunctionDeclaration(
                     "render" + elementIdentifer,
                     [expression.variable],
                     [new ReturnStatement(renderChildren)]
                 );
                 componentClass.addMember(renderMethod);
-                assignToObjectMap(templateData.nodeData, binding.element, "clientRenderMethod", renderMethod);
+                assignToObjectMap(templateData.nodeData, binding.element!, "clientRenderMethod", renderMethod);
             } else if (binding.aspect === BindingAspect.Conditional) {
                 // Final true is important here to make sure 
                 const renderTruthyChild =
-                    clientRenderPrismNode(binding.element, templateData.nodeData, true, this.globals, true);
+                    clientRenderPrismNode(binding.element!, templateData.nodeData, true, this.globals, true);
 
-                const { elseElement, identifier, conditionalExpression } = templateData.nodeData.get(binding.element)!;
+                const { elseElement, identifier, conditionalExpression } = templateData.nodeData.get(binding.element!)!;
                 const renderFalsyChild = clientRenderPrismNode(elseElement!, templateData.nodeData, true, this.globals);
 
                 const clientAliasedConditionExpression = cloneAST(conditionalExpression!);
@@ -443,7 +430,7 @@ export class Component {
                     ]
                 );
                 componentClass.addMember(renderMethod);
-                assignToObjectMap(templateData.nodeData, binding.element, "clientRenderMethod", renderMethod);
+                assignToObjectMap(templateData.nodeData, binding.element!, "clientRenderMethod", renderMethod);
             }
         }
 
@@ -524,6 +511,21 @@ export class Component {
         this.bindings = templateData.bindings;
         this.hasSlots = templateData.slots.size > 0;
 
+        // Throw error if page has slots
+        if (this.isPage && this.hasSlots) {
+            throw Error("Cannot have slot ");
+        }
+
+        if (this.title && !(this.title instanceof Value)) {
+            const binding: PartialBinding = {
+                aspect: BindingAspect.DocumentTitle,
+                expression: this.title,
+                // @ts-ignore no element for this binding
+                element: null,
+            }
+            addBinding(binding, [], this.globals, this.bindings)
+        }
+
         // Process the components data type
         let componentDataType: IType | null = null;
         if (componentClass.base!.typeArguments?.[0]) {
@@ -585,7 +587,7 @@ export class Component {
                 // TODO try and drop data type if `settings.context === "client"`. Observable requires some hints and the hints are generated using the data type
                 if (!componentDataType) {
                     // TODO dependency element debug not great
-                    throw Error(`Data type required for a dependency around element ${templateData.bindings[0].element.render(defaultRenderSettings, { inline: true })}`);
+                    throw Error(`Data type required for a dependency around element ${templateData.bindings[0].element!.render(defaultRenderSettings, { inline: true })}`);
                 }
 
                 const bindingTree = constructBindings(
@@ -689,7 +691,7 @@ export class Component {
                 tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
             }
 
-            // Set client module to now point at output path. TODO not sure why
+            // Set client module to now point to output path.
             this.clientModule.filename = join(
                 settings.absoluteOutputPath,
                 this.relativeFilename + ".js"

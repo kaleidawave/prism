@@ -1,5 +1,9 @@
-import { registerFSReadCallback, registerFSWriteCallback, registerFSCopyCallback, registerFSExistsCallback } from "./filesystem";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from "fs";
+import { 
+    registerFSCopyCallback, registerFSExistsCallback, 
+    registerFSPathInfoCallback, registerFSReadCallback, 
+    registerFSReadDirectoryCallback, registerFSWriteCallback 
+} from "./filesystem";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, readdirSync, lstatSync } from "fs";
 import { dirname, isAbsolute, join, sep } from "path";
 import { getArguments } from "./helpers";
 import { IFinalPrismSettings, makePrismSettings } from "./settings";
@@ -23,12 +27,19 @@ registerFSCopyCallback((from, to) => {
 registerFSExistsCallback(path => {
     return existsSync(path);
 });
+registerFSReadDirectoryCallback(path => {
+    return readdirSync(path);
+});
+registerFSPathInfoCallback(path => {
+    return lstatSync(path);
+});
 
-// Re-export fs callbacks so can module users can 
-export { registerFSReadCallback, registerFSWriteCallback, registerFSCopyCallback, registerFSExistsCallback };
+// Re-export fs callbacks so module users can overwrite existing node fs behavior
+export { registerFSCopyCallback, registerFSExistsCallback, registerFSPathInfoCallback, registerFSReadCallback, registerFSReadDirectoryCallback, registerFSWriteCallback };
 
 export { compileApplication } from "./builders/compile-app";
 export { compileSingleComponent } from "./builders/compile-component";
+export { makePrismSettings } from "./settings";
 
 export function registerSettings(cwd: string): IFinalPrismSettings {
     let configFilePath: string;

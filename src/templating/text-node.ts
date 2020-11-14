@@ -45,7 +45,7 @@ export function parseTextNode(
                 let expression = Expression.fromString(text[i])
                 fragments.push(expression);
             } catch (error) {
-                throw Error(`Error in text "{${text[i]}}" in ${"TODO"}: ${error}`);
+                throw Error(`Error parsing interpolated text "{${text[i]}}" ${error}`);
             }
         }
     }

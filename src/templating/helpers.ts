@@ -7,6 +7,7 @@ import { ArgumentList } from "../chef/javascript/components/constructs/function"
 import { cloneAST, findVariables, newOptionalVariableReferenceFromChain } from "../chef/javascript/utils/variables";
 import { assignToObjectMap, findLastIndex } from "../helpers";
 import { IType } from "../chef/javascript/utils/types";
+import { defaultRenderSettings } from "../chef/helpers";
 
 export const thisDataVariable = VariableReference.fromChain("this", "data") as VariableReference;
 
@@ -78,9 +79,9 @@ export function createNullElseElement(identifier: string): HTMLElement {
  * @param globals Variables outside of class
  */
 export function addBinding(
-    partialBinding: PartialBinding, 
-    locals: Locals, 
-    globals: Array<VariableReference>, 
+    partialBinding: PartialBinding,
+    locals: Locals,
+    globals: Array<VariableReference>,
     bindings: Array<IBinding>
 ) {
     const uniqueExpression = cloneAST(partialBinding.expression);
@@ -142,8 +143,7 @@ function getSingleElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData
     let identifier = nodeData.get(element)?.identifier;
     // Should never throw
     if (!identifier) {
-        assignToObjectMap(nodeData, element, "identifier", identifier = "PRISM_TEMP_IDENTIFIER");
-        // throw Error("Cannot create getElem expression from node without set identifer");
+        throw Error(`Cannot create getElem expression from node without set identifer around "${element.render(defaultRenderSettings, { inline: true })}"`);
     }
     return new Expression({
         lhs: VariableReference.fromChain("this", "getElem"),
@@ -158,7 +158,7 @@ function getSingleElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData
  * @param element a descendant of the descendant
  */
 export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>): ValueTypes {
-    const { multiple, nullable: isRootElementNullable } = nodeData.get(element)!;
+    const { multiple, nullable: isRootElementNullable } = nodeData.get(element) ?? {};
 
     if (!multiple) {
         return getSingleElement(element, nodeData);
@@ -240,7 +240,10 @@ export function getTypeFromVariableReferenceArray(
  * @example `["a", {alias: "b"}, "c"]` -> `["b", "c"]`
  */
 export function getSlice(arr: VariableReferenceArray): Array<string> {
-    const index = findLastIndex(arr, p => typeof p === "object");
-    if (index < 0) return arr as Array<string>;
-    return [(arr[index] as ForLoopVariable).alias, ...arr.slice(index + 1)] as Array<string>;
+    try {
+        const index = findLastIndex(arr, p => typeof p === "object");
+        return [(arr[index] as ForLoopVariable).alias, ...arr.slice(index + 1)] as Array<string>;
+    } catch {
+        return arr as Array<string>;
+    }
 }

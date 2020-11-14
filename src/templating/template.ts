@@ -67,9 +67,9 @@ export enum BindingAspect {
 
 // Represents a link between data and a element
 export interface IBinding {
-    element: HTMLElement, // Used to see if the element is multiple or nullable
     expression: ValueTypes | ForLoopExpression, // The expression that is the mutation of the variable
     aspect: BindingAspect, // The aspect the variable affects
+    element?: HTMLElement, // The element that is around the binding. Used to see if the element is multiple or nullable
     fragmentIndex?: number, // The index of the fragment to edit
     attribute?: string, // If aspect is a attribute then the name of the attribute
     styleKey?: string, // 

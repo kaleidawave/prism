@@ -1,10 +1,9 @@
-/// <reference lib="dom"/>
-
 import { 
     fsReadCallback, fsWriteCallback, 
     registerFSReadCallback as chefRegisterFSReadCallback, 
     registerFSWriteCallback as chefRegisterFSWriteCallback
 } from "./chef/filesystem";
+import type { Stats } from "fs";
 
 let __fileSystemReadCallback: fsReadCallback | null = null;
 export function registerFSReadCallback(cb: fsReadCallback) {
@@ -30,6 +29,19 @@ export function registerFSExistsCallback(cb: fsExistsCallback) {
     __fileSystemExistsCallback = cb;
 }
 
+type fsReadDirectoryCallback = (path: string) => Array<string>;
+let __fileSystemReadDirectoryCallback: fsReadDirectoryCallback | null = null;
+export function registerFSReadDirectoryCallback(cb: fsReadDirectoryCallback) {
+    __fileSystemReadDirectoryCallback = cb;
+}
+
+type fsPathInfoCallback = (path: string) => Stats;
+let __fileSystemPathInfoCallback: fsPathInfoCallback | null = null;
+export function registerFSPathInfoCallback(cb: fsPathInfoCallback) {
+    __fileSystemPathInfoCallback = cb;
+}
+
+/** FS access functions: */
 export function copyFile(from: string, to: string) {
     if (!__fileSystemCopyCallback) throw Error("No file system copy file callback registered");
     return __fileSystemCopyCallback(from, to);
@@ -43,4 +55,14 @@ export function exists(path: string): boolean {
 export function readFile(filename: string): string {
     if (!__fileSystemReadCallback) throw Error("No file system read file callback registered");
     return __fileSystemReadCallback(filename);
+}
+
+export function readDirectory(filename: string): Array<string> {
+    if (!__fileSystemReadDirectoryCallback) throw Error("No file system read directory callback registered");
+    return __fileSystemReadDirectoryCallback(filename);
+}
+
+export function pathInformation(filename: string): Stats {
+    if (!__fileSystemPathInfoCallback) throw Error("No file system read file callback registered");
+    return __fileSystemPathInfoCallback(filename);
 }
