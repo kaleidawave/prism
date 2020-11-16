@@ -60,13 +60,7 @@ function statementsFromServerRenderChunks(
             statements.push(new Expression(
                 new VariableReference("push_str", accVariable),
                 Operation.Call,
-                new Expression(
-                    new Expression(
-                        new VariableReference("to_string", value),
-                        Operation.Call
-                    ),
-                    Operation.Borrow
-                )
+                new Expression(value, Operation.Borrow)
             ));
         } else if ("condition" in chunk) {
             let value = jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes;
@@ -86,7 +80,7 @@ function statementsFromServerRenderChunks(
         } else if ("subject" in chunk) {
             statements.push(new ForStatement(
                 chunk.variable,
-                jsAstToRustAst(chunk.subject, module, jsModule) as ValueTypes,
+                new Expression(jsAstToRustAst(chunk.subject, module, jsModule) as ValueTypes, Operation.Borrow),
                 statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule, dataType)
             ));
         } else if ("func" in chunk) {
@@ -94,7 +88,13 @@ function statementsFromServerRenderChunks(
                 Array.from(chunk.args)
                     .map(([name, value]) => {
                         if (typeof value === "object" && "argument" in value) {
-                            return [name, jsAstToRustAst(value.argument, module, jsModule)]
+                            return [
+                                name,
+                                new Expression(
+                                    jsAstToRustAst(value.argument, module, jsModule) as ValueTypes,
+                                    Operation.Borrow
+                                )
+                            ];
                         } else {
                             if (Array.isArray(value)) {
                                 if (value.length === 0) {
@@ -149,7 +149,13 @@ function serverChunkToValue(
         // TODO does not work for for loop and nested variables...
         if (value instanceof VariableReference && dataType?.properties?.get(value.name)?.isOptional) {
             value = new Expression(
-                new VariableReference("unwrap", value),
+                new VariableReference(
+                    "unwrap",
+                    new Expression(
+                        new VariableReference("as_ref", value),
+                        Operation.Call
+                    )
+                ),
                 Operation.Call,
             )
         }
@@ -158,10 +164,11 @@ function serverChunkToValue(
             Operation.Call
         );
         if (chunk.escape) {
+            // TODO if text (not a attribute could use "encode_text")
             value = new Expression(
-                new VariableReference("escape"),
+                new VariableReference("encode_safe"),
                 Operation.Call,
-                value
+                new Expression(value, Operation.Borrow)
             );
         }
         return value;
@@ -184,15 +191,17 @@ function formatExpressionFromServerChunks(
         } else if ("value" in chunk) {
             formatString += "{}";
             const value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
-            // Creates `&escape(*value*.to_string()).to_string()`:
             args.push(new Expression(
                 new Expression(
                     new VariableReference("to_string", new Expression(
-                        new VariableReference("escape"),
+                        new VariableReference("encode_safe"),
                         Operation.Call,
                         new Expression(
-                            new VariableReference("to_string", value),
-                            Operation.Call
+                            new Expression(
+                                new VariableReference("to_string", value),
+                                Operation.Call
+                            ),
+                            Operation.Borrow
                         )
                     )),
                     Operation.Call
@@ -220,11 +229,16 @@ const jsToRustDecoratorName = "@useRustStatement";
  * @param comp 
  * @param settings 
  */
-export function makeRustComponentServerModule(comp: Component, settings: IFinalPrismSettings, ssrSettings: IServerRenderSettings): void {
+export function makeRustComponentServerModule(
+    comp: Component,
+    settings: IFinalPrismSettings,
+    ssrSettings: IServerRenderSettings
+): void {
     comp.serverModule = new Module(
         join(settings.absoluteServerOutputPath, comp.relativeFilename.replace(/[.-]/g, "_") + ".rs")
     );
 
+    // Transition over statements
     for (const statement of comp.clientModule.statements) {
         if ((statement instanceof JSExportStatement && statement.exported === comp.componentClass) || statement === comp.componentClass || statement === comp.customElementDefineStatement) {
             continue;
@@ -308,7 +322,17 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
         }
     }
 
-    const rustRenderParameters: Array<[string, TypeSignature]> = comp.serverRenderParameters.map((vD) => [vD.name, jsAstToRustAst(vD.typeSignature!, comp.serverModule!, comp.clientModule) as TypeSignature]);
+    const rustRenderParameters: Array<[string, TypeSignature]> = comp.serverRenderParameters
+        .map((vD) => {
+            const newTS = jsAstToRustAst(vD.typeSignature!, comp.serverModule!, comp.clientModule) as TypeSignature;
+            if (newTS.name !== "String") {
+                newTS.name = "&" + newTS.name;
+            }
+            return [
+                vD.name,
+                newTS
+            ]
+        });
 
     const name = "render_" + comp.tagName.replace(/-/g, "_").replace(/[A-Z]/g, (s, i) => i ? `_${s.toLowerCase()}` : s.toLowerCase());
     const componentRenderFunctionName = name + "_component";
@@ -333,7 +357,6 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
     if (comp.isPage) {
         let metadataString: ValueTypes;
         if (comp.metaDataChunks.length > 0) {
-            // TODO doesn't work because value has also been used. Needs some tweaking with borrow
             metadataString = formatExpressionFromServerChunks(comp.metaDataChunks, comp.serverModule, comp.clientModule);
         } else {
             metadataString = new Expression(
@@ -355,7 +378,10 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
                             new Expression(
                                 new VariableReference(componentRenderFunctionName),
                                 Operation.Call,
-                                new VariableReference("data"),
+                                new Expression(
+                                    new VariableReference("data"),
+                                    Operation.Borrow
+                                )
                             ),
                             metadataString
                         ])
@@ -367,34 +393,23 @@ export function makeRustComponentServerModule(comp: Component, settings: IFinalP
         comp.serverModule.statements.push(renderPageFunction);
     }
 
-    const imports: Array<string> = [];
-
-    if (comp.isPage) imports.push("render_html");
-    if (comp.needsData) imports.push("escape");
-
-    const pathToPrismModule = relative(join(settings.cwd, "src"), dirname(comp.serverModule.filename)).split(settings.pathSplitter);
-
-    if (imports.length > 0) {
-        comp.serverModule!.statements.unshift(new UseStatement(["crate", ...pathToPrismModule, "prism", imports]));
+    if (comp.isPage) {
+        const pathToPrismModule = relative(join(settings.cwd, "src"), dirname(comp.serverModule.filename)).split(settings.pathSplitter);
+        const useStatement = new UseStatement(["crate", ...pathToPrismModule, "prism", "render_html"]);
+        comp.serverModule!.statements.unshift(useStatement);
     }
+
+    // Use encode_safe from html_escape crate
+    const useHTMLEscapeStatement = new UseStatement(["html_escape", "encode_safe"]);
+    comp.serverModule!.statements.unshift(useHTMLEscapeStatement);
 }
 
-const escapeMap = [["&", "&amp;"], ["<", "&lt;"], [">", "&gt;"], ["\"", "&quot;"], ["'", "&#039l"]];
-
-export function buildPrismServerModule(template: IShellData, settings: IFinalPrismSettings, outputFiles: Array<string>): Module {
+export function buildPrismServerModule(
+    template: IShellData,
+    settings: IFinalPrismSettings,
+    outputFiles: Array<string>
+): Module {
     const baseServerModule = new Module(join(settings.absoluteServerOutputPath, "prism.rs"));
-
-    // Escape function
-    let expression: ValueTypes = new VariableReference("unsafeString");
-    for (const [character, replacer] of escapeMap) {
-        expression = new Expression(
-            new VariableReference("replace", expression),
-            Operation.Call,
-            new ArgumentList([new Value(Type.string, character), new Value(Type.string, replacer)])
-        )
-    }
-
-    baseServerModule.statements.push(new FunctionDeclaration("escape", [["unsafeString", new TypeSignature("String")]], new TypeSignature("String"), [new ReturnStatement(expression)], true));
 
     // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
     const serverChunks = serverRenderPrismNode(template.document, template.nodeData, {
