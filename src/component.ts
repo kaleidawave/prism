@@ -92,7 +92,7 @@ export class Component {
     // Filename to registered component map
     static registeredComponents: Map<string, Component> = new Map();
     passive: boolean;
-    globals: VariableReference[];
+    globals: VariableReference[] = [];
     
     // Parameters for the SSR function
     serverRenderParameters: VariableDeclaration[];
@@ -286,7 +286,7 @@ export class Component {
                                 throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${this.filename}"`);
                             }
                         }
-                        this.globals = (this.globals ?? []).concat(this.clientGlobals.map(([value]) => value as VariableReference));
+                        this.globals = this.globals.concat(this.clientGlobals.map(([value]) => value as VariableReference));
                         break;
                     case "Title":
                         const title = decorator.args[0] as Value | TemplateLiteral;
@@ -397,7 +397,7 @@ export class Component {
                     binding.element!.children[0],
                     templateData.nodeData,
                     true,
-                    [...(this.globals ?? []), expression.variable.toReference()]
+                    [...this.globals, expression.variable.toReference()]
                 );
                 const elementIdentifer = templateData.nodeData.get(binding.element!)?.identifier!;
                 const renderMethod = new FunctionDeclaration(
@@ -408,12 +408,12 @@ export class Component {
                 componentClass.addMember(renderMethod);
                 assignToObjectMap(templateData.nodeData, binding.element!, "clientRenderMethod", renderMethod);
             } else if (binding.aspect === BindingAspect.Conditional) {
-                // Final true is important here to make sure 
+                const { elseElement, identifier, conditionalExpression } = templateData.nodeData.get(binding.element!)!;
+                // Final true is important here to make sure to now render a ternary expression
                 const renderTruthyChild =
                     clientRenderPrismNode(binding.element!, templateData.nodeData, true, this.globals, true);
-
-                const { elseElement, identifier, conditionalExpression } = templateData.nodeData.get(binding.element!)!;
-                const renderFalsyChild = clientRenderPrismNode(elseElement!, templateData.nodeData, true, this.globals);
+                const renderFalsyChild = 
+                    clientRenderPrismNode(elseElement!, templateData.nodeData, true, this.globals);
 
                 const clientAliasedConditionExpression = cloneAST(conditionalExpression!);
                 aliasVariables(clientAliasedConditionExpression, thisDataVariable, this.globals);
