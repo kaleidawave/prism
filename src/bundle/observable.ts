@@ -7,18 +7,20 @@ import { isArrayHoley } from "./helpers";
 // }
 
 /**
+ * (Create Observable)
  * Will create either a observable array, observable object or a existing object based on the `type` of `chunk`
  * @param c Chunk to create observable over
  * @param d Any existing data
  * @param i Any indexes data is under
  */
-export function createObservable(this: Component<any>, c: any, d: any, ...i: Array<number>) {
+export function cO(this: Component<any>, c: any, d: any, ...i: Array<number>) {
     if (c.get) return c.get.call(this, ...i);
-    else if (c.type === "Array") return createObservableArray.call(this, c, d, [], ...i);
-    else return createObservableObject.call(this, c, d, {}, ...i);
+    else if (c.type === "Array") return cOA.call(this, c, d, [], ...i);
+    else return cOO.call(this, c, d, {}, ...i);
 }
 
 /**
+ * (Create Observable Object)
  * Creates a proxy for data which fronts a mapping tree.
  *  - Calls get bindings if data is not cached
  *  - On set bindings calls set operations
@@ -28,7 +30,7 @@ export function createObservable(this: Component<any>, c: any, d: any, ...i: Arr
  * @param pC Proxy cache. Holds proxies so they are not regenerated
  * @param i If the observable is under a array then a index
  */
-export function createObservableObject<T>(
+export function cOO<T>(
     this: Component<T>,
     m: any,
     d: Partial<T>,
@@ -52,7 +54,7 @@ export function createObservableObject<T>(
             if (c?.type) {
                 return pC[p] ??
                     (pC[p] =
-                        createObservable.call(
+                        cO.call(
                             this,
                             c,
                             t[p] ?? (t[p] = c.type === "Array" ? [] : {}),
@@ -91,7 +93,11 @@ export function createObservableObject<T>(
     }) as T;
 }
 
-export function createObservableArray<T>(
+/**
+ * (Create Observable Array)
+ * TODO does not like reverse, shift and some other methods
+ */
+export function cOA<T>(
     this: Component<any>,
     m: any,
     a: Array<T>,
@@ -107,7 +113,7 @@ export function createObservableArray<T>(
             }
             if (m["*"]?.type && typeof p !== "symbol" && !isNaN((p as number))) {
                 return pC[p]
-                    ?? (pC[p] = createObservable.call(
+                    ?? (pC[p] = cO.call(
                         this,
                         m["*"],
                         a[p] ?? (a[p] = m["*"].type === "Array" ? [] : {}),

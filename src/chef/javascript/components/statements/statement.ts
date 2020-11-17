@@ -102,6 +102,8 @@ export function parseStatement(reader: TokenReader<JSToken>): StatementTypes {
     }
 }
 
+const breakingCharCodes = new Set("({[!-+\"");
+
 export class ReturnStatement implements IRenderable {
     constructor(
         public returnValue: ValueTypes
@@ -111,7 +113,9 @@ export class ReturnStatement implements IRenderable {
     render(settings: IRenderSettings = defaultRenderSettings): string {
         let acc = "return";
         if (this.returnValue) {
-            acc += " " + this.returnValue.render(settings);
+            const returnValue = this.returnValue.render(settings);
+            if (!breakingCharCodes.has(returnValue[0])) acc += " ";
+            acc += returnValue;
         }
         return acc;
     }

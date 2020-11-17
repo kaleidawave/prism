@@ -256,6 +256,7 @@ As of 1.3.0 prism supports compiling server render functions to native rust func
     @Passive // Will not generate runtime bindings
     @Title("Page X") // Title for the page
     @Metadata({ description: "Description for page" }) // Metadata for server rendered pages
+    @Shadow // Use shadow DOM for component
     class X extends Component<...> {
 
         // Will fire on client side routing to component. Can get and load state

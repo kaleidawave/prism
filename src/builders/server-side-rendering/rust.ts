@@ -339,7 +339,7 @@ export function makeRustComponentServerModule(
 
     comp.serverRenderFunction = new FunctionDeclaration(componentRenderFunctionName, rustRenderParameters, new TypeSignature("String"), [], true);
 
-    const serverRenderChunks = serverRenderPrismNode(comp.componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
+    const serverRenderChunks = serverRenderPrismNode(comp.componentHTMLTag, comp.templateData.nodeData, ssrSettings, comp.globals);
     comp.serverRenderFunction.statements
         = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, comp.clientModule, comp.componentDataType, true);
 

@@ -18,9 +18,9 @@ import { IFinalPrismSettings } from "../../settings";
 import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { IShellData } from "../template";
 
-function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes {
+function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes | string {
     if (typeof serverChunk === "string") {
-        return new Value(Type.string, serverChunk);
+        return serverChunk;
     } else if ("value" in serverChunk) {
         if (serverChunk.escape) {
             return new Expression({
@@ -134,7 +134,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
     }
 
     // Final argument is to add a entry onto the component that is sent attributes 
-    const serverRenderChunks = serverRenderPrismNode(comp.componentHtmlTag, comp.templateData.nodeData, ssrSettings, comp.globals);
+    const serverRenderChunks = serverRenderPrismNode(comp.componentHTMLTag, comp.templateData.nodeData, ssrSettings, comp.globals);
     const renderTemplateLiteral = templateLiteralFromServerRenderChunks(serverRenderChunks);
 
     // TODO would comp work just using the existing slot functionality?

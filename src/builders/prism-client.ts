@@ -44,13 +44,13 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
 
     }
     if (!runtimeFeatures.conditionals) {
-        // Remove setElem and _ifSwapElemCache
+        // Remove setElem and _ifEC
         const componentClass = (bundle.statements.find(statement =>
             statement instanceof ExportStatement && statement.exported instanceof ClassDeclaration && statement.exported.name?.name === "Component"
         ) as ExportStatement).exported as ClassDeclaration;
         componentClass.members = componentClass.members.filter(member => !(
             !(member instanceof Comment) && (
-                member instanceof VariableDeclaration && member.name === "_ifSwapElemCache" ||
+                member instanceof VariableDeclaration && member.name === "_ifEC" ||
                 member instanceof FunctionDeclaration && member.actualName === "setElem"
             )
         ));
@@ -64,7 +64,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
     if (!runtimeFeatures.observableArrays) {
         // Remove createObservableArray, isArrayHoley and setLength function
         bundle.statements = bundle.statements.filter(statement => !(
-            statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && ["createObservableArray", "isArrayHoley", "setLength"].includes(statement.exported.actualName!)
+            statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && ["cOA", "isArrayHoley", "setLength"].includes(statement.exported.actualName!)
         ));
     }
     if (!runtimeFeatures.svg) {
@@ -92,18 +92,18 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
         bundle.statements = bundle.statements.filter(statement => !(
             statement instanceof ExportStatement &&
             statement.exported instanceof FunctionDeclaration &&
-            statement.exported.name?.name === "createObservable"
+            statement.exported.name?.name === "cO"
         ));
 
         const createObservableObject = Module.fromString(fileBundle.get("others.ts")!, "others.ts")
             .statements.find(statement =>
-                statement instanceof FunctionDeclaration && statement.name?.name === "createObservableObject"
+                statement instanceof FunctionDeclaration && statement.name?.name === "cOO"
             );
 
         (bundle.statements.find(statement =>
             statement instanceof ExportStatement &&
             statement.exported instanceof FunctionDeclaration &&
-            statement.exported.name?.name === "createObservableObject"
+            statement.exported.name?.name === "cOO"
         ) as ExportStatement).exported = createObservableObject as ValueTypes;
     }
 }

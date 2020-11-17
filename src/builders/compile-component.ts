@@ -47,7 +47,9 @@ export function compileSingleComponent(
     };
 
     bundledClientModule.writeToFile(clientRenderSettings);
-    bundledStylesheet.writeToFile(clientRenderSettings);
+    if (bundledStylesheet.rules.length > 0) {
+        bundledStylesheet.writeToFile(clientRenderSettings);
+    }
 
     if (settings.context === "isomorphic") {
         if (settings.backendLanguage === "rust") {
@@ -84,7 +86,7 @@ function addComponentToBundle(
     bundleComponents: Set<Component> = new Set()
 ): void {
     scriptBundle.combine(component.clientModule);
-    if (component.stylesheet && styleBundle) {
+    if (component.stylesheet && !component.useShadowDOM && styleBundle) {
         styleBundle.combine(component.stylesheet);
     }
     for (const [, importedComponent] of component.importedComponents) {

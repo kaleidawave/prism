@@ -15,6 +15,8 @@ export interface IPrismSettings {
     disableEventElements: boolean,
     buildTimings: boolean, // Whether to print timings of the static build
     run: boolean | "open", // Whether to run output after build
+    // Whether to SSR the content of components with shadow dom https://web.dev/declarative-shadow-dom/
+    declarativeShadowDOM: boolean, 
     deno: boolean
 }
 
@@ -23,9 +25,11 @@ export const defaultTemplateHTML = "bundle/template.html";
 const defaultSettings: IPrismSettings = {
     minify: false,
     comments: false,
+    declarativeShadowDOM: false,
     projectPath: "./src",
     outputPath: "./out",
-    // These two are both null because they relate to project path and output path. There "defaults" are encoded in the respective actual getters in exported setters:
+    /* These two are both null because they relate to project path and output path. 
+    There "defaults" are encoded in the respective actual getters in exported setters: */
     assetPath: null,
     serverOutputPath: null,
     templatePath: defaultTemplateHTML,

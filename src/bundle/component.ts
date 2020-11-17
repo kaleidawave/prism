@@ -1,24 +1,24 @@
-import { createObservableObject } from "./observable";
+import { cOO } from "./observable";
 
 /**
  * Adds reusable prism functionality on top of the base HTMLElement class
  */
 export abstract class Component<T> extends HTMLElement {
     // The private cached (un-proxied) component data
-    _data: Partial<T> = {};
+    _d: Partial<T> = {};
     // Proxied data
-    _dataProxy: Partial<T> = {};
+    _dP: Partial<T> = {};
 
     // Like isConnected but false until connectedCallback is finished
-    _isRendered: boolean = false; 
+    _isR: boolean = false;
 
     // Caches for element lookup
     // TODO new Map could be lazy
-    _elemCache: Map<string, Element> = new Map();
-    _ifSwapElemCache: Map<string, Element> = new Map();
+    _eC: Map<string, Element> = new Map();
+    _ifEC: Map<string, Element> = new Map();
 
     abstract layout: true | undefined; // Used by router to detect if SSR content is layout
-    abstract _tree: T | undefined; // The primary observable
+    abstract _t: T | undefined; // The primary observable
 
     // A callback for when triggered from a router where params are a set of URL params
     abstract load?: (params?: Object) => Promise<void>;
@@ -39,58 +39,63 @@ export abstract class Component<T> extends HTMLElement {
     // Using query selector will work across csr and ssr component dom
     // TODO cache invalidation if element is not connected???
     getElem(id: string) {
-        if (this._elemCache.has(id)) {
-            return this._elemCache.get(id);
+        if (this._eC.has(id)) {
+            return this._eC.get(id);
         } else {
-            const elem = this.querySelector(`.${id}`);
-            if (elem) this._elemCache.set(id, elem);
-            return elem;
+            const e = (this.shadowRoot ?? this).querySelector(`.${id}`);
+            if (e) this._eC.set(id, e);
+            return e;
         }
     }
 
     // Used to manually update the cache
-    setElem(id: string, elem: HTMLElement) {
-        elem.classList.add(id);
-        this._elemCache.set(id, elem);
+    setElem(id: string, e: HTMLElement) {
+        e.classList.add(id);
+        this._eC.set(id, e);
     }
-    
+
     // Returns reactivity state of the component. Deep changes will be reflected in the dom. Will only create observable once
     get data(): Partial<T> {
-        if (!this._isRendered) {
-            return this._data;
+        if (!this._isR) {
+            return this._d;
         }
-        if (!this._tree) {
+        if (!this._t) {
             // @ts-expect-error ._bindings does exist statically on derived class (abstract static)
-            this._tree = createObservableObject.call(this, this.constructor._bindings, this._data, this._dataProxy)
+            this._t = cOO.call(this, this.constructor._bindings, this._d, this._dP)
         }
-        return this._tree;
+        return this._t;
     }
 
     // Deeply assign values 
     set data(value) {
-        if (this._isRendered) {
+        if (this._isR) {
             Object.assign(this.data, value)
         } else {
-            this._data = value
+            this._d = value
         }
     }
 
     connectedCallback() {
         // If component has been sever side rendered
         if (this.hasAttribute("data-ssr")) {
-            this._data = {};
+            this._d = {};
             this.bindEventListeners?.();
         } else {
-            // Uses super to avoiding conflicting with a possible append override on the component 
-            super.append(...this.render())
+            // @ts-expect-error .useShadow does exist statically on derived class (abstract static)
+            if (this.constructor.useShadow) {
+                this.attachShadow({ mode: "open" }).append(...this.render());
+            } else {
+                // Uses super to avoiding conflicting with a possible append override on the component 
+                super.append(...this.render())
+            }
         }
         this.connected?.();
-        this._isRendered = true;
+        this._isR = true;
     }
 
     disconnectedCallback() {
         this.disconnected?.();
         this.unbindEventListeners?.();
-        this._isRendered = false;
+        this._isR = false;
     }
 }

@@ -1,4 +1,4 @@
-import { HTMLElement, HTMLDocument, TextNode } from "./chef/html/html";
+import { HTMLElement, HTMLDocument, TextNode, Node } from "./chef/html/html";
 import { ClassDeclaration } from "./chef/javascript/components/constructs/class";
 import { parseTemplate, IBinding, ITemplateData, BindingAspect, PartialBinding } from "./templating/template";
 import { Module as JSModule } from "./chef/javascript/components/module";
@@ -20,11 +20,9 @@ import { prefixSelector, ISelector } from "./chef/css/selectors";
 import { addBinding, getElement, randomPrismId, thisDataVariable } from "./templating/helpers";
 import { ImportStatement } from "./chef/javascript/components/statements/import-export";
 import { VariableReference } from "./chef/javascript/components/value/variable";
-import { getImportPath, defaultRenderSettings } from "./chef/helpers";
+import { getImportPath, defaultRenderSettings, makeRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
 import { Rule } from "./chef/css/rule";
-import { makeTsComponentServerModule as tsModuleFromServerRenderedChunks } from "./builders/server-side-rendering/typescript";
-import { makeRustComponentServerModule as rustModuleFromServerRenderedChunks } from "./builders/server-side-rendering/rust";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";
 import { TypeSignature } from "./chef/javascript/components/types/type-signature";
@@ -35,11 +33,25 @@ import { assignToObjectMap } from "./helpers";
 import { IFinalPrismSettings } from "./settings";
 import { IRuntimeFeatures } from "./builders/prism-client";
 import { IFunctionDeclaration, IModule } from "./chef/abstract-asts";
-import { IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode } from "./templating/builders/server-render";
 import { buildMetaTags } from "./metatags";
+import {
+    IServerRenderSettings, ServerRenderedChunks, serverRenderPrismNode
+} from "./templating/builders/server-render";
+import {
+    makeTsComponentServerModule as tsModuleFromServerRenderedChunks
+} from "./builders/server-side-rendering/typescript";
+import {
+    makeRustComponentServerModule as rustModuleFromServerRenderedChunks
+} from "./builders/server-side-rendering/rust";
 
 export class Component {
-    static registeredTags: Set<string> = new Set()
+    // Registered tag names, prevents duplicate tags
+    static registeredTags: Set<string> = new Set();
+
+    // Used to prevent cyclic imports
+    static parsingComponents: Set<string> = new Set();
+    // Filename to registered component map
+    static registeredComponents: Map<string, Component> = new Map();
 
     title: ValueTypes | null = null; // If page the document title
 
@@ -55,9 +67,9 @@ export class Component {
     hasSlots: boolean = false; // If the component has slots
 
     // The root data of the component
-    templateElement: HTMLElement;
-    componentClass: ClassDeclaration;
-    clientModule: JSModule;
+    templateElement!: HTMLElement;
+    componentClass!: ClassDeclaration;
+    clientModule!: JSModule;
 
     serverModule?: IModule<any>; // TODO any
     serverRenderFunction?: IFunctionDeclaration;
@@ -87,20 +99,17 @@ export class Component {
 
     bindings: Array<IBinding>;
 
-    // Used to prevent cyclic imports
-    static parsingComponents: Set<string> = new Set();
-    // Filename to registered component map
-    static registeredComponents: Map<string, Component> = new Map();
+    useShadowDOM: boolean;
     passive: boolean;
     globals: VariableReference[] = [];
-    
+
     // Parameters for the SSR function
     serverRenderParameters: VariableDeclaration[];
     // The TS type signature for the component
     dataTypeSignature: TypeSignature;
 
     // The template wrapped in a <*component-tag*> element
-    componentHtmlTag: HTMLElement;
+    componentHTMLTag: HTMLElement;
     // ServerRenderedChunks used for generating the concatenation for <head>
     metaDataChunks: ServerRenderedChunks;
     componentDataType: IType | null;
@@ -199,131 +208,7 @@ export class Component {
             throw Error(`Use "connected" and "disconnected" instead of "connectedCallback" and "disconnectedCallback"`);
         }
 
-        if (componentClass.decorators) {
-            for (const decorator of componentClass.decorators || []) {
-                switch (decorator.name) {
-                    case "TagName":
-                        const correctTagNameFormat =
-                            decorator.args.length === 1 &&
-                            (decorator.args[0] as Value).type === Type.string;
-
-                        if (!correctTagNameFormat) {
-                            throw Error("Tag name must have one argument of type string");
-                        }
-
-                        this.tagName = (decorator.args[0] as Value).value!;
-                        if (Component.registeredTags.has(this.tagName)) {
-                            throw Error(`"${this.filename}" - "${this.tagName}" already registered under another component`);
-                        }
-                        break;
-                    case "Page":
-                        const correctPageDecoratorFormat = decorator.args
-                            .every(arg => arg instanceof Value && arg.type === Type.string);
-
-                        if (!correctPageDecoratorFormat) {
-                            throw Error(`"${this.filename}" - Page decorator arguments must be of type string`);
-                        }
-
-                        this.isPage = true;
-
-                        for (const arg of decorator.args) {
-                            if ((arg as Value).value === "*") {
-                                setNotFoundRoute(this);
-                            } else {
-                                if (!this.routes) this.routes = new Set();
-                                const routePattern = (arg as Value).value!;
-                                const dynURL = stringToDynamicUrl(routePattern);
-                                addRoute(dynURL, this);
-                                this.routes.add(dynURL);
-                            }
-                        }
-                        break;
-                    case "Layout":
-                        this.isLayout = true;
-                        break;
-                    case "NoSSRData":
-                        this.noSSRData = true;
-                        break;
-                    case "UseLayout":
-                        if (decorator.args.length !== 1 || !(decorator.args[0] instanceof VariableReference)) {
-                            throw Error(`@UseLayout requires 1 parameter of type object literal in "${this.filename}"`);
-                        }
-                        if (!componentClass.decorators.some(decorator => decorator.name === "Page")) {
-                            throw Error("Only pages can have layouts");
-                        }
-                        const layoutName = (decorator.args[0] as VariableReference).name;
-                        const layout = this.importedComponents.get(layoutName);
-                        if (!layout) {
-                            throw Error(`Could not find layout ${layoutName} from imports`);
-                        } else if (!layout.isLayout) {
-                            throw Error("UseLayout component must be a layout")
-                        }
-                        this.usesLayout = layout;
-                        break;
-                    case "Default":
-                        if (decorator.args.length !== 1 || !(decorator.args[0] instanceof ObjectLiteral)) {
-                            throw Error(`@Default requires 1 argument of type object literal in "${this.filename}"`)
-                        }
-                        this.defaultData = decorator.args[0] as ObjectLiteral;
-                        break;
-                    case "Passive":
-                        this.passive = true;
-                        break;
-                    case "Globals":
-                        if (!decorator.args.every(arg => arg instanceof VariableReference)) {
-                            throw Error(`Arguments of @Globals must be variable references in "${this.filename}"`);
-                        }
-                        this.globals = decorator.args as Array<VariableReference>;
-                        break;
-                    case "ClientGlobals":
-                        this.clientGlobals = [];
-                        for (const arg of decorator.args) {
-                            if (arg instanceof AsExpression) {
-                                this.clientGlobals.push([arg.value as VariableReference, arg.asType]);
-                            } else if (arg instanceof VariableReference) {
-                                this.clientGlobals.push([arg, new TypeSignature("any")]);
-                            } else {
-                                throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${this.filename}"`);
-                            }
-                        }
-                        this.globals = this.globals.concat(this.clientGlobals.map(([value]) => value as VariableReference));
-                        break;
-                    case "Title":
-                        const title = decorator.args[0] as Value | TemplateLiteral;
-                        if (!title) {
-                            throw Error("Metadata decorators args incorrect");
-                        }
-                        if (title instanceof TemplateLiteral || (title instanceof Value && title.type === Type.string)) {
-                            this.title = title;
-                        } else {
-                            throw Error("Title must be of type string or template literal")
-                        }
-                        break;
-                    case "Metadata":
-                        const mappings = (decorator.args[0] as ObjectLiteral).values;
-                        if (!mappings) {
-                            throw Error("Metadata decorators args incorrect");
-                        }
-                        this.metadata = new Map();
-                        for (const [key, value] of mappings) {
-                            if (typeof key !== "string") {
-                                throw Error(`Metadata object literal keys must be constant in "${this.filename}"`);
-                            }
-                            if (value instanceof Value && value.type === Type.string) {
-                                this.metadata.set(key as string, value.value!);
-                            } else {
-                                this.metadata.set(key as string, value);
-                            }
-                        }
-                        break;
-                    case "Singleton":
-                    case "Shadow":
-                        throw Error(`Not implement - @${decorator.name} in "${this.filename}"`);
-                    default:
-                        throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators in "${this.filename}"`)
-                }
-            }
-        }
+        if (componentClass.decorators) this.processDecorators();
 
         // If tag decorator not defined create a tag from the className
         if (typeof this.tagName === "undefined") {
@@ -338,7 +223,7 @@ export class Component {
 
         // Add default data
         if (this.defaultData) {
-            componentClass.addMember(new VariableDeclaration("_data", {
+            componentClass.addMember(new VariableDeclaration("_d", {
                 value: this.defaultData
             }));
         }
@@ -412,7 +297,7 @@ export class Component {
                 // Final true is important here to make sure to now render a ternary expression
                 const renderTruthyChild =
                     clientRenderPrismNode(binding.element!, templateData.nodeData, true, this.globals, true);
-                const renderFalsyChild = 
+                const renderFalsyChild =
                     clientRenderPrismNode(elseElement!, templateData.nodeData, true, this.globals);
 
                 const clientAliasedConditionExpression = cloneAST(conditionalExpression!);
@@ -489,7 +374,7 @@ export class Component {
         }
 
         // Parse stylesheet
-        if (this.stylesheet) {
+        if (this.stylesheet && !this.useShadowDOM) {
             // Prefix all rules in the style tag to be descendants of the tag name
             const thisTagSelector: ISelector = { tagName: this.tagName }
             for (const rule of this.stylesheet.rules) {
@@ -514,6 +399,30 @@ export class Component {
         // Throw error if page has slots
         if (this.isPage && this.hasSlots) {
             throw Error("Cannot have slot ");
+        }
+
+        if (this.useShadowDOM && this.hasSlots) {
+            throw Error("Not implemented - <slot> in shadow dom enable component");
+        }
+
+        // If using shadow dom add runtime flag and imbed style element
+        if (this.useShadowDOM) {
+            componentClass.addMember(
+                new VariableDeclaration("useShadow", {
+                    isStatic: true,
+                    value: new Value(Type.boolean, true)
+                })
+            );
+
+            if (this.stylesheet) {
+                this.templateElement.children.push(
+                    new HTMLElement("style", new Map, [
+                        new TextNode(this.stylesheet.render(
+                            makeRenderSettings({ minify: settings.minify })
+                        ))
+                    ])
+                );
+            }
         }
 
         if (this.title && !(this.title instanceof Value)) {
@@ -616,7 +525,7 @@ export class Component {
             // TODO events.forEach(x => x.addAttribute("disable")) ...
             const ssrSettings: IServerRenderSettings = {
                 minify: settings.minify,
-                addDisableToElementWithEvents: settings.disableEventElements 
+                addDisableToElementWithEvents: settings.disableEventElements
             }
 
             this.dataTypeSignature = this.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
@@ -640,14 +549,41 @@ export class Component {
                     new VariableDeclaration(((clientGlobal[0] as VariableReference).name), { typeSignature: clientGlobal[1] }))
             );
 
-            // Append "data-ssr" to the server rendered component. Used at runtime.
-            const componentAttributes: Map<string, string | null> = new Map([["data-ssr", null]]);
+            // // Append "data-ssr" to the server rendered component. Used at runtime.
+            let componentAttributes: Map<string, string | null>;
+            let componentHTMLTagChildren: Array<Node>;
+
+            if (this.useShadowDOM) {
+                // See https://web.dev/declarative-shadow-dom/
+                if (settings.declarativeShadowDOM) {
+                    componentHTMLTagChildren = [
+                        new HTMLElement(
+                            "template",
+                            new Map([["shadowroot", "open"]]),
+                            [new HTMLElement("slot")]
+                        ),
+                        ...this.templateElement.children
+                    ];
+                    componentAttributes = new Map([["data-ssr", null]]);
+                } else {
+                    componentAttributes = new Map;
+                    componentHTMLTagChildren = [];
+                }
+            } else {
+                componentAttributes = new Map([["data-ssr", null]]);
+                componentHTMLTagChildren = this.templateElement.children;
+            }
 
             // Generate a tag of self (instead of using template) (reuses template.element.children)
-            this.componentHtmlTag = new HTMLElement(this.tagName, componentAttributes, this.templateElement.children, this.templateElement.parent);
+            this.componentHTMLTag = new HTMLElement(
+                this.tagName,
+                componentAttributes,
+                componentHTMLTagChildren,
+                this.templateElement.parent
+            );
 
             if (!(this.isPage || this.isLayout)) {
-                assignToObjectMap(this.templateData.nodeData, this.componentHtmlTag, "rawAttribute", new VariableReference("attributes"));
+                assignToObjectMap(this.templateData.nodeData, this.componentHTMLTag, "rawAttribute", new VariableReference("attributes"));
                 parameters.push(new VariableDeclaration("attributes", {
                     typeSignature: new TypeSignature({ name: "string" }),
                     value: new Value(Type.string)
@@ -696,6 +632,134 @@ export class Component {
                 settings.absoluteOutputPath,
                 this.relativeFilename + ".js"
             );
+        }
+    }
+
+    processDecorators() {
+        for (const decorator of this.componentClass.decorators || []) {
+            switch (decorator.name) {
+                case "TagName":
+                    const correctTagNameFormat =
+                        decorator.args.length === 1 &&
+                        (decorator.args[0] as Value).type === Type.string;
+
+                    if (!correctTagNameFormat) {
+                        throw Error("Tag name must have one argument of type string");
+                    }
+
+                    this.tagName = (decorator.args[0] as Value).value!;
+                    if (Component.registeredTags.has(this.tagName)) {
+                        throw Error(`"${this.filename}" - "${this.tagName}" already registered under another component`);
+                    }
+                    break;
+                case "Page":
+                    const correctPageDecoratorFormat = decorator.args
+                        .every(arg => arg instanceof Value && arg.type === Type.string);
+
+                    if (!correctPageDecoratorFormat) {
+                        throw Error(`"${this.filename}" - Page decorator arguments must be of type string`);
+                    }
+
+                    this.isPage = true;
+
+                    for (const arg of decorator.args) {
+                        if ((arg as Value).value === "*") {
+                            setNotFoundRoute(this);
+                        } else {
+                            if (!this.routes) this.routes = new Set();
+                            const routePattern = (arg as Value).value!;
+                            const dynURL = stringToDynamicUrl(routePattern);
+                            addRoute(dynURL, this);
+                            this.routes.add(dynURL);
+                        }
+                    }
+                    break;
+                case "Layout":
+                    this.isLayout = true;
+                    break;
+                case "NoSSRData":
+                    this.noSSRData = true;
+                    break;
+                case "UseLayout":
+                    if (decorator.args.length !== 1 || !(decorator.args[0] instanceof VariableReference)) {
+                        throw Error(`@UseLayout requires 1 parameter of type object literal in "${this.filename}"`);
+                    }
+                    if (!this.componentClass.decorators!.some(decorator => decorator.name === "Page")) {
+                        throw Error("Only pages can have layouts");
+                    }
+                    const layoutName = (decorator.args[0] as VariableReference).name;
+                    const layout = this.importedComponents.get(layoutName);
+                    if (!layout) {
+                        throw Error(`Could not find layout ${layoutName} from imports`);
+                    } else if (!layout.isLayout) {
+                        throw Error("UseLayout component must be a layout")
+                    }
+                    this.usesLayout = layout;
+                    break;
+                case "Default":
+                    if (decorator.args.length !== 1 || !(decorator.args[0] instanceof ObjectLiteral)) {
+                        throw Error(`@Default requires 1 argument of type object literal in "${this.filename}"`)
+                    }
+                    this.defaultData = decorator.args[0] as ObjectLiteral;
+                    break;
+                case "Passive":
+                    this.passive = true;
+                    break;
+                case "Globals":
+                    if (!decorator.args.every(arg => arg instanceof VariableReference)) {
+                        throw Error(`Arguments of @Globals must be variable references in "${this.filename}"`);
+                    }
+                    this.globals = decorator.args as Array<VariableReference>;
+                    break;
+                case "ClientGlobals":
+                    this.clientGlobals = [];
+                    for (const arg of decorator.args) {
+                        if (arg instanceof AsExpression) {
+                            this.clientGlobals.push([arg.value as VariableReference, arg.asType]);
+                        } else if (arg instanceof VariableReference) {
+                            this.clientGlobals.push([arg, new TypeSignature("any")]);
+                        } else {
+                            throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${this.filename}"`);
+                        }
+                    }
+                    this.globals = this.globals.concat(this.clientGlobals.map(([value]) => value as VariableReference));
+                    break;
+                case "Title":
+                    const title = decorator.args[0] as Value | TemplateLiteral;
+                    if (!title) {
+                        throw Error("Metadata decorators args incorrect");
+                    }
+                    if (title instanceof TemplateLiteral || (title instanceof Value && title.type === Type.string)) {
+                        this.title = title;
+                    } else {
+                        throw Error("Title must be of type string or template literal")
+                    }
+                    break;
+                case "Metadata":
+                    const mappings = (decorator.args[0] as ObjectLiteral).values;
+                    if (!mappings) {
+                        throw Error("Metadata decorators args incorrect");
+                    }
+                    this.metadata = new Map();
+                    for (const [key, value] of mappings) {
+                        if (typeof key !== "string") {
+                            throw Error(`Metadata object literal keys must be constant in "${this.filename}"`);
+                        }
+                        if (value instanceof Value && value.type === Type.string) {
+                            this.metadata.set(key as string, value.value!);
+                        } else {
+                            this.metadata.set(key as string, value);
+                        }
+                    }
+                    break;
+                case "Shadow":
+                    this.useShadowDOM = true;
+                    break;
+                case "Singleton":
+                    throw Error(`Not implement - @${decorator.name} in "${this.filename}"`);
+                default:
+                    throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators in "${this.filename}"`)
+            }
         }
     }
 }

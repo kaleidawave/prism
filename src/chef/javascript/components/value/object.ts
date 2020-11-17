@@ -52,7 +52,7 @@ export class ObjectLiteral implements IRenderable {
                         serializedKey = `"${key}"`;
                     }
                 } else {
-                    serializedKey = key.render();
+                    serializedKey = key.render(settings);
                 }
 
                 if (settings.minify || options.inline) {

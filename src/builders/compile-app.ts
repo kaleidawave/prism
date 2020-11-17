@@ -94,7 +94,7 @@ export function compileApplication(settings: IFinalPrismSettings, runFunction?: 
     if (settings.buildTimings) console.time("Combine all component scripts and styles, write out server modules");
     for (const [, registeredComponent] of Component.registeredComponents) {
         clientScriptBundle.combine(registeredComponent.clientModule);
-        if (registeredComponent.stylesheet) {
+        if (registeredComponent.stylesheet && !registeredComponent.useShadowDOM) {
             clientStyleBundle.combine(registeredComponent.stylesheet);
         }
         if (registeredComponent.serverModule) {

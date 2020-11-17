@@ -31,7 +31,7 @@ function h(tn: string, a: Object | 0 = 0, v: Object | 0 = 0, ...c: Array<HTMLEle
     return e;
 }
 
-function createObservableObject<T>(
+function cOO<T>(
     this: Component<T>,
     m: any,
     d: Partial<T>,
@@ -68,12 +68,18 @@ function createObservableObject<T>(
 }
 
 function connectedCallback() {
-    super.append(...this.render())
+    // @ts-expect-error .useShadow does exist statically on derived class (abstract static)
+    if (this.constructor.useShadow) {
+        this.attachShadow({ mode: "open" }).append(...this.render());
+    } else {
+        // Uses super to avoiding conflicting with a possible append override on the component 
+        super.append(...this.render())
+    }
     this.connected?.();
-    this._isRendered = true;
+    this._isR = true;
 }
 
 function disconnectedCallback() {
     this.disconnected?.();
-    this._isRendered = false;
+    this._isR = false;
 }
