@@ -50,3 +50,23 @@ export function isArrayHoley<T>(a: Array<T>): boolean {
     }
     return false;
 }
+
+/**
+ * Generic function for adding or removing events to some element given a id, event name and callback
+ * @param t the component to add to
+ * @param id the id of the element
+ * @param en the event name to bind to
+ * @param cb the callback
+ * @param enable to remove the "disabled" attribute
+ */
+export function changeEvent(t: Component<any>, id: string, en: string, cb: any, add = true, enable = true) {
+    const elem = t.getElem(id);
+    if (!elem) return;
+    if (add) {
+        elem.addEventListener(en, cb);
+        if (enable) elem.removeAttribute("disabled");
+    } else {
+        elem.removeEventListener(en, cb);
+        if (enable) elem.setAttribute("disabled", "");
+    }
+}

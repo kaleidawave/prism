@@ -28,9 +28,13 @@ export type IRuntimeFeatures =
  */
 export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Module) {
     if (!runtimeFeatures.isomorphic) {
-        // Remove createComment helper
+        // Remove cC (create comment) helper
         bundle.statements = bundle.statements.filter(statement => !(
-            statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && statement.exported.name?.name === "createComment"
+            statement instanceof ExportStatement && 
+            statement.exported instanceof FunctionDeclaration && ( 
+                statement.exported.name?.name === "cC" ||
+                statement.exported.name?.name === "changeEvent"
+            )
         ));
 
         const otherStatements = Module.fromString(fileBundle.get("others.ts")!, "others.ts").statements;

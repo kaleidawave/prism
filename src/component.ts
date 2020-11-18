@@ -474,12 +474,10 @@ export class Component {
         componentClass.addMember(clientRenderMethod);
 
         // Build event bindings for ssr components
-        if (settings.context === "isomorphic") {
-            for (const method of buildEventBindings(templateData.events, templateData.nodeData, settings.disableEventElements)) {
-                if (method.statements.length > 0) {
-                    componentClass.addMember(method);
-                }
-            }
+        if (settings.context === "isomorphic" && templateData.events.length > 0) {
+            componentClass.addMember(
+                buildEventBindings(templateData.events, settings.disableEventElements)
+            );
         }
 
         // Define component to customElement register call

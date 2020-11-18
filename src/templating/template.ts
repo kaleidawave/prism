@@ -13,7 +13,7 @@ import { FunctionDeclaration } from "../chef/javascript/components/constructs/fu
 export interface IEvent {
     nodeIdentifier: string,
     element: HTMLElement,
-    event: string,
+    eventName: string,
     callback: VariableReference,
     required: boolean, // If required for logic to work, if true will be disabled on ssr,
     existsOnComponentClass: boolean, // True if the callback points to a method on the component class

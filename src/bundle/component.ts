@@ -26,9 +26,8 @@ export abstract class Component<T> extends HTMLElement {
     // CSR component
     abstract render(): Generator<HTMLElement | string>;
 
-    // Bindings 
-    abstract bindEventListeners(): void;
-    abstract unbindEventListeners(): void;
+    // Add and remove event bindings, a = add
+    abstract handleEvents(a: boolean): void;
 
     // User defined lifecycle callbacks (which don't interfere with connectedCallback)
     abstract connected(): void | undefined;
@@ -79,7 +78,7 @@ export abstract class Component<T> extends HTMLElement {
         // If component has been sever side rendered
         if (this.hasAttribute("data-ssr")) {
             this._d = {};
-            this.bindEventListeners?.();
+            this.handleEvents?.(true);
         } else {
             // @ts-expect-error .useShadow does exist statically on derived class (abstract static)
             if (this.constructor.useShadow) {
@@ -95,7 +94,7 @@ export abstract class Component<T> extends HTMLElement {
 
     disconnectedCallback() {
         this.disconnected?.();
-        this.unbindEventListeners?.();
+        this.handleEvents?.(false);
         this._isR = false;
     }
 }

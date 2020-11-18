@@ -105,7 +105,7 @@ export function parseHTMLElement(
                     element: element,
                     // Router.bind is a method will which call Router.goTo using the href of the element
                     callback: VariableReference.fromChain("Router", "bind") as VariableReference,
-                    event: "click",
+                    eventName: "click",
                     required: false, // A 
                     existsOnComponentClass: false
                 }
@@ -236,7 +236,7 @@ export function parseHTMLElement(
                     nodeIdentifier: identifier,
                     element: element,
                     callback: methodReference,
-                    event: subject,
+                    eventName: subject,
                     required: true,
                     existsOnComponentClass: internal
                 }

@@ -1,8 +1,8 @@
 /**
+ * Create Comment
  * Used for maintaining consistency of splitting text from SSR
- * TODO remove if context=="client"
  */
-export function createComment(comment: string = ""): Comment {
+export function cC(comment: string = ""): Comment {
     return document.createComment(comment);
 }
 

@@ -109,7 +109,7 @@ export function clientRenderPrismNode(
                         } else {
                             callback = event.callback;
                         }
-                        return [event.event, callback];
+                        return [event.eventName, callback];
                     })
                 )
             );
@@ -239,7 +239,7 @@ export function clientRenderPrismNode(
         if (!isFragment) throw Error("Client side rendering of non-fragment comment supported");
         // This used to maintain the same structure as server rendered content
         return new Expression({
-            lhs: new VariableReference("createComment"), // Create comment function in render.ts
+            lhs: new VariableReference("cC"), // Create comment function in render.ts
             operation: Operation.Call,
             rhs: element.comment ? new Value(Type.string, element.comment) : new ArgumentList
         });
