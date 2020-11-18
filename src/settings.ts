@@ -8,7 +8,7 @@ export interface IPrismSettings {
     assetPath: string | null, // The path to the assets folder
     outputPath: string, // The path to the output folder
     serverOutputPath: string | null, // The path to the output folder
-    templatePath: string, // The path to the output folder
+    templatePath: string | null, // The path to the output folder, null if default
     context: "client" | "isomorphic", // If client will not build server paths or add hydration logic to client bundle
     staticSrc: string, // Prefix,
     clientSideRouting: boolean,
@@ -17,10 +17,8 @@ export interface IPrismSettings {
     run: boolean | "open", // Whether to run output after build
     // Whether to SSR the content of components with shadow dom https://web.dev/declarative-shadow-dom/
     declarativeShadowDOM: boolean, 
-    deno: boolean
+    deno: boolean // Includes file extensions in imports
 }
-
-export const defaultTemplateHTML = "bundle/template.html";
 
 const defaultSettings: IPrismSettings = {
     minify: false,
@@ -32,7 +30,7 @@ const defaultSettings: IPrismSettings = {
     There "defaults" are encoded in the respective actual getters in exported setters: */
     assetPath: null,
     serverOutputPath: null,
-    templatePath: defaultTemplateHTML,
+    templatePath: null,
     staticSrc: "/",
     backendLanguage: "js",
     context: "isomorphic",
@@ -55,7 +53,7 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteOutputPath: string,
     absoluteAssetPath: string,
     absoluteServerOutputPath: string,
-    absoluteTemplatePath: string,
+    absoluteTemplatePath: string | null,
 }
 
 export function makePrismSettings(
@@ -76,6 +74,6 @@ export function makePrismSettings(
         absoluteOutputPath: isAbsolute(outputPath) ? outputPath : join(cwd, outputPath),
         absoluteAssetPath: isAbsolute(assetPath) ? assetPath : join(cwd, assetPath),
         absoluteServerOutputPath: isAbsolute(serverOutputPath) ? serverOutputPath : join(cwd, serverOutputPath),
-        absoluteTemplatePath: isAbsolute(templatePath) ? templatePath : join(cwd, templatePath),
+        absoluteTemplatePath: templatePath ? isAbsolute(templatePath) ? templatePath : join(cwd, templatePath) : null,
     };
 }

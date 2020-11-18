@@ -22,7 +22,7 @@ export function randomPrismId(): string {
     return "p" + id;
 }
 
-function randomId() {
+export function randomId() {
     return getRandomInt(0, 1e5).toString(36);
 }
 

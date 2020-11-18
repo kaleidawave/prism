@@ -14,6 +14,7 @@ import { moveStaticAssets } from "./assets";
 import { IFinalPrismSettings } from "../settings";
 import { exists } from "../filesystem";
 import type { runApplication } from "../node";
+import { randomId } from "../templating/helpers";
 
 /**
  * - Registers all components
@@ -57,11 +58,12 @@ export function compileApplication(settings: IFinalPrismSettings, runFunction?: 
         includeExtensionsInImports: settings.deno
     };
 
-    const template = parseTemplateShell(settings);
-
-    // TODO versioning
-    const clientScriptBundle = new Module(join(settings.absoluteOutputPath, "bundle.js"));
-    const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, "bundle.css"));
+    const jsName = `bundle.${randomId()}.js`;
+    const cssName = `bundle.${randomId()}.css`;
+    const clientScriptBundle = new Module(join(settings.absoluteOutputPath, jsName));
+    const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, cssName));
+    
+    const template = parseTemplateShell(settings, jsName, cssName);
 
     const prismClient = getPrismClient(settings.clientSideRouting);
     treeShakeBundle(features, prismClient);

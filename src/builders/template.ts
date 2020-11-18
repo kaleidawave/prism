@@ -1,4 +1,4 @@
-import { defaultTemplateHTML, IFinalPrismSettings } from "../settings";
+import { IFinalPrismSettings } from "../settings";
 import { flatElements, HTMLDocument, HTMLElement, Node } from "../chef/html/html";
 import { fileBundle } from "../bundled-files";
 import { NodeData } from "../templating/template";
@@ -15,15 +15,15 @@ export interface IShellData {
 /**
  * Creates the underlining index document including references in the script to the script and style bundle.
  */
-export function parseTemplateShell(settings: IFinalPrismSettings): IShellData {
+export function parseTemplateShell(settings: IFinalPrismSettings, jsName: string, cssName: string): IShellData {
     // Read the included template or one specified by settings
     let document: HTMLDocument;
     const nodeData: WeakMap<Node, NodeData> = new WeakMap(),
         slots: Set<HTMLElement> = new Set();
-    if (settings.templatePath === defaultTemplateHTML) {
-        document = HTMLDocument.fromString(fileBundle.get("template.html")!, "template.html");
-    } else {
+    if (settings.absoluteTemplatePath) {
         document = HTMLDocument.fromFile(settings.absoluteTemplatePath);
+    } else {
+        document = HTMLDocument.fromString(fileBundle.get("template.html")!, "template.html");
     }
 
     for (const element of flatElements(document)) {
@@ -42,20 +42,19 @@ export function parseTemplateShell(settings: IFinalPrismSettings): IShellData {
                     element.parent = swapElement;
                     break;
                 case "meta":
-                    // TODO link up names
                     // TODO manifest
                     element.parent!.children.splice(
                         element.parent!.children.indexOf(element),
                         0,
                         new HTMLElement(
                             "script",
-                            new Map([["type", "module"], ["src", "/bundle.js"]]),
+                            new Map([["type", "module"], ["src", "/" + jsName]]),
                             [],
                             element.parent
                         ),
                         new HTMLElement(
                             "link",
-                            new Map([["rel", "stylesheet"], ["href", "/bundle.css"]]),
+                            new Map([["rel", "stylesheet"], ["href", "/" + cssName]]),
                             [],
                             element.parent
                         )
