@@ -285,8 +285,10 @@ As of 1.3.0 prism supports compiling server render functions to native rust func
 | context              | isomorphic                                                   | Either `client` or `isomorphic`. Client applications will not have server functions and lack isomorphic functionality |
 | buildTimings         | false                                                        | Whether to log the time it takes to build Prism sites        |
 | run                  | false                                                        | If true will run dev server on client side output. Relies on [ws](https://github.com/lwsjs/local-web-server) being installed globally |
-| backendLanguage      | js                                                           | Either "js", "ts" or "rust"                                        |
+| backendLanguage      | js                                                           | Either "js", "ts" or "rust"                                  |
 | disableEventElements | true                                                         | Adds disable to ssr elements with event handlers             |
+| declarativeShadowDOM | false                                                        | Enables [DSD](https://web.dev/declarative-shadow-dom/) for SSR the content of web components with shadow dom |
+| versioning           | true                                                         | Adds a unique id onto the end of output resources for versioning reasons |
 
 Assigning these settings is first done through reading in `prism.config.json` in the current working directory. Then by looking at arguments behind any of the commands. e.g.
 

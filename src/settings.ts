@@ -10,9 +10,11 @@ export interface IPrismSettings {
     serverOutputPath: string | null, // The path to the output folder
     templatePath: string | null, // The path to the output folder, null if default
     context: "client" | "isomorphic", // If client will not build server paths or add hydration logic to client bundle
-    staticSrc: string, // Prefix,
-    clientSideRouting: boolean,
-    disableEventElements: boolean,
+    staticSrc: string, // Prefix all routes, used if index is not under "/" 
+    clientSideRouting: boolean, // Add router and do client side routing
+    // Add disable attribute to the SSR markup of all events which is then removed once event has been added
+    disableEventElements: boolean, 
+    versioning: boolean, // Whether to version bundles (Insert a unique id into path)
     buildTimings: boolean, // Whether to print timings of the static build
     run: boolean | "open", // Whether to run output after build
     // Whether to SSR the content of components with shadow dom https://web.dev/declarative-shadow-dom/
@@ -31,6 +33,7 @@ const defaultSettings: IPrismSettings = {
     assetPath: null,
     serverOutputPath: null,
     templatePath: null,
+    versioning: true,
     staticSrc: "/",
     backendLanguage: "js",
     context: "isomorphic",

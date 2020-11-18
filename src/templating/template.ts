@@ -96,6 +96,7 @@ export interface ITemplateData {
 }
 
 export interface ITemplateConfig {
+    staticSrc: string,
     ssrEnabled: boolean,
     tagNameToComponentMap: Map<string, Component>,
     doClientSideRouting: boolean

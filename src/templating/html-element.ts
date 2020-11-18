@@ -11,6 +11,7 @@ import { FunctionDeclaration } from "../chef/javascript/components/constructs/fu
 import { HTMLComment, HTMLDocument, HTMLElement } from "../chef/html/html";
 import { defaultRenderSettings } from "../chef/helpers";
 import { assignToObjectMap } from "../helpers";
+import { posix } from "path";
 
 export function parseHTMLElement(
     element: HTMLElement,
@@ -111,6 +112,13 @@ export function parseHTMLElement(
 
                 addEvent(templateData.events, element, event, templateData.nodeData);
             }
+
+            // Rewrite href to be in terms staticSrc
+            const href = element.attributes.get("href");
+            // TODO prefix hrefs for dynamic routes
+            if (href) {
+                element.attributes.set("href", posix.join(templateConfig.staticSrc, href));
+            }
         }
 
         // TODO sort the attributes so #if comes later
@@ -119,8 +127,8 @@ export function parseHTMLElement(
 
             // If element is multiple then can be retrieved using root parent
             if (
-                !multiple && 
-                "#$@".split("").some(prefix => name.startsWith(prefix)) && 
+                !multiple &&
+                "#$@".split("").some(prefix => name.startsWith(prefix)) &&
                 typeof templateData.nodeData.get(element)?.identifier === "undefined"
             ) {
                 addIdentifierToElement(element, templateData.nodeData);

@@ -1,13 +1,15 @@
-import { 
-    registerFSCopyCallback, registerFSExistsCallback, 
-    registerFSPathInfoCallback, registerFSReadCallback, 
-    registerFSReadDirectoryCallback, registerFSWriteCallback 
+import {
+    registerFSCopyCallback, registerFSExistsCallback,
+    registerFSPathInfoCallback, registerFSReadCallback,
+    registerFSReadDirectoryCallback, registerFSWriteCallback
 } from "./filesystem";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, readdirSync, lstatSync } from "fs";
 import { dirname, isAbsolute, join, sep } from "path";
 import { getArguments } from "./helpers";
 import { IFinalPrismSettings, makePrismSettings } from "./settings";
-import { spawn } from "child_process";
+import { createServer } from "http";
+import { emitKeypressEvents } from "readline";
+import { exec } from "child_process";
 
 registerFSReadCallback((filename) => readFileSync(filename).toString());
 registerFSWriteCallback((filename, content) => {
@@ -75,59 +77,55 @@ export function registerSettings(cwd: string): IFinalPrismSettings {
 }
 
 /**
- * Runs a prism application 
- * @param openBrowser 
+ * Runs a client side prism application 
+ * @param openBrowser Whether to open the browser to the site
  */
 export function runApplication(openBrowser: boolean = false, settings: IFinalPrismSettings): Promise<void> {
-    if (settings.context === "client") {
-        console.log("Starting client side with ws. Close with ctrl+c");
-
-        // Uses ws to spin up a SPA server
-        return new Promise((res, rej) => {
-            try {
-                const shell = spawn("ws", [
-                    "--directory", settings.outputPath,
-                    "-f", "tiny",
-                    "--spa", "index.html",
-                    openBrowser ? "--open" : "",
-                ], { shell: true, stdio: "pipe" });
-                shell.stdout.pipe(process.stdout);
-                shell.on("close", res);
-                shell.on("error", rej);
-            } catch (error) {
-                rej(error);
-                console.error("ws: " + error);
+    const htmlShell = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
+    return new Promise((res, rej) => {
+        const port = 8080
+        const server = createServer(function (req, res) {
+            const path = join(settings.absoluteOutputPath, req.url!);
+            switch (path.split(".").pop()) {
+                case "js": res.setHeader("Content-Type", "text/javascript"); break;
+                case "css": res.setHeader("Content-Type", "text/css"); break;
+                case "ico": res.setHeader("Content-Type", "image/vnd.microsoft.icon"); break;
+                default: res.setHeader("Content-Type", "text/html"); break;
             }
-        });
-    } else {
-        // Run some server module
-        let command: string;
-        const pkgJSON = join(process.cwd(), "package.json");
-        if (existsSync(pkgJSON)) {
-            const pkg = JSON.parse(readFileSync(pkgJSON).toString());
-            if (pkg.scripts?.start) {
-                command = "npm start";
-            } else if (pkg.main) {
-                command = `node ${pkg.main}`;
+            if (existsSync(path) && lstatSync(path).isFile()) {
+                res.write(readFileSync(path));
             } else {
-                command = `node index.js`;
+                res.write(readFileSync(htmlShell));
             }
-        } else {
-            command = `node index.js`;
-        }
+            res.end();
+        });
 
-        console.log(`Running "${command}"`);
+        server.addListener("error", rej);
+        server.listen(port);
 
-        return new Promise((res, rej) => {
-            try {
-                const shell = spawn(command, { shell: true, stdio: "pipe" });
-                shell.stdout.pipe(process.stdout);
-                shell.on("close", res);
-                shell.on("error", rej);
-            } catch (error) {
-                console.error(error);
-                rej(error);
+        emitKeypressEvents(process.stdin);
+        process.stdin.setRawMode(true);
+        const keyReader = process.stdin.on("keypress", (_, key) => {
+            if (key.ctrl && key.name === "c") {
+                console.log("Closing Server");
+                server.close();
+                keyReader.end();
+                keyReader.destroy();
+                res();
             }
         });
-    }
+
+        const url = `http://localhost:${port}`;
+
+        if (openBrowser) {
+            let start: string;
+            switch (process.platform) {
+                case "darwin": start = "open"; break;
+                case "win32": start = "start"; break;
+                default: throw Error("Unknown Platform");
+            };
+            exec(`${start} ${url}`);
+        }
+        console.log(`Server stared at ${url}, stop with ctrl+c`);
+    });
 }

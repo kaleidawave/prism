@@ -58,8 +58,8 @@ export function compileApplication(settings: IFinalPrismSettings, runFunction?: 
         includeExtensionsInImports: settings.deno
     };
 
-    const jsName = `bundle.${randomId()}.js`;
-    const cssName = `bundle.${randomId()}.css`;
+    const jsName = settings.versioning ? `bundle.${randomId()}.js` : "bundle.js";
+    const cssName = settings.versioning ? `bundle.${randomId()}.css` : "bundle.css";
     const clientScriptBundle = new Module(join(settings.absoluteOutputPath, jsName));
     const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, cssName));
     

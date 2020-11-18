@@ -236,6 +236,7 @@ export class Component {
             tagToComponentMap.set(this.tagName, this);
 
             templateData = parseTemplate(this.templateElement, {
+                staticSrc: settings.staticSrc,
                 ssrEnabled: settings.context === "isomorphic",
                 doClientSideRouting: settings.clientSideRouting,
                 tagNameToComponentMap: tagToComponentMap
