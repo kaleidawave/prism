@@ -1,10 +1,9 @@
 import { IServerRenderSettings, serverRenderPrismNode } from "../../src/templating/builders/server-render";
 import { HTMLElement, TextNode } from "../../src/chef/html/html";
 import { VariableReference } from "../../src/chef/javascript/components/value/variable";
-import { Operation } from "../../src/chef/javascript/components/value/expression";
 import { assignToObjectMap } from "../../src/helpers";
 
-const serverRenderSettings: IServerRenderSettings = {addDisableToElementWithEvents: false, minify: true};
+const serverRenderSettings: IServerRenderSettings = { addDisableToElementWithEvents: false, minify: true };
 
 test("Tag and text", () => {
     const dom = new HTMLElement("div");
@@ -33,7 +32,7 @@ test("Dynamic Attributes", () => {
         `<div title="`,
         {
             value: { name: "someTitle" },
-            escape: false
+            escape: true
         },
         `"></div>`
     ]);

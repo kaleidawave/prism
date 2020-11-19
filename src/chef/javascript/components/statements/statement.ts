@@ -77,7 +77,7 @@ export function parseStatement(reader: TokenReader<JSToken>): StatementTypes {
             } else {
                 reader.throwExpect("Expected class or function to proceed decorator");
             }
-            return statement;
+            return parsedStatement;
         case JSToken.Interface: return InterfaceDeclaration.fromTokens(reader);
         case JSToken.Break: return BreakStatement.fromTokens(reader);
         case JSToken.Continue: return ContinueStatement.fromTokens(reader);

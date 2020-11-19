@@ -1,6 +1,6 @@
 {
   "name": "@kaleidawave/prism",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Isomorphic web app compiler",
   "main": "out/node.js",
   "scripts": {

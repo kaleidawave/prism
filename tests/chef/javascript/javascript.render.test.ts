@@ -402,7 +402,7 @@ describe("Function", () => {
                 { bound: false }
             );
 
-            expect(arrowFunction.render(minificationSettings)).toBe(`x=>{if(x>4){return "abc"}}`);
+            expect(arrowFunction.render(minificationSettings)).toBe(`x=>{if(x>4){return"abc"}}`);
         });
     });
 
@@ -721,7 +721,12 @@ describe("Interfaces", () => {
     });
 
     test("Optional member", () => {
-        const interface_ = new InterfaceDeclaration("IUser", null, new Map([["username", new TypeSignature("string")]]), new Set(["username"]));
+        const interface_ = new InterfaceDeclaration(
+            "IUser", null, 
+            new Map([["username", new TypeSignature("string")]]), 
+            new Map,
+            new Set(["username"])
+        );
 
         expect(interface_.render(typescriptSettings)).toBe("interface IUser {\n    username?: string\n}\n");
     });

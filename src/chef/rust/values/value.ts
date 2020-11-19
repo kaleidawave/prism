@@ -1,8 +1,9 @@
 import { defaultRenderSettings, IRenderable, IRenderOptions, IRenderSettings } from "../../helpers";
+import { ClosureExpression } from "../statements/function";
 import { Expression } from "./expression";
 import { VariableReference } from "./variable";
 
-export type ValueTypes = Expression | VariableReference | Value;
+export type ValueTypes = Expression | VariableReference | Value | ClosureExpression;
 
 export enum Type {
     boolean,

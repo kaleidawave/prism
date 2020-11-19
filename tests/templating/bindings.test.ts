@@ -3,8 +3,16 @@ import { parseTemplate, ITemplateConfig, BindingAspect } from "../../src/templat
 import { VariableReference } from "../../src/chef/javascript/components/value/variable";
 import { ForIteratorExpression } from "../../src/chef/javascript/components/statements/for";
 import { Operation } from "../../src/chef/javascript/components/value/expression";
+import { Component } from "../../src/component";
+import { makePrismSettings } from "../../src/settings";
+import { defaultRuntimeFeatures } from "../../src/builders/prism-client";
 
-const templateConfig: ITemplateConfig  = {doClientSideRouting: false, tagNameToComponentMap: new Map, ssrEnabled: false}
+const templateConfig: ITemplateConfig = {
+    doClientSideRouting: false,
+    tagNameToComponentMap: new Map,
+    ssrEnabled: false,
+    staticSrc: "/"
+}
 
 test("Dynamic attribute", () => {
     const template = `<template>
@@ -12,7 +20,6 @@ test("Dynamic attribute", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
@@ -30,7 +37,6 @@ test("Dynamic text", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
@@ -48,7 +54,6 @@ test("Dynamic text alongside text", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
@@ -64,7 +69,6 @@ test("Dynamic text with multiple variables", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
@@ -78,7 +82,6 @@ test("Existence", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
@@ -94,7 +97,6 @@ test("Iteration", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
@@ -115,14 +117,14 @@ test("Variable under iteration", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
+
     expect(bindings).toHaveLength(2);
     const variableDependency = bindings.find(dep => dep.aspect === BindingAspect.InnerText)!;
     expect(variableDependency).toBeTruthy();
     expect(variableDependency.referencesVariables[0]).toMatchObject([
         "y",
-        {alias: "x", aspect: "*", origin: (templateElement.children[0] as HTMLElement).children[0]}
+        { alias: "x", aspect: "*", origin: (templateElement.children[0] as HTMLElement).children[0] }
     ]);
 });
 
@@ -132,7 +134,6 @@ test("Dynamic style", () => {
     </template>`;
 
     const templateElement = HTMLElement.fromString(template);
-
     const { bindings } = parseTemplate(templateElement, templateConfig);
 
     expect(bindings).toHaveLength(1);
@@ -140,4 +141,39 @@ test("Dynamic style", () => {
     expect(bindings[0].styleKey).toBe("color");
     expect(bindings[0].expression).toBeInstanceOf(VariableReference);
     expect((bindings[0].expression as VariableReference).name).toBe("someVar");
+});
+
+test("Raw HTML", () => {
+    const template = `<template>
+        <div #html="html"></div>
+    </template>`;
+
+    const templateElement = HTMLElement.fromString(template);
+    const { bindings } = parseTemplate(templateElement, templateConfig);
+
+    expect(bindings).toHaveLength(1);
+    expect(bindings[0].aspect).toBe(BindingAspect.InnerHTML);
+    expect(bindings[0].element).toBe(templateElement.children[0]);
+    expect(bindings[0].expression).toBeInstanceOf(VariableReference);
+    expect((bindings[0].expression as VariableReference).name).toBe("html");
+    expect(bindings[0].referencesVariables).toHaveLength(1);
+});
+
+test("Page document title", () => {
+    const template =
+        `<template></template>
+        <script>
+            @Title(title)
+            @Page("/p/:pageID")
+            class P extends Component<{title: string}> {}
+        </script>`;
+
+    const comp = Component.fromString(template, "anom");
+    comp.processComponent(makePrismSettings(process.cwd(), "/"), {...defaultRuntimeFeatures});
+    const { bindings } = comp;
+
+    expect(bindings).toHaveLength(1);
+    expect(bindings[0].aspect).toBe(BindingAspect.DocumentTitle);
+    expect(bindings[0].expression).toBeInstanceOf(VariableReference);
+    expect((bindings[0].expression as VariableReference).name).toBe("title");
 });

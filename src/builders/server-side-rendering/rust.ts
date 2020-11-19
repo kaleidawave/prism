@@ -1,10 +1,9 @@
 import { StatementTypes } from "../../chef/rust/statements/block";
-import { ArgumentList, FunctionDeclaration, ReturnStatement } from "../../chef/rust/statements/function";
+import { ArgumentList, ClosureExpression, FunctionDeclaration, ReturnStatement } from "../../chef/rust/statements/function";
 import { VariableDeclaration } from "../../chef/rust/statements/variable";
 import { Expression, Operation } from "../../chef/rust/values/expression";
 import { Type, Value, ValueTypes } from "../../chef/rust/values/value";
 import { VariableReference } from "../../chef/rust/values/variable";
-import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { Module } from "../../chef/rust/module";
@@ -12,7 +11,6 @@ import { Module as JSModule } from "../../chef/javascript/components/module";
 import { ModStatement } from "../../chef/rust/statements/mod";
 import { dirname, join, relative } from "path";
 import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
-import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement, ExportStatement } from "../../chef/javascript/components/statements/import-export";
 import { UseStatement } from "../../chef/rust/statements/use";
 import { ElseStatement, IfStatement } from "../../chef/rust/statements/if";
 import { ForStatement } from "../../chef/rust/statements/for";
@@ -25,6 +23,13 @@ import { Comment as JSComment } from "../../chef/javascript/components/statement
 import { TemplateLiteral as JSTemplateLiteral } from "../../chef/javascript/components/value/template-literal";
 import { Type as JSType, Value as JSValue } from "../../chef/javascript/components/value/value";
 import { IType } from "../../chef/javascript/utils/types";
+import {
+    IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode
+} from "../../templating/builders/server-render";
+import {
+    ImportStatement as JSImportStatement,
+    ExportStatement as JSExportStatement
+} from "../../chef/javascript/components/statements/import-export";
 
 /** The variable which points to the String that is appended to */
 const accVariable = new VariableReference("acc");
@@ -64,8 +69,11 @@ function statementsFromServerRenderChunks(
             ));
         } else if ("condition" in chunk) {
             let value = jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes;
-            // TODO does not work for for loop and nested variables...
-            // TODO numbers and strings to convert to Rust as does not have falsy values
+            /* TODO TEMP:
+             * Convert conditional properties (in rust these are Option<T>) to a boolean
+             * TODO does not work for for loop and nested variables...
+             * TODO numbers and strings to convert to Rust as does not have falsy values
+            */
             if (value instanceof VariableReference && dataType?.properties?.get(value.name)?.isOptional) {
                 value = new Expression(
                     new VariableReference("is_some", value),
@@ -84,45 +92,12 @@ function statementsFromServerRenderChunks(
                 statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule, dataType)
             ));
         } else if ("func" in chunk) {
-            const args = new Map(
-                Array.from(chunk.args)
-                    .map(([name, value]) => {
-                        if (typeof value === "object" && "argument" in value) {
-                            return [
-                                name,
-                                new Expression(
-                                    jsAstToRustAst(value.argument, module, jsModule) as ValueTypes,
-                                    Operation.Borrow
-                                )
-                            ];
-                        } else {
-                            if (Array.isArray(value)) {
-                                if (value.length === 0) {
-                                    return [name, new Expression(new VariableReference("to_string", new Value(Type.string, "")), Operation.Call)]
-                                } else if (value.length === 1) {
-                                    return [name, serverChunkToValue(value[0], module, jsModule, dataType)];
-                                } else if (value.some((chunk: any) => "condition" in chunk || "subject" in chunk)) {
-                                    return [name, formatExpressionFromServerChunks(value, module, jsModule)];
-                                } else {
-                                    // TODO generate function on module and call the created function
-                                    throw Error("Not implemented - Rust render component slotted content");
-                                }
-                            } else {
-                                return [name, serverChunkToValue(value, module, jsModule, dataType)];
-                            }
-                        }
-                    })
-            );
             statements.push(new Expression(
                 new VariableReference("push_str", accVariable),
                 Operation.Call,
                 new ArgumentList([
                     new Expression(
-                        new Expression(
-                            new VariableReference(chunk.func.actualName!),
-                            Operation.Call,
-                            chunk.func.buildArgumentListFromArgumentsMap(args)
-                        ),
+                        serverChunkToValue(chunk, module, jsModule, dataType),
                         Operation.Borrow
                     )
                 ])
@@ -146,7 +121,9 @@ function serverChunkToValue(
         );
     } else if ("value" in chunk) {
         let value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
-        // TODO does not work for for loop and nested variables...
+        /* TODO TEMP:
+         * Unwrap conditional properties (Option<T> in rust)
+        */
         if (value instanceof VariableReference && dataType?.properties?.get(value.name)?.isOptional) {
             value = new Expression(
                 new VariableReference(
@@ -172,7 +149,66 @@ function serverChunkToValue(
             );
         }
         return value;
+    } else if ("func" in chunk) {
+        const args = new Map(
+            Array.from(chunk.args)
+                .map(([name, value]) => {
+                    if (typeof value === "object" && "argument" in value) {
+                        return [
+                            name,
+                            new Expression(
+                                jsAstToRustAst(value.argument, module, jsModule) as ValueTypes,
+                                Operation.Borrow
+                            )
+                        ];
+                    } else {
+                        if (Array.isArray(value)) {
+                            if (value.length === 0) {
+                                return [name, new Expression(new VariableReference("to_string", new Value(Type.string, "")), Operation.Call)]
+                            } else if (value.length === 1) {
+                                return [name, serverChunkToValue(value[0], module, jsModule, dataType)];
+                            } else {
+                                return [name, formatExpressionFromServerChunks(value, module, jsModule)];
+                            }
+                        } else {
+                            return [name, serverChunkToValue(value, module, jsModule, dataType)];
+                        }
+                    }
+                })
+        );
+        return new Expression(
+            new VariableReference(chunk.func.actualName!),
+            Operation.Call,
+            chunk.func.buildArgumentListFromArgumentsMap(args)
+        );
+    } else if ("subject" in chunk) {
+        const mapFunctionOnSubject = new VariableReference("map", new Expression(
+            new VariableReference("iter", jsAstToRustAst(chunk.subject, module, jsModule) as ValueTypes),
+            Operation.Call,
+        ));
+        const serverRenderedIteratorChunk = formatExpressionFromServerChunks(
+            chunk.childRenderExpression, module, jsModule
+        );
+        const mapCall = new Expression(
+            mapFunctionOnSubject,
+            Operation.Call,
+            new ClosureExpression(
+                [[chunk.variable, null]],
+                [new ReturnStatement(serverRenderedIteratorChunk)],
+                true // <- Important environment is captured to allow variables other than the one from the iterator to be accessible
+            )
+        )
+        // Collect the output to a String:
+        return new Expression(
+            // Yes <String> is a generic argument which is not the same as a member at the ast level but due to syntactical equivalence when rendering can get away with it here
+            new VariableReference("<String>",
+                new VariableReference("collect", mapCall),
+                true
+            ),
+            Operation.Call
+        )
     } else {
+        // TODO conditional expressions with match, will run into the js truthy to rust boolean issue here...?
         throw Error(`Not implemented - producing rust expression from chunk "${chunk}" `);
     }
 }
@@ -188,28 +224,12 @@ function formatExpressionFromServerChunks(
     for (const chunk of serverChunks) {
         if (typeof chunk === "string") {
             formatString += chunk;
-        } else if ("value" in chunk) {
+        } else {
             formatString += "{}";
-            const value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
             args.push(new Expression(
-                new Expression(
-                    new VariableReference("to_string", new Expression(
-                        new VariableReference("encode_safe"),
-                        Operation.Call,
-                        new Expression(
-                            new Expression(
-                                new VariableReference("to_string", value),
-                                Operation.Call
-                            ),
-                            Operation.Borrow
-                        )
-                    )),
-                    Operation.Call
-                ),
+                serverChunkToValue(chunk, module, jsModule),
                 Operation.Borrow
             ));
-        } else {
-            throw Error(`Cannot use ${chunk} in Rust format! expression`);
         }
     }
 
@@ -256,13 +276,17 @@ export function makeRustComponentServerModule(
                     }
                 }
                 if (importedComponent) {
+                    // TODO does not work where path ~ ../x/comp.prism.js but then I don't think that is possible without knowing crate origin
                     const path = relative(
-                        join(settings.cwd, "src"),
-                        importedComponent.serverModule!.filename!
-                    )
+                        comp.serverModule!.filename,
+                        importedComponent.serverModule!.filename
+                    );
                     const useStatement = new UseStatement([
-                        "crate",
-                        ...path.substr(0, path.lastIndexOf('.')).split(settings.pathSplitter),
+                        "super",
+                        ...path
+                            .substr(0, path.lastIndexOf('.'))
+                            .split(settings.pathSplitter)
+                            .slice(1),
                         newImports
                     ]);
                     comp.serverModule!.statements.push(useStatement);
@@ -297,7 +321,7 @@ export function makeRustComponentServerModule(
         ) {
             const rustStatement = jsAstToRustAst(statement, comp.serverModule, comp.clientModule);
             if (rustStatement instanceof StructStatement) {
-                const memberDecorators = statement instanceof ExportStatement ?
+                const memberDecorators = statement instanceof JSExportStatement ?
                     (statement.exported as TSInterfaceDeclaration).memberDecorators :
                     (statement as TSInterfaceDeclaration).memberDecorators;
                 for (const [name, decorator] of memberDecorators) {
@@ -394,8 +418,11 @@ export function makeRustComponentServerModule(
     }
 
     if (comp.isPage) {
-        const pathToPrismModule = relative(join(settings.cwd, "src"), dirname(comp.serverModule.filename)).split(settings.pathSplitter);
-        const useStatement = new UseStatement(["crate", ...pathToPrismModule, "prism", "render_html"]);
+        const pathToPrismModule = relative(
+            settings.absoluteServerOutputPath,
+            dirname(comp.serverModule.filename)
+        ).split(settings.pathSplitter).filter(Boolean);
+        const useStatement = new UseStatement(["super", ...pathToPrismModule, "prism", "render_html"]);
         comp.serverModule!.statements.unshift(useStatement);
     }
 

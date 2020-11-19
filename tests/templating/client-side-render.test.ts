@@ -4,7 +4,12 @@ import { buildClientRenderMethod } from "../../src/templating/builders/client-re
 import { makeRenderSettings } from "../../src/chef/helpers";
 
 const minifiedSettings = makeRenderSettings({ minify: true });
-const templateConfig: ITemplateConfig = { doClientSideRouting: false, tagNameToComponentMap: new Map, ssrEnabled: false }
+const templateConfig: ITemplateConfig = { 
+    doClientSideRouting: false, 
+    tagNameToComponentMap: new Map, 
+    ssrEnabled: false,
+    staticSrc: "/"
+}
 
 // TODO all of the testing uses at the serialized output as it quicker to test that equating asts. For better testing that equate ast as to not rely on render testing
 

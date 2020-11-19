@@ -1,5 +1,5 @@
 import { Component } from "../component";
-import { getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
+import { defaultRuntimeFeatures, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { join } from "path";
@@ -15,13 +15,7 @@ export function compileSingleComponent(
     componentPath: string,
     settings: IFinalPrismSettings
 ): void {
-    const features: IRuntimeFeatures = { 
-        conditionals: false, 
-        isomorphic: settings.context === "isomorphic", 
-        observableArrays: false,
-        subObjects: false,
-        svg: false
-    }
+    const features: IRuntimeFeatures = { ...defaultRuntimeFeatures, isomorphic: settings.context === "isomorphic" };
 
     if (settings.buildTimings) console.time("Parse component file and its imports");
     const component = Component.registerComponent(componentPath, settings, features);

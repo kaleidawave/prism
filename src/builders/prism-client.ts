@@ -23,6 +23,8 @@ export type IRuntimeFeatures =
         boolean
     >;
 
+export const defaultRuntimeFeatures: IRuntimeFeatures = Object.freeze({observableArrays: false, conditionals: false, svg: false, subObjects: false, isomorphic: false});
+
 /**
  * Remove unused runtime logic from `bundle` according to the `runtimeFeatures` that are needed
  */

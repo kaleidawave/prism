@@ -728,10 +728,14 @@ export class Component {
                     if (!title) {
                         throw Error("Metadata decorators args incorrect");
                     }
-                    if (title instanceof TemplateLiteral || (title instanceof Value && title.type === Type.string)) {
+                    if (
+                        title instanceof TemplateLiteral || 
+                        title instanceof VariableReference || 
+                        (title instanceof Value && title.type === Type.string)
+                    ) {
                         this.title = title;
                     } else {
-                        throw Error("Title must be of type string or template literal")
+                        throw Error("Title must be of type string, variable or template literal");
                     }
                     break;
                 case "Metadata":

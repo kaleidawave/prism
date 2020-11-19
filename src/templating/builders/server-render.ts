@@ -95,12 +95,12 @@ export function serverRenderPrismNode(
             const componentsData: ValueTypes | null = elementData.dynamicAttributes?.get("data") ?? null;
 
             // A render function for a component goes attributes, componentData, contentSlot, ...context. With all of those being optional apart from contentSlot
-
             const renderArgs: Map<string, ServerRenderedChunks | ServerRenderChunk | { argument: ValueTypes }> = new Map();
 
-            if (element.attributes) {
-                renderArgs.set("attributes", serverRenderNodeAttribute(element, nodeData, locals));
-            }
+            renderArgs.set(
+                "attributes", 
+                element.attributes ? serverRenderNodeAttribute(element, nodeData, locals) : []
+            );
 
             if (component.hasSlots) {
                 const slotRenderFunction: ServerRenderedChunks = [];

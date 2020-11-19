@@ -265,25 +265,25 @@ describe("Variables", () => {
         test("Object destructor with alias", () => {
             const variable = VariableDeclaration.fromString("const {a: c, b} = myObj");
             expect(variable.entries!.has("a")).toBeTruthy();
-            expect(variable.entries!.get("a")).toMatchObject({name: "c"});
+            expect(variable.entries!.get("a")).toMatchObject({ name: "c" });
             expect(variable.entries!.has("b")).toBeTruthy();
-            expect(variable.entries!.get("b")).toMatchObject({name: "b"});
+            expect(variable.entries!.get("b")).toMatchObject({ name: "b" });
         });
 
         test("Object destructor with default", () => {
             const variable = VariableDeclaration.fromString("const {a, b = 3} = myObj");
             expect(variable.entries!.has("a")).toBeTruthy();
-            expect(variable.entries!.get("a")).toMatchObject({name: "a"});
+            expect(variable.entries!.get("a")).toMatchObject({ name: "a" });
             expect(variable.entries!.has("b")).toBeTruthy();
-            expect(variable.entries!.get("b")).toMatchObject({name: "b", value: {value: "3", type: Type.number}});
+            expect(variable.entries!.get("b")).toMatchObject({ name: "b", value: { value: "3", type: Type.number } });
         });
 
         test("Object destructor with spread", () => {
             const variable = VariableDeclaration.fromString("const {a, ...b} = myObj");
             expect(variable.entries!.has("a")).toBeTruthy();
-            expect(variable.entries!.get("a")).toMatchObject({name: "a"});
+            expect(variable.entries!.get("a")).toMatchObject({ name: "a" });
             expect(variable.entries!.has("b")).toBeTruthy();
-            expect(variable.entries!.get("b")).toMatchObject({name: "b", spread: true});
+            expect(variable.entries!.get("b")).toMatchObject({ name: "b", spread: true });
         });
 
         test.todo("Deep object destructor");
@@ -947,9 +947,9 @@ describe("For", () => {
         const forLoop = mod.statements[0] as ForStatement;
         const forLoopStatement = forLoop.expression as ForIteratorExpression;
         expect(forLoopStatement.variable.entries!.has(0)).toBeTruthy();
-        expect(forLoopStatement.variable.entries!.get(0)).toMatchObject({name: "a"});
+        expect(forLoopStatement.variable.entries!.get(0)).toMatchObject({ name: "a" });
         expect(forLoopStatement.variable.entries!.has(1)).toBeTruthy();
-        expect(forLoopStatement.variable.entries!.get(1)).toMatchObject({name: "b"});
+        expect(forLoopStatement.variable.entries!.get(1)).toMatchObject({ name: "b" });
 
         expect(forLoopStatement).toMatchObject({
             variable: { isConstant: true },
@@ -1413,9 +1413,9 @@ describe("Function", () => {
             const func = mod.statements[0] as FunctionDeclaration;
             expect(func.parameters[0].entries?.size).toBe(2);
             expect(func.parameters[0].entries!.has(0)).toBeTruthy();
-            expect(func.parameters[0].entries!.get(0)).toMatchObject({name: "a"});
+            expect(func.parameters[0].entries!.get(0)).toMatchObject({ name: "a" });
             expect(func.parameters[0].entries!.has(1)).toBeTruthy();
-            expect(func.parameters[0].entries!.get(1)).toMatchObject({name: "b"});
+            expect(func.parameters[0].entries!.get(1)).toMatchObject({ name: "b" });
         });
 
         test("Object destructor", () => {
@@ -1423,9 +1423,9 @@ describe("Function", () => {
             const func = mod.statements[0] as FunctionDeclaration;
             expect(func.parameters[0].entries?.size).toBe(2);
             expect(func.parameters[0].entries!.has("x")).toBeTruthy();
-            expect(func.parameters[0].entries!.get("x")).toMatchObject({name: "x"});
+            expect(func.parameters[0].entries!.get("x")).toMatchObject({ name: "x" });
             expect(func.parameters[0].entries!.has("y")).toBeTruthy();
-            expect(func.parameters[0].entries!.get("y")).toMatchObject({name: "y"});
+            expect(func.parameters[0].entries!.get("y")).toMatchObject({ name: "y" });
         });
     });
 
@@ -1478,7 +1478,7 @@ describe("Values", () => {
     test("Null", () => {
         const var1 = VariableDeclaration.fromString("const variable = null");
         expect((var1.value as Value).type).toBe(Type.object);
-        expect((var1.value as Value).value).toBe("null");
+        expect((var1.value as Value).value).toBe(null);
     });
 
     test("Undefined", () => {
@@ -1805,7 +1805,7 @@ describe("Values", () => {
 
     });
 
-    describe("Template literals / template strings", () => {
+    describe("Template literals", () => {
         test("Interpolation", () => {
             const tl = Expression.fromString("`Hello ${name}`") as TemplateLiteral;
             expect(tl.entries).toEqual(["Hello ", { name: "name" }]);
@@ -1823,15 +1823,19 @@ describe("Values", () => {
         });
 
         test("Nested template literals", () => {
-            const tl = Expression.fromString("`<h1>${`Hello ${name}`}</h1>`") as TemplateLiteral;
+            const tl = Expression.fromString("`<h1>${`Hello ${name}` + ''}</h1>`") as TemplateLiteral;
+            // Template literals collapse nested literals if possible thus the addition to break this
             expect(tl).toMatchObject({
                 entries: [
                     "<h1>",
                     {
-                        entries: [
-                            "Hello ",
-                            { name: "name" }
-                        ]
+                        lhs: {
+                            entries: [
+                                "Hello ",
+                                { name: "name" }
+                            ],
+                        },
+                        operation: Operation.Add
                     },
                     "</h1>"
                 ]
@@ -2052,7 +2056,7 @@ describe("Typescript", () => {
                 { name: "a" },
                 { name: "b" },
             ]);
-        }); 
+        });
     });
 });
 

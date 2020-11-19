@@ -82,7 +82,9 @@ export function jsAstToRustAst(jsAst: JSAstTypes, rustModule: Module, jsModule: 
                         .map(([name, type]) =>
                             [name, jsAstToRustAst(type, rustModule, jsModule)] as [string, TypeSignature]
                         )
-                )
+                ),
+                new Map,
+                true
             );
             rustModule.statements.push(struct);
             return new TypeSignature(name);

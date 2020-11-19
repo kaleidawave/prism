@@ -2,7 +2,7 @@ import { filesInFolder } from "../helpers";
 import { Component } from "../component";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
-import { getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
+import { defaultRuntimeFeatures, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
 import { parseTemplateShell, writeIndexHTML } from "./template";
 import { buildPrismServerModule as buildTSPrismServerModule } from "./server-side-rendering/typescript";
 import { buildPrismServerModule as buildRustPrismServerModule } from "./server-side-rendering/rust";
@@ -26,13 +26,7 @@ import { randomId } from "../templating/helpers";
  * - Write out scripts, stylesheets and shell.html
  */
 export function compileApplication(settings: IFinalPrismSettings, runFunction?: typeof runApplication) {
-    const features: IRuntimeFeatures = {
-        conditionals: false,
-        isomorphic: settings.context === "isomorphic",
-        observableArrays: false,
-        subObjects: false,
-        svg: false
-    }
+    const features: IRuntimeFeatures = { ...defaultRuntimeFeatures, isomorphic: settings.context === "isomorphic" };
 
     if (settings.buildTimings) console.time("Parse component files");
     for (const filepath of filesInFolder(settings.absoluteProjectPath)) {
@@ -62,7 +56,7 @@ export function compileApplication(settings: IFinalPrismSettings, runFunction?: 
     const cssName = settings.versioning ? `bundle.${randomId()}.css` : "bundle.css";
     const clientScriptBundle = new Module(join(settings.absoluteOutputPath, jsName));
     const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, cssName));
-    
+
     const template = parseTemplateShell(settings, jsName, cssName);
 
     const prismClient = getPrismClient(settings.clientSideRouting);

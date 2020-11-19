@@ -24,7 +24,11 @@ export class FunctionDeclaration implements IFunctionDeclaration {
     ) { }
 
     buildArgumentListFromArgumentsMap(argumentMap: Map<string, ValueTypes>): ArgumentList {
-        return new ArgumentList(this.parameters.map(([paramName]) => argumentMap.get(paramName)!));
+        const args = this.parameters.map(([paramName]) => {
+            if (!argumentMap.has(paramName)) throw Error(`Missing argument for parameter "${paramName}"`);
+            return argumentMap.get(paramName)!;
+        });
+        return new ArgumentList(args);
     }
 
     render(settings: IRenderSettings = defaultRenderSettings, options?: Partial<IRenderOptions>): string {
@@ -41,6 +45,28 @@ export class FunctionDeclaration implements IFunctionDeclaration {
         acc += "{";
         acc += renderStatements(this.statements, settings);
         acc += "}";
+        return acc;
+    }
+}
+
+export class ClosureExpression implements IRenderable {
+    constructor (
+        public parameters: Array<[string, TypeSignature | null]>,
+        public statements: Array<StatementTypes>,
+        public captureEnv: boolean = false,
+    ) {}
+
+    render(settings: IRenderSettings, options?: Partial<IRenderOptions>): string {
+        let acc = "";
+        if (this.captureEnv) acc += "move ";
+        acc += "|" + this.parameters.map(([name, type]) => `${name}${type ? ": " + type.render(settings) : ""}`).join(", ") + "| ";
+        if (this.statements.length === 1 && this.statements[0] instanceof ReturnStatement) {
+            acc += this.statements[0].value.render(settings);
+        } else {
+            acc += "{";
+            acc += renderStatements(this.statements, settings);
+            acc += "}";
+        }
         return acc;
     }
 }
