@@ -12,7 +12,7 @@ import { Value, Type, ValueTypes } from "./chef/javascript/components/value/valu
 import { ReturnStatement } from "./chef/javascript/components/statements/statement";
 import { setNotFoundRoute, addRoute } from "./builders/client-side-routing";
 import { DynamicUrl, stringToDynamicUrl } from "./chef/dynamic-url";
-import { resolve, dirname, relative, join } from "path";
+import { resolve, dirname, relative, join, posix } from "path";
 import { ObjectLiteral } from "./chef/javascript/components/value/object";
 import { TemplateLiteral } from "./chef/javascript/components/value/template-literal";
 import { Stylesheet } from "./chef/css/stylesheet";
@@ -208,7 +208,7 @@ export class Component {
             throw Error(`Use "connected" and "disconnected" instead of "connectedCallback" and "disconnectedCallback"`);
         }
 
-        if (componentClass.decorators) this.processDecorators();
+        if (componentClass.decorators) this.processDecorators(settings);
 
         // If tag decorator not defined create a tag from the className
         if (typeof this.tagName === "undefined") {
@@ -236,7 +236,7 @@ export class Component {
             tagToComponentMap.set(this.tagName, this);
 
             templateData = parseTemplate(this.templateElement, {
-                staticSrc: settings.staticSrc,
+                staticSrc: settings.relativeBasePath,
                 ssrEnabled: settings.context === "isomorphic",
                 doClientSideRouting: settings.clientSideRouting,
                 tagNameToComponentMap: tagToComponentMap
@@ -634,7 +634,7 @@ export class Component {
         }
     }
 
-    processDecorators() {
+    processDecorators(settings: IFinalPrismSettings) {
         for (const decorator of this.componentClass.decorators || []) {
             switch (decorator.name) {
                 case "TagName":
@@ -666,7 +666,7 @@ export class Component {
                             setNotFoundRoute(this);
                         } else {
                             if (!this.routes) this.routes = new Set();
-                            const routePattern = (arg as Value).value!;
+                            const routePattern = posix.join(settings.relativeBasePath, (arg as Value).value!);
                             const dynURL = stringToDynamicUrl(routePattern);
                             addRoute(dynURL, this);
                             this.routes.add(dynURL);

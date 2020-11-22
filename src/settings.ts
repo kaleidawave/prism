@@ -10,7 +10,7 @@ export interface IPrismSettings {
     serverOutputPath: string | null, // The path to the output folder
     templatePath: string | null, // The path to the output folder, null if default
     context: "client" | "isomorphic", // If client will not build server paths or add hydration logic to client bundle
-    staticSrc: string, // Prefix all routes, used if index is not under "/" 
+    relativeBasePath: string, // Prefix all routes, used if index is not under "/" 
     clientSideRouting: boolean, // Add router and do client side routing
     // Add disable attribute to the SSR markup of all events which is then removed once event has been added
     disableEventElements: boolean, 
@@ -34,7 +34,7 @@ const defaultSettings: IPrismSettings = {
     serverOutputPath: null,
     templatePath: null,
     versioning: true,
-    staticSrc: "/",
+    relativeBasePath: "/",
     backendLanguage: "js",
     context: "isomorphic",
     clientSideRouting: true,

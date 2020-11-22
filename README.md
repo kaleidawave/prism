@@ -35,7 +35,7 @@ As well as compiling client bundles Prism can also compile functions for generat
 
 #### Size comparisons:
 
-Prism [counter example](https://github.com/kaleidawave/prism/blob/d91d3e7b0bd21715f6ee9b4cdc4dc3bc3c156613/examples/primitives/counter.prism) compiles to 1.87kb (891b gzip). According to [webcomponents.dev](https://webcomponents.dev/blog/all-the-ways-to-make-a-web-component/) this makes Prism the smallest framework. Of that bundle size 1.41kb is prism runtime library. Thanks to [a recent commit](https://github.com/kaleidawave/prism/commit/92a1fbb3e24d544f099179e33a5c048ee946e887) the compiler will remove parts of the runtime library that are not needed.
+Prism [counter example](https://github.com/kaleidawave/prism/blob/d91d3e7b0bd21715f6ee9b4cdc4dc3bc3c156613/examples/primitives/counter.prism) compiles to 2kb (1kb gzip). According to [webcomponents.dev](https://webcomponents.dev/blog/all-the-ways-to-make-a-web-component/) this makes Prism the smallest framework. Of that bundle size 1.41kb is prism runtime library. Thanks to [a recent commit](https://github.com/kaleidawave/prism/commit/92a1fbb3e24d544f099179e33a5c048ee946e887) the compiler will remove parts of the runtime library that are not needed.
 
 There is also the benefit that Prism does not need as JSON blob to do hydration on the client side. So for other frameworks, even if your `bundle.js` is 10kb you may have another 6kb of preload data sent down with each request as well that needs to be parsed, loaded etc. With Prism the _only_ JS that is needed is the bundle.
 
@@ -284,11 +284,14 @@ As of 1.3.0 prism supports compiling server render functions to native rust func
 | templatePath         | [template.html](https://github.com/kaleidawave/prism/blob/main/src/bundle/template.html) | The HTML to inject application into                          |
 | context              | isomorphic                                                   | Either `client` or `isomorphic`. Client applications will not have server functions and lack isomorphic functionality |
 | buildTimings         | false                                                        | Whether to log the time it takes to build Prism sites        |
-| run                  | false                                                        | If true will run dev server on client side output. Relies on [ws](https://github.com/lwsjs/local-web-server) being installed globally |
+| run                  | false                                                        | If true will run dev server on client side output |
 | backendLanguage      | js                                                           | Either "js", "ts" or "rust"                                  |
 | disableEventElements | true                                                         | Adds disable to ssr elements with event handlers             |
 | declarativeShadowDOM | false                                                        | Enables [DSD](https://web.dev/declarative-shadow-dom/) for SSR the content of web components with shadow dom |
 | versioning           | true                                                         | Adds a unique id onto the end of output resources for versioning reasons |
+| clientSideRouting    | true                                                         | Whether to do client side routing |
+| deno                 | false                                                        | Whether to add file extensions to the end of imports. For doing SSR  |
+| relativeBasePath     | "/"                                                          | The index path the site is hosted under. Useful for GH pages etc |
 
 Assigning these settings is first done through reading in `prism.config.json` in the current working directory. Then by looking at arguments behind any of the commands. e.g.
 

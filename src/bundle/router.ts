@@ -44,6 +44,8 @@ export class Router extends HTMLElement {
      * Used to bind anchor tags to ignore default behavior and do client side routing
      */
     static bind(event: MouseEvent) {
+        // New tab clicks
+        if (event.ctrlKey) return;
         Router.goTo((event.currentTarget as HTMLElement).getAttribute("href"));
         event.preventDefault();
     }

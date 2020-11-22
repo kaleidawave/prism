@@ -48,13 +48,13 @@ export function parseTemplateShell(settings: IFinalPrismSettings, jsName: string
                         0,
                         new HTMLElement(
                             "script",
-                            new Map([["type", "module"], ["src", posix.join(settings.staticSrc, jsName)]]),
+                            new Map([["type", "module"], ["src", posix.join(settings.relativeBasePath, jsName)]]),
                             [],
                             element.parent
                         ),
                         new HTMLElement(
                             "link",
-                            new Map([["rel", "stylesheet"], ["href", posix.join(settings.staticSrc, cssName)]]),
+                            new Map([["rel", "stylesheet"], ["href", posix.join(settings.relativeBasePath, cssName)]]),
                             [],
                             element.parent
                         )
