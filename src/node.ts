@@ -126,6 +126,6 @@ export function runApplication(openBrowser: boolean = false, settings: IFinalPri
             };
             exec(`${start} ${url}`);
         }
-        console.log(`Server stared at ${url}, stop with ctrl+c`);
+        console.log(`Server started at ${url}, stop with ctrl+c`);
     });
 }

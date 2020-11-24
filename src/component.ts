@@ -208,7 +208,15 @@ export class Component {
             throw Error(`Use "connected" and "disconnected" instead of "connectedCallback" and "disconnectedCallback"`);
         }
 
-        if (componentClass.decorators) this.processDecorators(settings);
+        if (componentClass.decorators) {
+            try {
+                this.processDecorators(settings);
+            } catch (error) {
+                // Append the component filename to the error message
+                error.message += ` in component "${this.filename}"`;
+                throw error;
+            }
+        }
 
         // If tag decorator not defined create a tag from the className
         if (typeof this.tagName === "undefined") {
@@ -648,7 +656,7 @@ export class Component {
 
                     this.tagName = (decorator.args[0] as Value).value!;
                     if (Component.registeredTags.has(this.tagName)) {
-                        throw Error(`"${this.filename}" - "${this.tagName}" already registered under another component`);
+                        throw Error(`"${this.tagName}" already registered under another component`);
                     }
                     break;
                 case "Page":
@@ -656,7 +664,7 @@ export class Component {
                         .every(arg => arg instanceof Value && arg.type === Type.string);
 
                     if (!correctPageDecoratorFormat) {
-                        throw Error(`"${this.filename}" - Page decorator arguments must be of type string`);
+                        throw Error("Page decorator arguments must be of type string");
                     }
 
                     this.isPage = true;
@@ -681,7 +689,7 @@ export class Component {
                     break;
                 case "UseLayout":
                     if (decorator.args.length !== 1 || !(decorator.args[0] instanceof VariableReference)) {
-                        throw Error(`@UseLayout requires 1 parameter of type object literal in "${this.filename}"`);
+                        throw Error(`@UseLayout requires 1 parameter of type object literal`);
                     }
                     if (!this.componentClass.decorators!.some(decorator => decorator.name === "Page")) {
                         throw Error("Only pages can have layouts");
@@ -689,7 +697,7 @@ export class Component {
                     const layoutName = (decorator.args[0] as VariableReference).name;
                     const layout = this.importedComponents.get(layoutName);
                     if (!layout) {
-                        throw Error(`Could not find layout ${layoutName} from imports`);
+                        throw Error(`Could not find layout ${layoutName} from imports"`);
                     } else if (!layout.isLayout) {
                         throw Error("UseLayout component must be a layout")
                     }
@@ -697,7 +705,7 @@ export class Component {
                     break;
                 case "Default":
                     if (decorator.args.length !== 1 || !(decorator.args[0] instanceof ObjectLiteral)) {
-                        throw Error(`@Default requires 1 argument of type object literal in "${this.filename}"`)
+                        throw Error(`@Default requires 1 argument of type object literal`)
                     }
                     this.defaultData = decorator.args[0] as ObjectLiteral;
                     break;
@@ -706,7 +714,7 @@ export class Component {
                     break;
                 case "Globals":
                     if (!decorator.args.every(arg => arg instanceof VariableReference)) {
-                        throw Error(`Arguments of @Globals must be variable references in "${this.filename}"`);
+                        throw Error(`Arguments of @Globals must be variable references`);
                     }
                     this.globals = decorator.args as Array<VariableReference>;
                     break;
@@ -718,7 +726,7 @@ export class Component {
                         } else if (arg instanceof VariableReference) {
                             this.clientGlobals.push([arg, new TypeSignature("any")]);
                         } else {
-                            throw Error(`Arguments of @ClientGlobal must be variable references or as expression in "${this.filename}"`);
+                            throw Error(`Arguments of @ClientGlobal must be variable references or as expression`);
                         }
                     }
                     this.globals = this.globals.concat(this.clientGlobals.map(([value]) => value as VariableReference));
@@ -746,7 +754,7 @@ export class Component {
                     this.metadata = new Map();
                     for (const [key, value] of mappings) {
                         if (typeof key !== "string") {
-                            throw Error(`Metadata object literal keys must be constant in "${this.filename}"`);
+                            throw Error(`Metadata object literal keys must be constant`);
                         }
                         if (value instanceof Value && value.type === Type.string) {
                             this.metadata.set(key as string, value.value!);
@@ -759,9 +767,9 @@ export class Component {
                     this.useShadowDOM = true;
                     break;
                 case "Singleton":
-                    throw Error(`Not implement - @${decorator.name} in "${this.filename}"`);
+                    throw Error(`Not implement - @${decorator.name}`);
                 default:
-                    throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators in "${this.filename}"`)
+                    throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators`)
             }
         }
     }

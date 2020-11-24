@@ -71,14 +71,27 @@ function statementsFromServerRenderChunks(
             let value = jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes;
             /* TODO TEMP:
              * Convert conditional properties (in rust these are Option<T>) to a boolean
+             * and check strings are not empty
              * TODO does not work for for loop and nested variables...
              * TODO numbers and strings to convert to Rust as does not have falsy values
             */
-            if (value instanceof VariableReference && dataType?.properties?.get(value.name)?.isOptional) {
-                value = new Expression(
-                    new VariableReference("is_some", value),
-                    Operation.Call,
-                )
+            if (value instanceof VariableReference) {
+                const name = value.name;
+                if (dataType?.properties?.get(name)?.isOptional) {
+                    value = new Expression(
+                        new VariableReference("is_some", value),
+                        Operation.Call,
+                    )
+                }
+                if (dataType?.properties?.get(name)?.name === "string") {
+                    value = new Expression(
+                        new Expression(
+                            new VariableReference("is_empty", value),
+                            Operation.Call,
+                        ),
+                        Operation.Not
+                    )
+                }
             }
             statements.push(new IfStatement(
                 value,

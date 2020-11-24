@@ -3,6 +3,7 @@
 import { lstatSync, existsSync } from "fs";
 import { registerSettings, compileApplication, compileSingleComponent, runApplication } from "./node";
 import { printHelpScreen, printInfoScreen, printWarningBanner } from "./others/banners";
+import { createPrismTemplateApp } from "./others/actions";
 
 switch (process.argv[2]) {
     case "version":
@@ -11,6 +12,9 @@ switch (process.argv[2]) {
         break;
     case "help":
         printHelpScreen();
+        break;
+    case "init":
+        createPrismTemplateApp(process.cwd());
         break;
     case "compile-component": {
         const settings = registerSettings(process.cwd());
