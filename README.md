@@ -19,6 +19,8 @@ or
 
 *(not to be confused with highlighting library [prismjs](https://github.com/PrismJS/prism) and database toolkit [prisma](https://github.com/prisma/prisma))*
 
+### [Quick start tutorial](https://github.com/kaleidawave/prism-docs/blob/main/md/quickstart.md)
+
 ### About:
 
 #### Web components:
