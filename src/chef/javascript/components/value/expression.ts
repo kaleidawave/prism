@@ -284,16 +284,15 @@ export class Expression implements IRenderable {
     }
 
     static fromTokens(reader: TokenReader<JSToken>, precedence = 0): ValueTypes {
-        //@ts-ignore TODO expression requires parameters
-        const expression = new Expression({ lhs: null, operation: null });
+        let value: ValueTypes | null = null;
         switch (reader.current.type) {
             // Value types:
             case JSToken.NumberLiteral:
                 const number = reader.current.value!;
                 if (number.endsWith("n")) {
-                    expression.lhs = new Value(Type.bigint, number);
+                    value = new Value(Type.bigint, number);
                 } else {
-                    expression.lhs = new Value(Type.number, number);
+                    value = new Value(Type.number, number);
                 }
                 reader.move();
                 break;
@@ -302,23 +301,23 @@ export class Expression implements IRenderable {
                     return FunctionDeclaration.fromTokens(reader);
                 }
                 if (reader.peek()?.type === JSToken.TemplateLiteralStart) {
-                    expression.lhs = TemplateLiteral.fromTokens(reader)
+                    value = TemplateLiteral.fromTokens(reader)
                 } else {
-                    expression.lhs = new VariableReference(reader.current.value!);
+                    value = new VariableReference(reader.current.value!);
                     reader.move();
                 }
                 break;
             case JSToken.True:
             case JSToken.False:
-                expression.lhs = new Value(Type.boolean, reader.current.type === JSToken.True ? "true" : "false");
+                value = new Value(Type.boolean, reader.current.type === JSToken.True ? "true" : "false");
                 reader.move();
                 break;
             case JSToken.StringLiteral:
-                expression.lhs = new Value(Type.string, reader.current.value!);
+                value = new Value(Type.string, reader.current.value!);
                 reader.move();
                 break;
             case JSToken.OpenSquare:
-                expression.lhs = ArrayLiteral.fromTokens(reader);
+                value = ArrayLiteral.fromTokens(reader);
                 break;
             case JSToken.OpenBracket:
                 // Tests for what is after closing bracket () * <-
@@ -343,7 +342,7 @@ export class Expression implements IRenderable {
                     const group = new Group(Expression.fromTokens(reader));
                     reader.expect(JSToken.CloseBracket);
                     reader.move();
-                    expression.lhs = group;
+                    value = group;
                 }
                 break;
             case JSToken.OpenCurly:
@@ -358,10 +357,10 @@ export class Expression implements IRenderable {
             case JSToken.Function:
                 return FunctionDeclaration.fromTokens(reader);
             case JSToken.RegexLiteral:
-                expression.lhs = RegExpLiteral.fromTokens(reader);
+                value = RegExpLiteral.fromTokens(reader);
                 break;
             case JSToken.TemplateLiteralStart:
-                expression.lhs = TemplateLiteral.fromTokens(reader);
+                value = TemplateLiteral.fromTokens(reader);
                 break;
             case JSToken.Class:
                 return ClassDeclaration.fromTokens(reader, { isExpression: true });
@@ -370,7 +369,7 @@ export class Expression implements IRenderable {
             case JSToken.Decrement:
                 const operationType = reader.current.type === JSToken.Increment ? Operation.PrefixIncrement : Operation.PrefixDecrement;
                 reader.move();
-                expression.lhs = new Expression({
+                value = new Expression({
                     lhs: Expression.fromTokens(reader, operationPrecedence.get(operationType)),
                     operation: operationType
                 });
@@ -383,14 +382,14 @@ export class Expression implements IRenderable {
                 });
             case JSToken.Yield:
                 reader.move();
-                expression.lhs = new Expression({
+                value = new Expression({
                     lhs: Expression.fromTokens(reader, operationPrecedence.get(Operation.Yield)),
                     operation: Operation.Yield
                 });
                 break;
             case JSToken.DelegatedYield:
                 reader.move();
-                expression.lhs = new Expression({
+                value = new Expression({
                     lhs: Expression.fromTokens(reader, operationPrecedence.get(Operation.DelegatedYield)),
                     operation: Operation.DelegatedYield
                 });
@@ -411,7 +410,7 @@ export class Expression implements IRenderable {
             case JSToken.TypeOf:
                 const operator = operators.get(reader.current.type)!;
                 reader.move();
-                expression.lhs = new Expression({
+                value = new Expression({
                     lhs: Expression.fromTokens(reader, operationPrecedence.get(operator)),
                     operation: operator
                 });
@@ -425,7 +424,7 @@ export class Expression implements IRenderable {
                 } else {
                     args = new ArgumentList;
                 }
-                expression.lhs = new Expression({
+                value = new Expression({
                     lhs: constructor_,
                     operation: Operation.Initialize,
                     rhs: args
@@ -433,11 +432,11 @@ export class Expression implements IRenderable {
                 break;
             // Other
             case JSToken.EOF:
-                return expression;
+                reader.throwExpect("Expected expression");
             default:
                 try {
                     const tokenName = tokenAsIdent(reader.current.type);
-                    expression.lhs = new VariableReference(tokenName);
+                    value = new VariableReference(tokenName);
                     reader.move();
                     break;
                 } catch {
@@ -451,7 +450,7 @@ export class Expression implements IRenderable {
                 case JSToken.Dot: {
                     reader.move();
                     const prop = reader.current.value || tokenAsIdent(reader.current.type);
-                    expression.lhs = new VariableReference(prop, expression.lhs);
+                    value = new VariableReference(prop, value);
                     reader.move();
                     break;
                 }
@@ -460,8 +459,8 @@ export class Expression implements IRenderable {
                     reader.move();
                     if (reader.current.type === JSToken.OpenBracket) {
                         const args = ArgumentList.fromTokens(reader);
-                        expression.lhs = new Expression({
-                            lhs: expression.lhs,
+                        value = new Expression({
+                            lhs: value,
                             operation: Operation.OptionalCall,
                             rhs: args
                         });
@@ -469,16 +468,16 @@ export class Expression implements IRenderable {
                         reader.move();
                         const expr = Expression.fromTokens(reader);
                         reader.move();
-                        expression.lhs = new Expression({
-                            lhs: expression.lhs,
+                        value = new Expression({
+                            lhs: value,
                             operation: Operation.OptionalIndex,
                             rhs: expr
                         });
                     } else {
                         const prop = reader.current.value || tokenAsIdent(reader.current.type);
                         reader.move();
-                        expression.lhs = new Expression({
-                            lhs: expression.lhs,
+                        value = new Expression({
+                            lhs: value,
                             operation: Operation.OptionalChain,
                             rhs: new VariableReference(prop)
                         });
@@ -488,27 +487,27 @@ export class Expression implements IRenderable {
                 // Call
                 case JSToken.OpenBracket:
                     if (operationPrecedence.get(Operation.Call)! <= precedence) {
-                        return expression.lhs;
+                        return value;
                     }
                     const args = ArgumentList.fromTokens(reader);
-                    expression.lhs = new Expression({ lhs: expression.lhs, operation: Operation.Call, rhs: args });
+                    value = new Expression({ lhs: value, operation: Operation.Call, rhs: args });
                     break;
                 // Index
                 case JSToken.OpenSquare:
                     if (operationPrecedence.get(Operation.Call)! <= precedence) {
-                        return expression.lhs;
+                        return value;
                     }
                     reader.move();
                     const indexer = Expression.fromTokens(reader);
                     reader.expectNext(JSToken.CloseSquare);
-                    expression.lhs = new Expression({ lhs: expression.lhs, operation: Operation.Index, rhs: indexer });
+                    value = new Expression({ lhs: value, operation: Operation.Index, rhs: indexer });
                     break;
                 // Postfix increment & decrement
                 case JSToken.Increment:
                 case JSToken.Decrement:
                     const operation = reader.current.type === JSToken.Increment ? Operation.PostfixIncrement : Operation.PostfixDecrement;
                     reader.move();
-                    expression.lhs = new Expression({ lhs: expression.lhs, operation });
+                    value = new Expression({ lhs: value, operation });
                     break;
             }
         }
@@ -520,16 +519,12 @@ export class Expression implements IRenderable {
                 if (newPrecedence <= precedence) {
                     break;
                 }
-                if (expression.operation !== null) {
-                    expression.lhs = new Expression({
-                        lhs: expression.lhs,
-                        operation: expression.operation,
-                        rhs: expression.rhs
-                    });
-                }
-                expression.operation = operator;
                 reader.move();
-                expression.rhs = Expression.fromTokens(reader, newPrecedence);
+                value = new Expression({
+                    lhs: value,
+                    operation: operator,
+                    rhs: Expression.fromTokens(reader, newPrecedence)
+                });
                 // @ts-ignore
             } else if (reader.current.type === JSToken.QuestionMark) {
                 if (operationPrecedence.get(Operation.Ternary)! < precedence) {
@@ -540,7 +535,7 @@ export class Expression implements IRenderable {
                 reader.expectNext(JSToken.Colon);
                 const rhs = Expression.fromTokens(reader);
                 return new Expression({
-                    lhs: expression.operation !== null ? expression : expression.lhs,
+                    lhs: value,
                     operation: Operation.Ternary,
                     rhs: new ArgumentList([lhs, rhs])
                 });
@@ -548,12 +543,12 @@ export class Expression implements IRenderable {
                 reader.move();
                 const typeArg = TypeSignature.fromTokens(reader);
                 // TODO does not work for `x as string + ""`. Need to incorporate into binary operators with a special case. Not sure of the precedence of the as "operator"
-                return new AsExpression(expression.operation !== null ? expression : expression.lhs, typeArg);
+                return new AsExpression(value, typeArg);
             } else {
                 break;
             }
         }
 
-        return expression.operation === null ? expression.lhs : expression;
+        return value;
     }
 }
