@@ -8,3 +8,5 @@ prism.config.json
 *.tgz
 examples/temp
 package-lock.json
+esm
+lib

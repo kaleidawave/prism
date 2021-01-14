@@ -7,13 +7,17 @@
         "experimentalDecorators": true,
         "types": [ "node", "jest" ],
         "removeComments": true,
-        "outDir": "out",
         "incremental": true,
         "strictNullChecks": true,
         "listEmittedFiles": false,
         "diagnostics": false,
         "downlevelIteration": true,
         "tsBuildInfoFile": "private/tsbuild.info.json",
+        "outDir": "dts",
+        "noEmit": false,
+        "resolveJsonModule": false,
+        "rootDir": "src",
+        "emitDeclarationOnly": true
     },
     "files": [
         "src/cli.ts",

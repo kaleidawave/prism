@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { lstatSync, existsSync } from "fs";
 import { registerSettings, compileApplication, compileSingleComponent, runApplication } from "./node";
 import { printHelpScreen, printInfoScreen, printWarningBanner } from "./others/banners";
