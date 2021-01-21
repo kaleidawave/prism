@@ -1,3 +1,4 @@
+import "regenerator-runtime/runtime.js";
 export { registerFSReadCallback, registerFSCopyCallback, registerFSExistsCallback, registerFSWriteCallback } from "./filesystem";
 export { compileSingleComponent } from "./builders/compile-component";
 export { compileApplication } from "./builders/compile-app";
@@ -17,4 +18,3 @@ registerPathJoinFunction(join);
 registerPathRelativeFunction(relative);
 registerPathResolveFunction(resolve);
 setPathSplitter("/");
-import "regenerator-runtime/runtime.js";
