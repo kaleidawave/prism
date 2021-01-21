@@ -1,17 +1,21 @@
 import {
     registerFSCopyCallback, registerFSExistsCallback,
     registerFSPathInfoCallback, registerFSReadCallback,
-    registerFSReadDirectoryCallback, registerFSWriteCallback
+    registerFSReadDirectoryCallback, registerFSWriteCallback,
+    registerPathBasenameFunction, registerPathDirnameFunction,
+    registerPathExtnameFunction, registerPathIsAbsoluteFunction, 
+    registerPathJoinFunction, registerPathRelativeFunction, 
+    registerPathResolveFunction, setPathSplitter
 } from "./filesystem";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, readdirSync, lstatSync } from "fs";
-import { dirname, isAbsolute, join, sep } from "path";
 import { getArguments } from "./helpers";
 import { IFinalPrismSettings, makePrismSettings } from "./settings";
 import { createServer } from "http";
 import { emitKeypressEvents } from "readline";
 import { exec } from "child_process";
+import { dirname, extname, join, basename, relative, resolve, isAbsolute, sep } from "path";
 
-registerFSReadCallback((filename) => readFileSync(filename).toString());
+registerFSReadCallback(filename => readFileSync(filename).toString());
 registerFSWriteCallback((filename, content) => {
     const dir = dirname(filename);
     if (!existsSync(dir)) {
@@ -26,15 +30,17 @@ registerFSCopyCallback((from, to) => {
     }
     copyFileSync(from, to);
 });
-registerFSExistsCallback(path => {
-    return existsSync(path);
-});
-registerFSReadDirectoryCallback(path => {
-    return readdirSync(path);
-});
-registerFSPathInfoCallback(path => {
-    return lstatSync(path);
-});
+registerFSExistsCallback(existsSync);
+registerFSReadDirectoryCallback(readdirSync);
+registerFSPathInfoCallback(lstatSync);
+registerPathBasenameFunction(basename);
+registerPathDirnameFunction(dirname);
+registerPathExtnameFunction(extname);
+registerPathIsAbsoluteFunction(isAbsolute);
+registerPathJoinFunction(join);
+registerPathRelativeFunction(relative);
+registerPathResolveFunction(resolve);
+setPathSplitter(sep);
 
 // Re-export fs callbacks so module users can overwrite existing node fs behavior
 export { registerFSCopyCallback, registerFSExistsCallback, registerFSPathInfoCallback, registerFSReadCallback, registerFSReadDirectoryCallback, registerFSWriteCallback };
@@ -73,7 +79,7 @@ export function registerSettings(cwd: string): IFinalPrismSettings {
         }
     }
 
-    return makePrismSettings(cwd, sep, settings);
+    return makePrismSettings(cwd, settings);
 }
 
 /**

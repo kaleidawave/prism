@@ -1,5 +1,4 @@
-import { join } from "path";
-import { readDirectory, pathInformation } from "./filesystem";
+import { readDirectory, pathInformation, join } from "./filesystem";
 
 /**
  * Parses command line arguments to map

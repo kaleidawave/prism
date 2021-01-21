@@ -1,9 +1,8 @@
-import { relative, resolve, dirname } from "path";
 import { filesInFolder } from "../helpers";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { IRenderSettings } from "../chef/helpers";
-import { copyFile } from "../filesystem";
+import { copyFile, relative, resolve, dirname } from "../filesystem";
 
 const styleFileExtensions = ["css", "scss"];
 const scriptFileExtensions = ["js", "ts"];

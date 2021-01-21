@@ -1,4 +1,4 @@
-import { relative, dirname } from "path";
+import { relative, dirname } from "../filesystem";
 
 export interface IPosition {
     file?: string,

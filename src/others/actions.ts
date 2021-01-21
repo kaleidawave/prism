@@ -1,10 +1,10 @@
-import { extname, isAbsolute, join } from "path";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { HTMLDocument } from "../chef/html/html";
 import { fileBundle } from "../bundled-files";
 import { ScriptLanguages } from "../chef/helpers";
 import { writeFile } from "../chef/filesystem";
+import { extname, isAbsolute, join } from "../filesystem";
 
 export function minifyFile(targetFile: string, outputFile: string) {
     const absTargetFile = isAbsolute(targetFile) ? targetFile : join(process.cwd(), targetFile);

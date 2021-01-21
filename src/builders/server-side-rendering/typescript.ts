@@ -1,4 +1,3 @@
-import { dirname, relative, join, resolve } from "path";
 import { fileBundle } from "../../bundled-files";
 import { getImportPath } from "../../chef/helpers";
 import { ClassDeclaration } from "../../chef/javascript/components/constructs/class";
@@ -17,6 +16,7 @@ import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { IShellData } from "../template";
+import { dirname, relative, join, resolve } from "../../filesystem";
 
 function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes | string {
     if (typeof serverChunk === "string") {

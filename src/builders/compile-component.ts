@@ -2,10 +2,10 @@ import { Component } from "../component";
 import { defaultRuntimeFeatures, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
-import { join } from "path";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { IFinalPrismSettings } from "../settings";
 import { fileBundle } from "../bundled-files";
+import { join } from "../filesystem";
 
 /**
  * Generate a script for a single client

@@ -12,7 +12,6 @@ import { Value, Type, ValueTypes } from "./chef/javascript/components/value/valu
 import { ReturnStatement } from "./chef/javascript/components/statements/statement";
 import { setNotFoundRoute, addRoute } from "./builders/client-side-routing";
 import { DynamicUrl, stringToDynamicUrl } from "./chef/dynamic-url";
-import { resolve, dirname, relative, join, posix } from "path";
 import { ObjectLiteral } from "./chef/javascript/components/value/object";
 import { TemplateLiteral } from "./chef/javascript/components/value/template-literal";
 import { Stylesheet } from "./chef/css/stylesheet";
@@ -22,6 +21,7 @@ import { ImportStatement } from "./chef/javascript/components/statements/import-
 import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings, makeRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
+import { relative, resolve, dirname, join } from "./filesystem";
 import { Rule } from "./chef/css/rule";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";
@@ -674,7 +674,7 @@ export class Component {
                             setNotFoundRoute(this);
                         } else {
                             if (!this.routes) this.routes = new Set();
-                            const routePattern = posix.join(settings.relativeBasePath, (arg as Value).value!);
+                            const routePattern = settings.relativeBasePath + (arg as Value).value!;
                             const dynURL = stringToDynamicUrl(routePattern);
                             addRoute(dynURL, this);
                             this.routes.add(dynURL);

@@ -8,7 +8,6 @@ import { VariableReference } from "../values/variable";
 import { StructStatement, TypeSignature } from "../statements/struct";
 import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../javascript/components/statements/import-export";
 import { Expression as JSExpression, Operation as JSOperation } from "../../javascript/components/value/expression";
-import { basename } from "path";
 import { UseStatement } from "../statements/use";
 import { Module } from "../module";
 import { Expression, Operation } from "../values/expression";
@@ -20,6 +19,7 @@ import { TemplateLiteral } from "../../javascript/components/value/template-lite
 import { Module as JSModule } from "../../javascript/components/module";
 import { findTypeDeclaration } from "../../javascript/utils/types";
 import { StatementTypes } from "../statements/block";
+import { basename } from "../../../filesystem";
 
 type rustAstTypes = StatementTypes | ValueTypes | TypeSignature | ArgumentList;
 

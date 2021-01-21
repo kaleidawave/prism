@@ -3,9 +3,9 @@ import { TypeSignature } from "../components/types/type-signature";
 import { TypeDeclaration } from "../components/types/statements";
 import { InterfaceDeclaration } from "../components/types/interface";
 import { ImportStatement, ExportStatement } from "../components/statements/import-export";
-import { resolve, dirname } from "path";
 import { EnumDeclaration } from "../components/types/enum";
 import { Type, Value } from "../components/value/value";
+import { resolve, dirname } from "../../../filesystem";
 
 export interface IType {
     name?: string,

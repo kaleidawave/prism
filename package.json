@@ -69,7 +69,10 @@
     "node": ">=10.3.0",
     "npm": ">=6.1.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "path-browserify": "^1.0.1",
+    "regenerator-runtime": "^0.13.7"
+  },
   "bin": {
     "prism": "lib/node/bin.js"
   },

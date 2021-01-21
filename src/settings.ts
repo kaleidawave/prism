@@ -1,4 +1,4 @@
-import { join, isAbsolute } from "path";
+import { join, isAbsolute, getPathSplitter } from "./filesystem";
 
 export interface IPrismSettings {
     minify: boolean, // Removes whitespace for space saving in output
@@ -61,7 +61,6 @@ export interface IFinalPrismSettings extends IPrismSettings {
 
 export function makePrismSettings(
     cwd: string, 
-    pathSplitter: string, 
     partialSettings: Partial<IPrismSettings> = {}
 ): IFinalPrismSettings {
     const projectPath = partialSettings.projectPath ?? defaultSettings.projectPath;
@@ -72,7 +71,8 @@ export function makePrismSettings(
     return {
         ...defaultSettings,
         ...partialSettings,
-        cwd, pathSplitter,
+        cwd,
+        pathSplitter: getPathSplitter(),
         absoluteProjectPath: isAbsolute(projectPath) ? projectPath : join(cwd, projectPath),
         absoluteOutputPath: isAbsolute(outputPath) ? outputPath : join(cwd, outputPath),
         absoluteAssetPath: isAbsolute(assetPath) ? assetPath : join(cwd, assetPath),
