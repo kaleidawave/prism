@@ -21,7 +21,6 @@
     },
     "files": [
         "src/cli.ts",
-        "src/web.ts",
     ],
     "exclude": [
         "node_modules",
