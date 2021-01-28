@@ -6,42 +6,39 @@
 [![On NPM](https://img.shields.io/github/package-json/v/kaleidawave/prism?color=red&logo=npm&style=flat-square)](https://www.npmjs.com/package/@kaleidawave/prism)
 ![Node Version](https://img.shields.io/node/v/@kaleidawave/prism?style=flat-square&logo=node.js)
 
-Prism is *experimental* a compiler that takes declarative component definitions and creates lightweight web apps. Prism is built from the ground up. All HTML, CSS and JS parsing and rendering is done under a internal library known as [chef](https://github.com/kaleidawave/prism/tree/main/src/chef). 
+Prism is a *experimental* compiler that takes declarative component definitions and creates lightweight web apps. Prism is not a stable production framework, instead a proof of concept of a better isomorphic implementations. Prism is built from the ground up. All HTML, CSS and JS parsing and rendering is done under a internal library known as [chef](https://github.com/kaleidawave/prism/tree/main/src/chef). 
 
 Install with:
 
 ```
 > npm install -g @kaleidawave/prism 
 > prism info
-or
-> npx @kaleidawave/prism info
 ```
 
 *(not to be confused with highlighting library [prismjs](https://github.com/PrismJS/prism) and database toolkit [prisma](https://github.com/prisma/prisma))*
 
-### [Quick start tutorial](https://github.com/kaleidawave/prism-docs/blob/main/md/quickstart.md)
 
-### About:
+## Ultra efficient isomorphic. No JSON state, No *rerender* on hydration:
 
-#### Web components:
+Prism compiles in getter functions for getting the state from the HTML markup. Events listeners are added with no need to *rerender*. The generated client side code is designed to work with existing HTML or elements generated at runtime. Virtualized state means that state can exist without being in the JS vm. When state is needed only then is it loaded into JS and cached for subsequent gets. This avoids the large JSON state blobs that exist on all other isomorphic solutions. This solution works for dynamic HTML. This should lead to smaller payloads and a faster time to interactive.
 
-Prism compiles down to native web components. Prism takes HTML templates and compiles them into native DOM api calls. It takes event bindings and compiles in attaching event listeners. Prism can output single component definitions that can be shared and work natively. Building a app with Prism consists of batch component compilation and injecting a client side router to build a SPA.
+### Server side rendering on non JS runtime:
 
-#### Data bindings:
+For the server, Prism compiles components to ultra fast string concatenations avoiding the need for server side DOM. Prism can also compile string concatenation functions for Rust lang. See the [Prism Hackernews Clone](https://github.com/kaleidawave/hackernews-prism). This allows to write the markup once avoiding desync hydration issues and the time spent rewriting the render functions. It also acts as a checking step verifying correct HTML and type issues. [Hopefully more backend languages in the future](https://github.com/kaleidawave/prism/issues/19)
 
-Prism compiles a tree ahead of time onto the component definition. The tree contains hooks which when called update the dom view to match the data. A background library watches objects so data updates are based on regular js syntax and no calls to a function. The implementation leaves data reactivity to runtime so that can update the properties of web components but compiles bindings at build time to avoid vdom overhead.
+### Super small runtime:
 
-#### Server side data hydration from markup:
-
-As well as compiling client bundles Prism can also compile functions for generating the markup on the server. The design of the reactive tree also can react to set events and *get* events. This means that Prism components can replicate the data used to the generate the markup on the client. Other approaches normally send down a JSON blob to handle the client state being up to date with server markup. This approach should reduce payload size. This system is completely lazy and getting the data is a on a single property basis. The server functions are fast string concatenations. Prism can compile server render functions for JavaScript, TypeScript and Rust backends. [More coming later](https://github.com/kaleidawave/prism/issues/19). 
-
-#### Size comparisons:
-
-Prism [counter example](https://github.com/kaleidawave/prism/blob/d91d3e7b0bd21715f6ee9b4cdc4dc3bc3c156613/examples/primitives/counter.prism) compiles to 2kb (1kb gzip). According to [webcomponents.dev](https://webcomponents.dev/blog/all-the-ways-to-make-a-web-component/) this makes Prism the smallest framework. Of that bundle size 1.41kb is prism runtime library. Thanks to [a recent commit](https://github.com/kaleidawave/prism/commit/92a1fbb3e24d544f099179e33a5c048ee946e887) the compiler will remove parts of the runtime library that are not needed.
+Prism [counter example](https://github.com/kaleidawave/prism/blob/d91d3e7b0bd21715f6ee9b4cdc4dc3bc3c156613/examples/primitives/counter.prism) compiles to 2kb (1kb gzip). According to [webcomponents.dev](https://webcomponents.dev/blog/all-the-ways-to-make-a-web-component/) this makes Prism the smallest framework. Of that bundle size 1.41kb is prism runtime library.
 
 There is also the benefit that Prism does not need as JSON blob to do hydration on the client side. So for other frameworks, even if your `bundle.js` is 10kb you may have another 6kb of preload data sent down with each request as well that needs to be parsed, loaded etc. With Prism the _only_ JS that is needed is the bundle.
 
-#### Development:
+### Web components authorization:
+
+Prism compiles down to native web components. Prism takes HTML templates and compiles them into native DOM api calls. It takes event bindings and compiles in attaching event listeners. Prism can output single component definitions that can be shared and work natively. Building a app with Prism consists of batch component compilation and injecting a client side router to build a SPA.
+
+### [Quick start tutorial](https://github.com/kaleidawave/prism-docs/blob/main/md/quickstart.md)
+
+### Development:
 
 Prism does not have any editor plugins. However association `.prism` files to be interpreted as HTML works well as Prism is a extension of HTML. Although it does not provide full intellisense you get all the syntax highlighting and emmet.
 
