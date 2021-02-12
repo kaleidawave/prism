@@ -2,18 +2,14 @@ import {
     registerFSCopyCallback, registerFSExistsCallback,
     registerFSPathInfoCallback, registerFSReadCallback,
     registerFSReadDirectoryCallback, registerFSWriteCallback,
-    registerPathBasenameFunction, registerPathDirnameFunction,
-    registerPathExtnameFunction, registerPathIsAbsoluteFunction, 
-    registerPathJoinFunction, registerPathRelativeFunction, 
-    registerPathResolveFunction, setPathSplitter
 } from "./filesystem";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, readdirSync, lstatSync } from "fs";
 import { getArguments } from "./helpers";
-import { IFinalPrismSettings, makePrismSettings } from "./settings";
+import { IPrismSettings, makePrismSettings } from "./settings";
 import { createServer } from "http";
 import { emitKeypressEvents } from "readline";
 import { exec } from "child_process";
-import { dirname, extname, join, basename, relative, resolve, isAbsolute, sep } from "path";
+import { dirname, join, isAbsolute } from "path";
 
 registerFSReadCallback(filename => readFileSync(filename).toString());
 registerFSWriteCallback((filename, content) => {
@@ -33,23 +29,15 @@ registerFSCopyCallback((from, to) => {
 registerFSExistsCallback(existsSync);
 registerFSReadDirectoryCallback(readdirSync);
 registerFSPathInfoCallback(lstatSync);
-registerPathBasenameFunction(basename);
-registerPathDirnameFunction(dirname);
-registerPathExtnameFunction(extname);
-registerPathIsAbsoluteFunction(isAbsolute);
-registerPathJoinFunction(join);
-registerPathRelativeFunction(relative);
-registerPathResolveFunction(resolve);
-setPathSplitter(sep);
 
 // Re-export fs callbacks so module users can overwrite existing node fs behavior
 export { registerFSCopyCallback, registerFSExistsCallback, registerFSPathInfoCallback, registerFSReadCallback, registerFSReadDirectoryCallback, registerFSWriteCallback };
 
 export { compileApplication } from "./builders/compile-app";
-export { compileSingleComponent } from "./builders/compile-component";
+export { compileSingleComponent, compileSingleComponentFromFSMap, compileSingleComponentFromString } from "./builders/compile-component";
 export { makePrismSettings } from "./settings";
 
-export function registerSettings(cwd: string): IFinalPrismSettings {
+export function registerSettings(cwd: string): Partial<IPrismSettings> {
     let configFilePath: string;
     let startIndex = 3;
     if (process.argv[startIndex]?.endsWith("prism.config.json")) {
@@ -79,14 +67,15 @@ export function registerSettings(cwd: string): IFinalPrismSettings {
         }
     }
 
-    return makePrismSettings(cwd, settings);
+    return settings;
 }
 
 /**
  * Runs a client side prism application 
  * @param openBrowser Whether to open the browser to the site
  */
-export function runApplication(openBrowser: boolean = false, settings: IFinalPrismSettings): Promise<void> {
+export function runApplication(openBrowser: boolean = false, partialSettings: Partial<IPrismSettings>): Promise<void> {
+    const settings = makePrismSettings(process.cwd(), partialSettings);
     const htmlShell = join(settings.absoluteOutputPath, settings.context === "client" ? "index.html" : "shell.html");
     return new Promise((res, rej) => {
         const port = 8080

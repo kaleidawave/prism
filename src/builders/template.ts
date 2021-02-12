@@ -4,7 +4,7 @@ import { fileBundle } from "../bundled-files";
 import { NodeData } from "../templating/template";
 import { assignToObjectMap } from "../helpers";
 import { IRenderSettings } from "../chef/helpers";
-import { join } from "../filesystem";
+import { join } from "path";
 
 export interface IShellData {
     document: HTMLDocument,

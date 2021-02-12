@@ -21,7 +21,7 @@ import { ImportStatement } from "./chef/javascript/components/statements/import-
 import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings, makeRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
-import { relative, resolve, dirname, join } from "./filesystem";
+import { relative, resolve, dirname, join } from "path";
 import { Rule } from "./chef/css/rule";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";

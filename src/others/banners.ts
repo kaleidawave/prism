@@ -1,4 +1,5 @@
-import { readFile, join } from "../filesystem";
+import { readFile } from "../filesystem";
+import { join } from "path";
 
 export function printWarningBanner(): void {
     const message = `Warning: Prism is an experimental, expect unexpected behavior to not be caught, not for use in production`;

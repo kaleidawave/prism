@@ -7,7 +7,7 @@ import { ClassDeclaration } from "../chef/javascript/components/constructs/class
 import { VariableDeclaration } from "../chef/javascript/components/statements/variable";
 import { Comment } from "../chef/javascript/components/statements/comments";
 import { ValueTypes } from "../chef/javascript/components/value/value";
-import { join } from "../filesystem";
+import { join } from "path";
 
 export const clientModuleFilenames = [
     "component.ts",

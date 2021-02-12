@@ -4,7 +4,7 @@ import { HTMLDocument } from "../chef/html/html";
 import { fileBundle } from "../bundled-files";
 import { ScriptLanguages } from "../chef/helpers";
 import { writeFile } from "../chef/filesystem";
-import { extname, isAbsolute, join } from "../filesystem";
+import { extname, isAbsolute, join } from "path";
 
 export function minifyFile(targetFile: string, outputFile: string) {
     const absTargetFile = isAbsolute(targetFile) ? targetFile : join(process.cwd(), targetFile);

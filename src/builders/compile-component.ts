@@ -3,22 +3,66 @@ import { defaultRuntimeFeatures, getPrismClient, IRuntimeFeatures, treeShakeBund
 import { Module } from "../chef/javascript/components/module";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
-import { IFinalPrismSettings } from "../settings";
+import { IFinalPrismSettings, IPrismSettings, makePrismSettings } from "../settings";
 import { fileBundle } from "../bundled-files";
-import { join } from "../filesystem";
+import { registerFSWriteCallback, registerFSReadCallback } from "../filesystem";
+import { join } from "path";
+
+export function compileSingleComponentFromString(
+    componentSource: string, 
+    partialSettings: Partial<IPrismSettings> = {}
+): Map<string, string> {
+    partialSettings.outputPath ??= "";
+    registerFSReadCallback(filename => {
+        if (filename === "/index.prism" || filename === "\\index.prism") {
+            return componentSource;
+        } else {
+            throw Error(`Cannot read path '${filename}'`);
+        }
+    });
+    const map = new Map();
+    registerFSWriteCallback((filename, content) => {
+        map.set(filename, content);
+    });
+    compileSingleComponent('/', partialSettings);
+    return map;
+}
+
+export function compileSingleComponentFromFSMap(
+    componentSourceMap: Map<string, string>, 
+    partialSettings: Partial<IPrismSettings> = {}
+): Map<string, string> {
+    partialSettings.outputPath ??= "";
+    registerFSReadCallback(filename => {
+        if (componentSourceMap.has(filename)) {
+            return componentSourceMap.get(filename)!;
+        } else {
+            throw Error(`Cannot read path '${filename}'`);
+        }
+    });
+    const map = new Map();
+    registerFSWriteCallback((filename, content) => {
+        map.set(filename, content);
+    });
+    compileSingleComponent('/', partialSettings);
+    return map;
+}
 
 /**
  * Generate a script for a single client
- * @param componentPath 
+ * @param projectPath The entry 
+ * @returns Returns the component component name
  */
 export function compileSingleComponent(
-    componentPath: string,
-    settings: IFinalPrismSettings
-): void {
+    projectPath: string,
+    partialSettings: Partial<IPrismSettings> = {}
+): string {
+    const settings: IFinalPrismSettings = makePrismSettings(projectPath, partialSettings);
+
     const features: IRuntimeFeatures = { ...defaultRuntimeFeatures, isomorphic: settings.context === "isomorphic" };
 
     if (settings.buildTimings) console.time("Parse component file and its imports");
-    const component = Component.registerComponent(componentPath, settings, features);
+    const component = Component.registerComponent(settings.absoluteComponentPath, settings, features);
     if (settings.buildTimings) console.timeEnd("Parse component file and its imports");
 
     const bundledClientModule = getPrismClient(false);
@@ -61,8 +105,7 @@ export function compileSingleComponent(
     }
     if (settings.buildTimings) console.timeEnd("Render and write script & style bundle");
 
-    console.log(`Wrote out component.js and component.css to ${settings.outputPath}`);
-    console.log(`Built web component, use with "<${component.tagName}></${component.tagName}>" or "document.createElement("${component.tagName}")"`);
+    return component.tagName;
 }
 
 /**
@@ -74,9 +117,9 @@ export function compileSingleComponent(
  * @param styleBundle 
  */
 function addComponentToBundle(
-    component: Component, 
-    scriptBundle: Module, 
-    styleBundle?: Stylesheet, 
+    component: Component,
+    scriptBundle: Module,
+    styleBundle?: Stylesheet,
     bundleComponents: Set<Component> = new Set()
 ): void {
     scriptBundle.combine(component.clientModule);

@@ -5,7 +5,7 @@ import { InterfaceDeclaration } from "../components/types/interface";
 import { ImportStatement, ExportStatement } from "../components/statements/import-export";
 import { EnumDeclaration } from "../components/types/enum";
 import { Type, Value } from "../components/value/value";
-import { resolve, dirname } from "../../../filesystem";
+import { resolve, dirname } from "path";
 
 export interface IType {
     name?: string,

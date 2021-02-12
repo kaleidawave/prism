@@ -1,10 +1,12 @@
-import { join, isAbsolute, getPathSplitter } from "./filesystem";
+import { join, isAbsolute, sep } from "path";
 
 export interface IPrismSettings {
+    filesystem: Map<string, string> | null,
     minify: boolean, // Removes whitespace for space saving in output
     backendLanguage: "js" | "ts" | "rust", // The languages to output server templates in
     comments: boolean, // Leave comments in TODO comment levels
-    projectPath: string, // The path to the components folder OR a single component
+    componentPath: string | null, // The path to the entry component
+    projectPath: string, // The path to the components folder
     assetPath: string | null, // The path to the assets folder
     outputPath: string, // The path to the output folder
     serverOutputPath: string | null, // The path to the output folder
@@ -24,10 +26,12 @@ export interface IPrismSettings {
 
 const defaultSettings: IPrismSettings = {
     minify: false,
+    filesystem: null,
     comments: false,
     declarativeShadowDOM: false,
-    projectPath: "./src",
     outputPath: "./out",
+    projectPath: "./views",
+    componentPath: null,
     /* These two are both null because they relate to project path and output path. 
     There "defaults" are encoded in the respective actual getters in exported setters: */
     assetPath: null,
@@ -50,8 +54,9 @@ const defaultSettings: IPrismSettings = {
  * @example if projectPath = "../abc" then absoluteProjectPath ~ "C:/abc"
  */
 export interface IFinalPrismSettings extends IPrismSettings {
-    cwd: string,
-    pathSplitter: string,
+    projectPath: string,
+    absoluteComponentPath: string, // Entry component (TODO)
+    pathSplitter: string, // Needed for rust things
     absoluteProjectPath: string,
     absoluteOutputPath: string,
     absoluteAssetPath: string,
@@ -59,8 +64,10 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteTemplatePath: string | null,
 }
 
+export const defaultPrismName = "index.prism";
+
 export function makePrismSettings(
-    cwd: string, 
+    cwd: string,
     partialSettings: Partial<IPrismSettings> = {}
 ): IFinalPrismSettings {
     const projectPath = partialSettings.projectPath ?? defaultSettings.projectPath;
@@ -68,11 +75,13 @@ export function makePrismSettings(
     const assetPath = partialSettings.assetPath ?? join(projectPath, "assets");
     const serverOutputPath = partialSettings.serverOutputPath ?? join(outputPath, "server");
     const templatePath = partialSettings.templatePath ?? defaultSettings.templatePath;
+    const componentPath = partialSettings.componentPath ?? join(cwd, "index.prism"); // TODO cwd..?
     return {
         ...defaultSettings,
         ...partialSettings,
-        cwd,
-        pathSplitter: getPathSplitter(),
+        pathSplitter: sep,
+        componentPath,
+        absoluteComponentPath: isAbsolute(componentPath) ? componentPath : join(cwd, componentPath),
         absoluteProjectPath: isAbsolute(projectPath) ? projectPath : join(cwd, projectPath),
         absoluteOutputPath: isAbsolute(outputPath) ? outputPath : join(cwd, outputPath),
         absoluteAssetPath: isAbsolute(assetPath) ? assetPath : join(cwd, assetPath),

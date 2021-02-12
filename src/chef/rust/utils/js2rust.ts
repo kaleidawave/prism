@@ -19,7 +19,7 @@ import { TemplateLiteral } from "../../javascript/components/value/template-lite
 import { Module as JSModule } from "../../javascript/components/module";
 import { findTypeDeclaration } from "../../javascript/utils/types";
 import { StatementTypes } from "../statements/block";
-import { basename } from "../../../filesystem";
+import { basename } from "path";
 
 type rustAstTypes = StatementTypes | ValueTypes | TypeSignature | ArgumentList;
 

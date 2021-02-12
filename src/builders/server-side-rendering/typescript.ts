@@ -16,7 +16,7 @@ import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { IShellData } from "../template";
-import { dirname, relative, join, resolve } from "../../filesystem";
+import { dirname, relative, join, resolve } from "path";
 
 function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes | string {
     if (typeof serverChunk === "string") {

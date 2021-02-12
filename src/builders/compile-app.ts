@@ -10,8 +10,9 @@ import { Stylesheet } from "../chef/css/stylesheet";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { moveStaticAssets } from "./assets";
-import { IFinalPrismSettings } from "../settings";
-import { exists, join } from "../filesystem";
+import { IFinalPrismSettings, IPrismSettings, makePrismSettings } from "../settings";
+import { exists } from "../filesystem";
+import { join } from "path";
 import type { runApplication } from "../node";
 import { randomId } from "../templating/helpers";
 
@@ -24,7 +25,12 @@ import { randomId } from "../templating/helpers";
  * - Generate server module
  * - Write out scripts, stylesheets and shell.html
  */
-export function compileApplication(settings: IFinalPrismSettings, runFunction?: typeof runApplication) {
+export function compileApplication(
+    cwd: string, 
+    partialSettings: Partial<IPrismSettings> = {}, 
+    runFunction?: typeof runApplication
+) {
+    const settings: IFinalPrismSettings = makePrismSettings(cwd, partialSettings);
     const features: IRuntimeFeatures = { ...defaultRuntimeFeatures, isomorphic: settings.context === "isomorphic" };
 
     if (settings.buildTimings) console.time("Parse component files");

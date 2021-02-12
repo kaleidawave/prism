@@ -28,7 +28,7 @@ import {
     ImportStatement as JSImportStatement,
     ExportStatement as JSExportStatement
 } from "../../chef/javascript/components/statements/import-export";
-import { dirname, join, relative, basename } from "../../filesystem";
+import { dirname, join, relative, basename } from "path";
 
 /** The variable which points to the String that is appended to */
 const accVariable = new VariableReference("acc");
