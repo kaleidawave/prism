@@ -12,6 +12,7 @@ export function compileSingleComponentFromString(
     componentSource: string, 
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
+    if (typeof componentSource !== "string") throw Error("compileSingleComponentFromString requires string");
     partialSettings.outputPath ??= "";
     registerFSReadCallback(filename => {
         if (filename === "/index.prism" || filename === "\\index.prism") {
@@ -32,6 +33,7 @@ export function compileSingleComponentFromFSMap(
     componentSourceMap: Map<string, string>, 
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
+    if (!(componentSourceMap instanceof Map)) throw Error("compileSingleComponentFromFSMap requires Map");
     partialSettings.outputPath ??= "";
     registerFSReadCallback(filename => {
         if (componentSourceMap.has(filename)) {

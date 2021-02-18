@@ -97,7 +97,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
             if (statement.from.endsWith(".prism.js")) {
                 const newImports: Array<string> = [];
                 let importedComponent: Component | null = null;
-                for (const [key] of statement.variable?.entries!) {
+                for (const [key] of statement.variable?.entries ?? []) {
                     if (comp.importedComponents.has(key as string)) {
                         importedComponent = comp.importedComponents.get(key as string)!;
                         newImports.push(importedComponent.serverRenderFunction!.actualName!)

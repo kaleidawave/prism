@@ -181,7 +181,10 @@ export class Component {
             throw Error(`Could not find class that extends "Component" in "${this.filename}"`);
         }
 
-        this.className = componentClass.name!.name!;
+        if (typeof componentClass.name?.name === "undefined") {
+            throw Error(`Expected class name on ${this.relativeFilename}`);
+        }  
+        this.className = componentClass.name.name;
         this.componentClass = componentClass;
 
         // Set client module to be cached. This is mainly to enable importing types from .prism files
@@ -193,6 +196,8 @@ export class Component {
         Component.parsingComponents.add(this.filename);
         for (const import_ of this.clientModule.imports) {
             // TODO other imports such as css etc
+            // TODO will make the component accessible based ONLY based on the path. e.g. it assumes the statement
+            // is `import * from "x.prism"`. Should look at the `variable` property on the import...
             if (import_.from.endsWith(".prism")) {
                 const component = Component.registerComponent(resolve(dirname(this.filename), import_.from), settings, runtimeFeatures);
                 this.importedComponents.set(component.className, component);

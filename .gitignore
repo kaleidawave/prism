@@ -10,3 +10,5 @@ examples/temp
 package-lock.json
 esm
 lib
+mjs
+cjs

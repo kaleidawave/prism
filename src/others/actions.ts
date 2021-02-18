@@ -27,10 +27,10 @@ export function minifyFile(targetFile: string, outputFile: string) {
 }
 
 export function createPrismTemplateApp(cwd: string) {
-    HTMLDocument.fromString(fileBundle.get("index.prism")!, join(cwd, "src", "index.prism"))
+    HTMLDocument.fromString(fileBundle.get("index.prism")!, join(cwd, "views", "index.prism"))
         .writeToFile({ minify: false, scriptLanguage: ScriptLanguages.Typescript });
 
     writeFile("prism.config.json", JSON.stringify({ context: "client", versioning: false }, undefined, 4));
 
-    console.log(`Wrote out "src/index.prism", run with "prism compile-app --run open"`);
+    console.log(`Wrote out "views/index.prism", run with "prism compile-app --run open"`);
 }

@@ -1,11 +1,34 @@
 {
   "name": "@kaleidawave/prism",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "Isomorphic web app compiler",
-  "main": "./lib/node/index.js",
+  "main": "./cjs/index.cjs",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "node": {
+        "require": "./cjs/index.cjs"
+      }
+    },
+    "./bin": {
+      "node": "./lib/node/bin.js"
+    },
+    "./web": {
+      "browser": {
+        "import": "./esm/web.js",
+        "module": "./esm/web.js",
+        "default": "./lib/browser/web.js"
+      }
+    },
+    "./import": {
+      "node": {
+        "import": "./mjs/import.mjs"
+      }
+    }
+  },
   "scripts": {
     "test": "jest",
-    "build": "packemon build --addEngines",
+    "build": "packemon build --addExports",
     "build-tsc": "tsc",
     "build-bundle": "node inject-bundle.js"
   },
@@ -27,7 +50,10 @@
     "url": "https://github.com/kaleidawave/prism/issues"
   },
   "files": [
-    "out"
+    "lib",
+    "esm",
+    "mjs",
+    "cjs"
   ],
   "homepage": "https://github.com/kaleidawave/prism#readme",
   "// Only used for testing and development:": "",
@@ -37,7 +63,7 @@
     "@types/node": "^13.13.25",
     "jest": "^25.5.4",
     "jest-cli": "^26.5.3",
-    "packemon": "^0.11.1",
+    "packemon": "^0.12.0",
     "ts-jest": "^26.4.1",
     "typescript": "^3.9.7"
   },
@@ -46,6 +72,7 @@
       "inputs": {
         "index": "src/node.ts"
       },
+      "format": "cjs",
       "platform": "node"
     },
     {
@@ -59,6 +86,14 @@
         "web": "src/web.ts"
       },
       "platform": "browser",
+      "support": "current"
+    },
+    {
+      "inputs": {
+        "import": "src/web.ts"
+      },
+      "platform": "node",
+      "format": "mjs",
       "support": "current"
     }
   ],
@@ -76,5 +111,6 @@
   "directories": {
     "example": "examples",
     "test": "tests"
-  }
+  },
+  "type": "commonjs"
 }
