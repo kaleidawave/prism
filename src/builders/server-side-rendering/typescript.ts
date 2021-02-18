@@ -1,4 +1,3 @@
-import { dirname, relative, join, resolve } from "path";
 import { fileBundle } from "../../bundled-files";
 import { getImportPath } from "../../chef/helpers";
 import { ClassDeclaration } from "../../chef/javascript/components/constructs/class";
@@ -17,6 +16,7 @@ import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";
 import { IShellData } from "../template";
+import { dirname, relative, join, resolve } from "path";
 
 function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes | string {
     if (typeof serverChunk === "string") {
@@ -97,7 +97,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
             if (statement.from.endsWith(".prism.js")) {
                 const newImports: Array<string> = [];
                 let importedComponent: Component | null = null;
-                for (const [key] of statement.variable?.entries!) {
+                for (const [key] of statement.variable?.entries ?? []) {
                     if (comp.importedComponents.has(key as string)) {
                         importedComponent = comp.importedComponents.get(key as string)!;
                         newImports.push(importedComponent.serverRenderFunction!.actualName!)

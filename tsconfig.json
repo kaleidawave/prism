@@ -13,15 +13,14 @@
         "diagnostics": false,
         "downlevelIteration": true,
         "tsBuildInfoFile": "private/tsbuild.info.json",
+        "declaration": true,
+        "declarationDir": "dts",
         "outDir": "dts",
-        "noEmit": false,
+        "noEmit": true,
         "resolveJsonModule": false,
-        "rootDir": "src",
-        "emitDeclarationOnly": true
     },
     "files": [
         "src/cli.ts",
-        "src/web.ts",
     ],
     "exclude": [
         "node_modules",

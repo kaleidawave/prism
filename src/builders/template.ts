@@ -3,8 +3,8 @@ import { flatElements, HTMLDocument, HTMLElement, Node } from "../chef/html/html
 import { fileBundle } from "../bundled-files";
 import { NodeData } from "../templating/template";
 import { assignToObjectMap } from "../helpers";
-import { posix, join} from "path";
 import { IRenderSettings } from "../chef/helpers";
+import { join } from "path";
 
 export interface IShellData {
     document: HTMLDocument,
@@ -48,13 +48,13 @@ export function parseTemplateShell(settings: IFinalPrismSettings, jsName: string
                         0,
                         new HTMLElement(
                             "script",
-                            new Map([["type", "module"], ["src", posix.join(settings.relativeBasePath, jsName)]]),
+                            new Map([["type", "module"], ["src", settings.relativeBasePath + jsName]]),
                             [],
                             element.parent
                         ),
                         new HTMLElement(
                             "link",
-                            new Map([["rel", "stylesheet"], ["href", posix.join(settings.relativeBasePath, cssName)]]),
+                            new Map([["rel", "stylesheet"], ["href", settings.relativeBasePath + cssName]]),
                             [],
                             element.parent
                         )

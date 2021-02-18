@@ -6,13 +6,13 @@ import { defaultRuntimeFeatures, getPrismClient, IRuntimeFeatures, treeShakeBund
 import { parseTemplateShell, writeIndexHTML } from "./template";
 import { buildPrismServerModule as buildTSPrismServerModule } from "./server-side-rendering/typescript";
 import { buildPrismServerModule as buildRustPrismServerModule } from "./server-side-rendering/rust";
-import { join } from "path";
 import { Stylesheet } from "../chef/css/stylesheet";
 import { Expression, Operation } from "../chef/javascript/components/value/expression";
 import { VariableReference } from "../chef/javascript/components/value/variable";
 import { moveStaticAssets } from "./assets";
-import { IFinalPrismSettings } from "../settings";
+import { IFinalPrismSettings, IPrismSettings, makePrismSettings } from "../settings";
 import { exists } from "../filesystem";
+import { join } from "path";
 import type { runApplication } from "../node";
 import { randomId } from "../templating/helpers";
 
@@ -25,7 +25,12 @@ import { randomId } from "../templating/helpers";
  * - Generate server module
  * - Write out scripts, stylesheets and shell.html
  */
-export function compileApplication(settings: IFinalPrismSettings, runFunction?: typeof runApplication) {
+export function compileApplication(
+    cwd: string, 
+    partialSettings: Partial<IPrismSettings> = {}, 
+    runFunction?: typeof runApplication
+) {
+    const settings: IFinalPrismSettings = makePrismSettings(cwd, partialSettings);
     const features: IRuntimeFeatures = { ...defaultRuntimeFeatures, isomorphic: settings.context === "isomorphic" };
 
     if (settings.buildTimings) console.time("Parse component files");

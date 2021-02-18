@@ -5,6 +5,7 @@ import {
 } from "./chef/filesystem";
 import type { Stats } from "fs";
 
+/** Registering FS callbacks */
 let __fileSystemReadCallback: fsReadCallback | null = null;
 export function registerFSReadCallback(cb: fsReadCallback) {
     __fileSystemReadCallback = cb;

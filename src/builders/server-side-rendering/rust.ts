@@ -9,12 +9,10 @@ import { IFinalPrismSettings } from "../../settings";
 import { Module } from "../../chef/rust/module";
 import { Module as JSModule } from "../../chef/javascript/components/module";
 import { ModStatement } from "../../chef/rust/statements/mod";
-import { dirname, join, relative } from "path";
 import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
 import { UseStatement } from "../../chef/rust/statements/use";
 import { ElseStatement, IfStatement } from "../../chef/rust/statements/if";
 import { ForStatement } from "../../chef/rust/statements/for";
-import { basename } from "path";
 import { IShellData } from "../template";
 import { jsAstToRustAst } from "../../chef/rust/utils/js2rust";
 import { InterfaceDeclaration as TSInterfaceDeclaration } from "../../chef/javascript/components/types/interface";
@@ -30,6 +28,7 @@ import {
     ImportStatement as JSImportStatement,
     ExportStatement as JSExportStatement
 } from "../../chef/javascript/components/statements/import-export";
+import { dirname, join, relative, basename } from "path";
 
 /** The variable which points to the String that is appended to */
 const accVariable = new VariableReference("acc");

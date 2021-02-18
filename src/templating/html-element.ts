@@ -11,7 +11,6 @@ import { FunctionDeclaration } from "../chef/javascript/components/constructs/fu
 import { HTMLComment, HTMLDocument, HTMLElement } from "../chef/html/html";
 import { defaultRenderSettings } from "../chef/helpers";
 import { assignToObjectMap } from "../helpers";
-import { posix } from "path";
 
 export function parseHTMLElement(
     element: HTMLElement,
@@ -117,7 +116,7 @@ export function parseHTMLElement(
             const href = element.attributes.get("href");
             // TODO prefix hrefs for dynamic routes
             if (href) {
-                element.attributes.set("href", posix.join(templateConfig.staticSrc, href));
+                element.attributes.set("href", templateConfig.staticSrc + href);
             }
         }
 

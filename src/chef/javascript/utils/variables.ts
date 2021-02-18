@@ -33,47 +33,52 @@ export function getVariablesInClass(cls: ClassDeclaration): Array<VariableRefere
  * TODO parent should maybe have a key of structure
  * @param parent Used for replacing variables
  */
-export function* variableReferenceWalker(statement: astTypes, parent?: astTypes): Generator<{ variable: VariableReference, parent: astTypes }> {
+export function variableReferenceWalker(
+    statement: astTypes, 
+    parent?: astTypes
+): Array<{ variable: VariableReference, parent: astTypes }> {
+    const variables: Array<{ variable: VariableReference, parent: astTypes }> = []
     if (statement instanceof VariableReference) {
-        yield { variable: statement, parent: parent! };
+        variables.push({ variable: statement, parent: parent! });
     } else if (statement instanceof Expression) {
         if (statement.operation === Operation.OptionalChain) {
-            yield { variable: variableReferenceFromOptionalChain(statement), parent: parent! };
+            variables.push({ variable: variableReferenceFromOptionalChain(statement), parent: parent! });
         } else {
-            yield* variableReferenceWalker(statement.lhs, statement);
-            if (statement.rhs) yield* variableReferenceWalker(statement.rhs, statement);
+            variables.push(...variableReferenceWalker(statement.lhs, statement));
+            if (statement.rhs) variables.push(...variableReferenceWalker(statement.rhs, statement));
         }
     } else if (statement instanceof ReturnStatement) {
-        if (statement.returnValue) yield* variableReferenceWalker(statement.returnValue, statement);
+        if (statement.returnValue) variables.push(...variableReferenceWalker(statement.returnValue, statement));
     } else if (statement instanceof FunctionDeclaration) {
         for (const statementInFunc of statement.statements) {
-            yield* variableReferenceWalker(statementInFunc, statement);
+            variables.push(...variableReferenceWalker(statementInFunc, statement));
         }
     } else if (statement instanceof ArgumentList) {
         for (const value of statement.args) {
-            yield* variableReferenceWalker(value, statement);
+            variables.push(...variableReferenceWalker(value, statement));
         }
     } else if (statement instanceof TemplateLiteral) {
         for (const value of statement.entries) {
-            if (typeof value !== "string") yield* variableReferenceWalker(value, statement);
+            if (typeof value !== "string") variables.push(...variableReferenceWalker(value, statement));
         }
     } else if (statement instanceof ObjectLiteral) {
         for (const [, value] of statement.values) {
-            yield* variableReferenceWalker(value, statement)
+            variables.push(...variableReferenceWalker(value, statement))
         }
     } else if (statement instanceof ForIteratorExpression) {
-        yield* variableReferenceWalker(statement.subject, statement);
+        variables.push(...variableReferenceWalker(statement.subject, statement));
     } else if (statement instanceof ForStatement) {
-        yield* variableReferenceWalker(statement.expression, statement);
+        variables.push(...variableReferenceWalker(statement.expression, statement));
         for (const s of statement.statements) {
-            yield* variableReferenceWalker(s, statement);
+            variables.push(...variableReferenceWalker(s, statement));
         }
     } else if (statement instanceof IfStatement) {
-        yield* variableReferenceWalker(statement.condition, statement);
+        variables.push(...variableReferenceWalker(statement.condition, statement));
         for (const s of statement.statements) {
-            yield* variableReferenceWalker(s, statement);
+            variables.push(...variableReferenceWalker(s, statement));
         }
     }
+    return variables;
 }
 
 /**

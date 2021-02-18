@@ -1,4 +1,3 @@
-import { lstatSync, existsSync } from "fs";
 import { registerSettings, compileApplication, compileSingleComponent, runApplication } from "./node";
 import { printHelpScreen, printInfoScreen, printWarningBanner } from "./others/banners";
 import { createPrismTemplateApp } from "./others/actions";
@@ -18,14 +17,10 @@ switch (process.argv[2]) {
         const settings = registerSettings(process.cwd());
         printWarningBanner();
         if (settings.buildTimings) console.time("Building single component");
-        if (lstatSync(settings.absoluteProjectPath).isDirectory() || !settings.projectPath.endsWith(".prism")) {
-            throw Error(`Compile Component: "projectPath" must be a path to ".prism" file`);
-        }
-        if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
-            throw Error(`Output path must be a directory`);
-        }
-        compileSingleComponent(settings.projectPath, settings)
+        let componentTagName = compileSingleComponent(process.cwd(), settings);
         if (settings.buildTimings) console.timeEnd("Building single component");
+        console.log(`Wrote out component.js and component.css to ${settings.outputPath}`);
+        console.log(`Built web component, use with "<${componentTagName}></${componentTagName}>" or "document.createElement("${componentTagName}")"`);
         break;
     }
     case "compile-application":
@@ -33,10 +28,7 @@ switch (process.argv[2]) {
         const settings = registerSettings(process.cwd());
         printWarningBanner();
         if (settings.buildTimings) console.time("Building application");
-        if (existsSync(settings.outputPath) && lstatSync(settings.outputPath).isFile()) {
-            throw Error(`Output path must be a directory`);
-        }
-        compileApplication(settings, runApplication)
+        compileApplication(process.cwd(), settings, runApplication)
         if (settings.buildTimings) console.timeEnd("Building application");
         break;
     }

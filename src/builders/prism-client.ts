@@ -1,13 +1,13 @@
 import { Module } from "../chef/javascript/components/module";
 import { injectRoutes } from "./client-side-routing";
 import { fileBundle } from "../bundled-files";
-import { join } from "path";
 import { FunctionDeclaration } from "../chef/javascript/components/constructs/function";
 import { ExportStatement } from "../chef/javascript/components/statements/import-export";
 import { ClassDeclaration } from "../chef/javascript/components/constructs/class";
 import { VariableDeclaration } from "../chef/javascript/components/statements/variable";
 import { Comment } from "../chef/javascript/components/statements/comments";
 import { ValueTypes } from "../chef/javascript/components/value/value";
+import { join } from "path";
 
 export const clientModuleFilenames = [
     "component.ts",

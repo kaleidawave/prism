@@ -1,5 +1,5 @@
-import { join } from "path";
 import { readDirectory, pathInformation } from "./filesystem";
+import { join } from "path";
 
 /**
  * Parses command line arguments to map
@@ -41,15 +41,17 @@ export function isUppercase(char: string): boolean {
  * @param folder 
  * @yields full filepath
  */
-export function* filesInFolder(folder: string): Generator<string> {
+export function filesInFolder(folder: string): Array<string> {
+    const files: Array<string> = [];
     for (const member of readDirectory(folder)) {
         const memberPath = join(folder, member);
         if (pathInformation(memberPath).isDirectory()) {
-            yield* filesInFolder(memberPath);
+            files.push(...filesInFolder(memberPath));
         } else {
-            yield memberPath;
+            files.push(memberPath);
         }
     }
+    return files;
 }
 
 /**
