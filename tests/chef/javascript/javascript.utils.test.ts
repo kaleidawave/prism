@@ -1,8 +1,7 @@
-import { VariableReference } from "../../../src/chef/javascript/components/value/variable";
 import { Group } from "../../../src/chef/javascript/components/value/group";
 import { Module } from "../../../src/chef/javascript/components/module";
 import { aliasVariables, findVariables, replaceVariables } from "../../../src/chef/javascript/utils/variables";
-import { Expression, Operation } from "../../../src/chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "../../../src/chef/javascript/components/value/expression";
 import { FunctionDeclaration, ArgumentList } from "../../../src/chef/javascript/components/constructs/function";
 import { compileIIFE, reverseValue } from "../../../src/chef/javascript/utils/reverse";
 import { Type, Value } from "../../../src/chef/javascript/components/value/value";

@@ -6,7 +6,7 @@ import { buildClientRenderMethod, clientRenderPrismNode } from "./templating/bui
 import { buildEventBindings } from "./templating/builders/server-event-bindings";
 import { constructBindings } from "./templating/builders/data-bindings";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./chef/javascript/components/constructs/function";
-import { Expression, Operation } from "./chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "./chef/javascript/components/value/expression";
 import { VariableDeclaration } from "./chef/javascript/components/statements/variable";
 import { Value, Type, ValueTypes } from "./chef/javascript/components/value/value";
 import { ReturnStatement } from "./chef/javascript/components/statements/statement";
@@ -18,10 +18,9 @@ import { Stylesheet } from "./chef/css/stylesheet";
 import { prefixSelector, ISelector } from "./chef/css/selectors";
 import { addBinding, getElement, randomPrismId, thisDataVariable } from "./templating/helpers";
 import { ImportStatement } from "./chef/javascript/components/statements/import-export";
-import { VariableReference } from "./chef/javascript/components/value/variable";
 import { getImportPath, defaultRenderSettings, makeRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
-import { relative, resolve, dirname, join } from "path";
+import { relative, resolve, dirname, join, isAbsolute } from "path";
 import { Rule } from "./chef/css/rule";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";
@@ -31,7 +30,7 @@ import { ForIteratorExpression } from "./chef/javascript/components/statements/f
 import { cloneAST, aliasVariables } from "./chef/javascript/utils/variables";
 import { assignToObjectMap } from "./helpers";
 import { IFinalPrismSettings } from "./settings";
-import { IRuntimeFeatures } from "./builders/prism-client";
+import { IRuntimeFeatures, preludeImports } from "./builders/prism-client";
 import { IFunctionDeclaration, IModule } from "./chef/abstract-asts";
 import { buildMetaTags } from "./metatags";
 import {
@@ -180,10 +179,9 @@ export class Component {
         if (!componentClass) {
             throw Error(`Could not find class that extends "Component" in "${this.filename}"`);
         }
-
         if (typeof componentClass.name?.name === "undefined") {
             throw Error(`Expected class name on ${this.relativeFilename}`);
-        }  
+        }
         this.className = componentClass.name.name;
         this.componentClass = componentClass;
 
@@ -199,10 +197,16 @@ export class Component {
             // TODO will make the component accessible based ONLY based on the path. e.g. it assumes the statement
             // is `import * from "x.prism"`. Should look at the `variable` property on the import...
             if (import_.from.endsWith(".prism")) {
-                const component = Component.registerComponent(resolve(dirname(this.filename), import_.from), settings, runtimeFeatures);
+                let componentPath: string;
+                if (isAbsolute(this.filename)) {
+                    componentPath = resolve(dirname(this.filename), import_.from);
+                } else {
+                    componentPath = relative(dirname(this.filename), import_.from);
+                }
+                const component = Component.registerComponent(componentPath, settings, runtimeFeatures);
                 this.importedComponents.set(component.className, component);
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
-                import_.from = relativePath + ".js";
+                import_.from = relativePath;
             } else {
                 this.imports.push(import_);
             }
@@ -454,8 +458,8 @@ export class Component {
         if (componentClass.base!.typeArguments?.[0]) {
             try {
                 componentDataType = typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
-                this.needsData = !Array.from(componentDataType.properties!.values())
-                    .every(property => property.name === "HTMLElement");
+                // TODO kinda temp
+                this.needsData = Boolean(this.defaultData);
             } catch (error) {
                 error.message += ` in component "${this.filename}"`;
                 throw error;
@@ -638,15 +642,25 @@ export class Component {
             } else {
                 tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
             }
-
-            // Set client module to now point to output path.
-            this.clientModule.filename = join(
-                settings.absoluteOutputPath,
-                this.relativeFilename + ".js"
-            );
         }
+
+        // Set client module to now point to output path.
+        this.clientModule.filename = join(
+            settings.absoluteOutputPath,
+            this.relativeFilename
+        );
+
+        // Add prism prelude
+        this.clientModule.addImport(
+            preludeImports,
+            getImportPath(
+                this.clientModule.filename,
+                join(settings.absoluteOutputPath, "prism")
+            )
+        );
     }
 
+    // TODO return object rather than defining properties on this
     processDecorators(settings: IFinalPrismSettings) {
         for (const decorator of this.componentClass.decorators || []) {
             switch (decorator.name) {
@@ -742,8 +756,8 @@ export class Component {
                         throw Error("Metadata decorators args incorrect");
                     }
                     if (
-                        title instanceof TemplateLiteral || 
-                        title instanceof VariableReference || 
+                        title instanceof TemplateLiteral ||
+                        title instanceof VariableReference ||
                         (title instanceof Value && title.type === Type.string)
                     ) {
                         this.title = title;
@@ -773,9 +787,15 @@ export class Component {
                     break;
                 case "Singleton":
                     throw Error(`Not implement - @${decorator.name}`);
+                case "RenderFromEndpoint":
+                    throw Error(`Not implement - @${decorator.name}`);
                 default:
                     throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators`)
             }
         }
+
+        // TODO Prism decorators have no other use other than for marking information. Removing 
+        // to prevent TypeScript issues
+        delete this.componentClass.decorators;
     }
 }

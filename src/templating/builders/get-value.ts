@@ -1,9 +1,8 @@
-import { IBinding, NodeData, BindingAspect, VariableReferenceArray } from "../template";
+import { IBinding, NodeData, BindingAspect } from "../template";
 import { ValueTypes, Value, Type } from "../../chef/javascript/components/value/value";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { buildReverseFunction, compileIIFE } from "../../chef/javascript/utils/reverse";
 import { getElement } from "../helpers";
-import { Expression, Operation } from "../../chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "../../chef/javascript/components/value/expression";
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
 import { IType } from "../../chef/javascript/utils/types";
@@ -16,7 +15,6 @@ export function makeGetFromBinding(
     binding: IBinding,
     nodeData: WeakMap<Node, NodeData>,
     dataType: IType,
-    variable: VariableReferenceArray,
     settings: IFinalPrismSettings
 ): ValueTypes {
 
@@ -66,7 +64,7 @@ export function makeGetFromBinding(
             if (dataType.name === "boolean") {
                 getSource = new Expression({
                     lhs: elementStatement!,
-                    operation: Operation.NotEqual,
+                    operation: Operation.StrictNotEqual,
                     rhs: new Value(Type.object)
                 });
             } else {
@@ -120,7 +118,7 @@ export function makeGetFromBinding(
                 operation: Operation.StrictEqual,
                 rhs: new Value(Type.string)
             });
-        } else {
+        } else if (binding.aspect !== BindingAspect.Conditional) {
             value = new Expression({
                 lhs: value,
                 operation: Operation.StrictNotEqual,

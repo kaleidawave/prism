@@ -1,4 +1,4 @@
-import { stringToDynamicUrl, dynamicUrlToString, dynamicUrlToRegexPattern } from "../../src/chef/dynamic-url";
+import { stringToDynamicUrl, dynamicUrlToRegexPattern } from "../../src/chef/dynamic-url";
 import { RegExpLiteral } from "../../src/chef/javascript/components/value/regex";
 
 test("Static urls", () => {

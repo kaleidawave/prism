@@ -1,8 +1,7 @@
 import { IEvent, BindingAspect, parseNode, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
 import { addIdentifierToElement, addEvent, addBinding } from "./helpers";
-import { VariableReference } from "../chef/javascript/components/value/variable";
 import { ValueTypes } from "../chef/javascript/components/value/value";
-import { Expression } from "../chef/javascript/components/value/expression";
+import { Expression, VariableReference } from "../chef/javascript/components/value/expression";
 import { parseForNode } from "./constructs/for";
 import { parseIfNode } from "./constructs/if";
 import { parseStylingDeclarationsFromString } from "../chef/css/value";

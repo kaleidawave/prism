@@ -7,7 +7,7 @@ import { makeGetFromBinding, getLengthFromIteratorBinding } from "./get-value";
 import { makeSetFromBinding, setLengthForIteratorBinding } from "./set-value";
 import { getTypeFromVariableReferenceArray } from "../helpers";
 import { IType } from "../../chef/javascript/utils/types";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { VariableReference } from "../../chef/javascript/components/value/expression";
 import { Node } from "../../chef/html/html";
 import { IFinalPrismSettings } from "../../settings";
 
@@ -83,7 +83,7 @@ export function constructBindings(
                 (isomorphicContext && isReversibleBinding && !dataPoint.getReturnValue) ||
                 binding.aspect === BindingAspect.Data) {
                 try {
-                    dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings)
+                    dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, settings);
                 } catch { }
             }
 

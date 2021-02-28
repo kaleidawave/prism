@@ -1,10 +1,9 @@
 import { BindingAspect, Locals, PartialBinding, ITemplateData, ITemplateConfig } from "./template";
 import { ValueTypes } from "../chef/javascript/components/value/value";
-import { Expression } from "../chef/javascript/components/value/expression";
+import { Expression, VariableReference } from "../chef/javascript/components/value/expression";
 import { HTMLComment, TextNode } from "../chef/html/html";
 import { addIdentifierToElement, addBinding } from "./helpers";
 import { HTMLElement } from "../chef/html/html";
-import { VariableReference } from "../chef/javascript/components/value/variable";
 import { assignToObjectMap } from "../helpers";
 
 export function parseTextNode(

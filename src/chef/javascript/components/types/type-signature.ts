@@ -1,6 +1,6 @@
 import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { JSToken } from "../../javascript";
-import { tokenAsIdent } from "../value/variable";
+import { tokenAsIdent } from "../value/expression";
 import { parseFunctionParams } from "../constructs/function";
 import { literalTypes, Value } from "../value/value";
 

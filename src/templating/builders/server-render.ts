@@ -1,6 +1,6 @@
 import { HTMLElement, TextNode, HTMLDocument, HTMLComment, Node } from "../../chef/html/html";
 import { ValueTypes } from "../../chef/javascript/components/value/value";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { VariableReference } from "../../chef/javascript/components/value/expression";
 import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables";
 import { NodeData } from "../template";
 import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";

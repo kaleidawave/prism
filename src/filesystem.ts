@@ -6,14 +6,14 @@ import {
 import type { Stats } from "fs";
 
 /** Registering FS callbacks */
-let __fileSystemReadCallback: fsReadCallback | null = null;
-export function registerFSReadCallback(cb: fsReadCallback) {
+export let __fileSystemReadCallback: fsReadCallback | null = null;
+export function registerFSReadCallback(cb: fsReadCallback | null) {
     __fileSystemReadCallback = cb;
     chefRegisterFSReadCallback(cb);
 }
 
-let __fileSystemWriteCallback: fsWriteCallback | null = null;
-export function registerFSWriteCallback(cb: fsWriteCallback) {
+export let __fileSystemWriteCallback: fsWriteCallback | null = null;
+export function registerFSWriteCallback(cb: fsWriteCallback | null) {
     __fileSystemWriteCallback = cb;
     chefRegisterFSWriteCallback(cb);
 }

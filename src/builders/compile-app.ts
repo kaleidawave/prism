@@ -7,14 +7,14 @@ import { parseTemplateShell, writeIndexHTML } from "./template";
 import { buildPrismServerModule as buildTSPrismServerModule } from "./server-side-rendering/typescript";
 import { buildPrismServerModule as buildRustPrismServerModule } from "./server-side-rendering/rust";
 import { Stylesheet } from "../chef/css/stylesheet";
-import { Expression, Operation } from "../chef/javascript/components/value/expression";
-import { VariableReference } from "../chef/javascript/components/value/variable";
+import { Expression, Operation, VariableReference } from "../chef/javascript/components/value/expression";
 import { moveStaticAssets } from "./assets";
 import { IFinalPrismSettings, IPrismSettings, makePrismSettings } from "../settings";
 import { exists } from "../filesystem";
 import { join } from "path";
 import type { runApplication } from "../node";
 import { randomId } from "../templating/helpers";
+import { ExportStatement, ImportStatement } from "../chef/javascript/components/statements/import-export";
 
 /**
  * - Registers all components
@@ -66,7 +66,9 @@ export function compileApplication(
 
     const prismClient = getPrismClient(settings.clientSideRouting);
     treeShakeBundle(features, prismClient);
-    clientScriptBundle.combine(prismClient);
+    if (settings.bundleOutput) {
+        clientScriptBundle.combine(prismClient);
+    }
 
     if (exists(settings.absoluteAssetPath)) {
         if (settings.buildTimings) console.time("Move static assets");
@@ -77,36 +79,63 @@ export function compileApplication(
             settings.absoluteOutputPath,
             clientRenderSettings
         );
-
-        for (const x of modulesAndStylesheets) {
-            if (x instanceof Module) {
-                clientScriptBundle.combine(x);
-            } else {
-                clientStyleBundle.combine(x);
+        
+        if (settings.bundleOutput) {
+            for (const moduleOrStylesheet of modulesAndStylesheets) {
+                if (moduleOrStylesheet instanceof Module) {
+                    clientScriptBundle.combine(moduleOrStylesheet);
+                } else {
+                    clientStyleBundle.combine(moduleOrStylesheet);
+                }
             }
+        } else {
+            throw "Not implemented";
         }
 
         if (settings.buildTimings) console.timeEnd("Move static assets");
     }
-
+    
+    // Used for doing rust imports TODO kinda temp
     const serverModulePaths: Array<string> = [];
 
     // Combine all registered components client modules and stylesheets and write out the server module separately
     if (settings.buildTimings) console.time("Combine all component scripts and styles, write out server modules");
     for (const [, registeredComponent] of Component.registeredComponents) {
-        clientScriptBundle.combine(registeredComponent.clientModule);
-        if (registeredComponent.stylesheet && !registeredComponent.useShadowDOM) {
-            clientStyleBundle.combine(registeredComponent.stylesheet);
+        if (settings.bundleOutput) {
+            clientScriptBundle.combine(registeredComponent.clientModule);
+            // If uses shadow dom the styles are written into render methods so do not output stylesheet
+            if (registeredComponent.stylesheet && !registeredComponent.useShadowDOM) {
+                clientStyleBundle.combine(registeredComponent.stylesheet);
+            }
+            if (registeredComponent.serverModule) {
+                serverModulePaths.push(registeredComponent.serverModule.filename);
+                registeredComponent.serverModule.writeToFile(serverRenderSettings);
+            }
+        } else {
+            registeredComponent.clientModule.writeToFile(clientRenderSettings);
+            if (registeredComponent.stylesheet && !registeredComponent.useShadowDOM) {
+                registeredComponent.stylesheet.writeToFile();
+            }
+            if (registeredComponent.serverModule) {
+                serverModulePaths.push(registeredComponent.serverModule.filename);
+                registeredComponent.serverModule.writeToFile(serverRenderSettings);
+            }
         }
-        if (registeredComponent.serverModule) {
-            serverModulePaths.push(registeredComponent.serverModule.filename);
-            registeredComponent.serverModule.writeToFile(serverRenderSettings);
-        }
+        
     }
     if (settings.buildTimings) console.timeEnd("Combine all component scripts and styles, write out server modules");
 
     // TODO temp remove all imports and exports as it is a bundle
-    clientScriptBundle.removeImportsAndExports();
+    if (settings.bundleOutput) {
+        clientScriptBundle!.statements = clientScriptBundle!.statements
+            .filter(statement => 
+                !(statement instanceof ImportStatement)
+            ) .map(statement => 
+                statement instanceof ExportStatement ?
+                    statement.exported :
+                    statement 
+            );
+    }
 
     // Initialize routing once all component are registered
     if (settings.clientSideRouting) {
@@ -119,10 +148,14 @@ export function compileApplication(
     }
 
     if (settings.context === "isomorphic") {
-        if (settings.backendLanguage === "rust") {
-            buildRustPrismServerModule(template, settings, serverModulePaths).writeToFile(serverRenderSettings);
-        } else {
-            buildTSPrismServerModule(template, settings).writeToFile(serverRenderSettings);
+        switch (settings.backendLanguage) {
+            case "rust":
+                buildRustPrismServerModule(template, settings, serverModulePaths).writeToFile(serverRenderSettings);
+                break;
+            case "js":
+            case "ts":
+                buildTSPrismServerModule(template, settings).writeToFile(serverRenderSettings);
+                break;
         }
     }
 

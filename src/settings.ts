@@ -15,13 +15,15 @@ export interface IPrismSettings {
     relativeBasePath: string, // Prefix all routes, used if index is not under "/" 
     clientSideRouting: boolean, // Add router and do client side routing
     // Add disable attribute to the SSR markup of all events which is then removed once event has been added
-    disableEventElements: boolean, 
+    disableEventElements: boolean,
     versioning: boolean, // Whether to version bundles (Insert a unique id into path)
     buildTimings: boolean, // Whether to print timings of the static build
     run: boolean | "open", // Whether to run output after build
     // Whether to SSR the content of components with shadow dom https://web.dev/declarative-shadow-dom/
-    declarativeShadowDOM: boolean, 
-    deno: boolean // Includes file extensions in imports
+    declarativeShadowDOM: boolean,
+    deno: boolean, // Includes file extensions in imports on server output
+    bundleOutput: boolean // Concatenate output to single bundle
+    outputTypeScript: boolean // Whether to output components in typescript so that checking can be done
 }
 
 const defaultSettings: IPrismSettings = {
@@ -45,7 +47,9 @@ const defaultSettings: IPrismSettings = {
     disableEventElements: true,
     run: false,
     buildTimings: false,
-    deno: false
+    deno: false,
+    bundleOutput: true,
+    outputTypeScript: false,
 };
 
 /**
@@ -63,8 +67,6 @@ export interface IFinalPrismSettings extends IPrismSettings {
     absoluteServerOutputPath: string,
     absoluteTemplatePath: string | null,
 }
-
-export const defaultPrismName = "index.prism";
 
 export function makePrismSettings(
     cwd: string,

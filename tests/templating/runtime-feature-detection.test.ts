@@ -1,4 +1,4 @@
-import { join, sep } from "path";
+import { join } from "path";
 import { IRuntimeFeatures } from "../../src/builders/prism-client";
 import { Component } from "../../src/component";
 import { makePrismSettings } from "../../src/settings";
@@ -11,7 +11,7 @@ const falseRuntimeSettings: IRuntimeFeatures = Object.freeze({
     svg: false
 });
 
-const defaultSettings = makePrismSettings(process.cwd(), sep, { context: "client" });
+const defaultSettings = makePrismSettings(process.cwd(), { context: "client" });
 
 test("observableArrays", async () => {
     const runtimeFeatures = { ...falseRuntimeSettings };

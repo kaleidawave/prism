@@ -122,7 +122,8 @@ export class ClassDeclaration implements IRenderable, IClassSettings {
         settings = makeRenderSettings(settings);
         let acc = "";
         if (this.decorators && settings.scriptLanguage === ScriptLanguages.Typescript) {
-            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n") + "\n";
+            const separator = settings.minify ? " " : "\n"; 
+            acc += this.decorators.map(decorator => decorator.render(settings)).join(separator) + separator;
         }
 
         if (this.isAbstract && settings.scriptLanguage === ScriptLanguages.Typescript) acc += "abstract ";
@@ -165,14 +166,15 @@ export class ClassDeclaration implements IRenderable, IClassSettings {
                 next = this.members[++i2];
             }
 
-            if (next instanceof FunctionDeclaration && next.isGenerator) {
-                acc += ";";
-            } else if (settings.minify && i + 1 < this.members.length) {
+            if (
+                (next instanceof FunctionDeclaration && next.isGenerator) || 
+                (settings.minify && i + 1 < this.members.length)
+            ) {
                 acc += ";";
             }
 
             // If not last member add new line
-            if (i + 1 < this.members.length && !settings.minify) {
+            if (!settings.minify && (i + 1 < this.members.length)) {
                 acc += "\n";
                 if (next instanceof FunctionDeclaration) {
                     acc += "\n";
@@ -226,10 +228,12 @@ export class ClassDeclaration implements IRenderable, IClassSettings {
                 || reader.peek()?.type === JSToken.OpenBracket
             ) {
                 const func = FunctionDeclaration.fromTokens(reader, clsDec, modifierAccumulator);
-                func.decorators = decoratorAccumulator;
                 clsDec.addMember(func);
                 modifierAccumulator.clear();
-                decoratorAccumulator = [];
+                if (decoratorAccumulator.length > 0) {
+                    func.decorators = decoratorAccumulator;
+                    decoratorAccumulator = [];
+                }
             } else {
                 const variable = VariableDeclaration.fromTokens(reader, {
                     isStatic: modifierAccumulator.has(JSToken.Static),

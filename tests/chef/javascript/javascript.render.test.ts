@@ -1,6 +1,5 @@
-import { Expression, Operation } from "../../../src/chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "../../../src/chef/javascript/components/value/expression";
 import { Group } from "../../../src/chef/javascript/components/value/group";
-import { VariableReference } from "../../../src/chef/javascript/components/value/variable";
 import { VariableDeclaration } from "../../../src/chef/javascript/components/statements/variable";
 import { ArgumentList, FunctionDeclaration, GetSet } from "../../../src/chef/javascript/components/constructs/function";
 import { Value, Type } from "../../../src/chef/javascript/components/value/value";

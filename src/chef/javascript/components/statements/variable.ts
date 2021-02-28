@@ -2,11 +2,9 @@ import { JSToken, stringToTokens } from "../../javascript";
 import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { ValueTypes } from "../value/value";
 import { TypeSignature } from "../types/type-signature";
-import { Expression } from "../value/expression";
+import { Expression, VariableReference, tokenAsIdent } from "../value/expression";
 import type { Module } from "../module";
 import { ClassDeclaration } from "../constructs/class";
-import { VariableReference, tokenAsIdent } from "../value/variable";
-
 
 interface IVariableSettings {
     spread: boolean,

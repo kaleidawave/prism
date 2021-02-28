@@ -1,8 +1,7 @@
 import { IEvent, IBinding, Locals, PartialBinding, VariableReferenceArray, ForLoopVariable, NodeData } from "./template";
 import { ValueTypes, Value, Type } from "../chef/javascript/components/value/value";
 import { HTMLElement, HTMLDocument, Node } from "../chef/html/html";
-import { VariableReference } from "../chef/javascript/components/value/variable";
-import { Expression, Operation } from "../chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "../chef/javascript/components/value/expression";
 import { ArgumentList } from "../chef/javascript/components/constructs/function";
 import { cloneAST, findVariables, newOptionalVariableReferenceFromChain } from "../chef/javascript/utils/variables";
 import { assignToObjectMap, findLastIndex } from "../helpers";

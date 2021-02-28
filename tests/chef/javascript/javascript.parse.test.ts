@@ -1,5 +1,5 @@
 import { Module } from "../../../src/chef/javascript/components/module";
-import { Expression, Operation } from "../../../src/chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "../../../src/chef/javascript/components/value/expression";
 import { Group } from "../../../src/chef/javascript/components/value/group";
 import { IfStatement } from "../../../src/chef/javascript/components/statements/if";
 import { SwitchStatement } from "../../../src/chef/javascript/components/statements/switch";
@@ -19,7 +19,6 @@ import { EnumDeclaration } from "../../../src/chef/javascript/components/types/e
 import { ExportStatement, ImportStatement } from "../../../src/chef/javascript/components/statements/import-export";
 import { ReturnStatement } from "../../../src/chef/javascript/components/statements/statement";
 import { WhileStatement, DoWhileStatement } from "../../../src/chef/javascript/components/statements/while";
-import { VariableReference } from "../../../src/chef/javascript/components/value/variable";
 
 describe("Calling functions", () => {
     test("Call", () => {

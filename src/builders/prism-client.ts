@@ -2,7 +2,7 @@ import { Module } from "../chef/javascript/components/module";
 import { injectRoutes } from "./client-side-routing";
 import { fileBundle } from "../bundled-files";
 import { FunctionDeclaration } from "../chef/javascript/components/constructs/function";
-import { ExportStatement } from "../chef/javascript/components/statements/import-export";
+import { ExportStatement, ImportStatement } from "../chef/javascript/components/statements/import-export";
 import { ClassDeclaration } from "../chef/javascript/components/constructs/class";
 import { VariableDeclaration } from "../chef/javascript/components/statements/variable";
 import { Comment } from "../chef/javascript/components/statements/comments";
@@ -16,6 +16,9 @@ export const clientModuleFilenames = [
     "render.ts",
     "router.ts",
 ];
+
+/** Functions, classes and variables in the Prism runtime */
+export const preludeImports = ["Component", "conditionalSwap", "tryAssignData", "setLength", "isArrayHoley", "changeEvent", "cO", "cOO", "cOA", "h", "cC", "Router"].map(name => new VariableDeclaration(name));
 
 export type IRuntimeFeatures =
     Record<
@@ -119,7 +122,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
  * @param clientSideRouting Include the client router module (including injecting routes)
  */
 export function getPrismClient(clientSideRouting: boolean = true): Module {
-    const bundle = new Module("prism.js");
+    const bundle = new Module("prism");
     for (const clientLib of clientModuleFilenames) {
         const module = Module.fromString(fileBundle.get(clientLib)!, join("bundle", clientLib));
         if (clientLib.endsWith("router.ts")) {
@@ -128,5 +131,9 @@ export function getPrismClient(clientSideRouting: boolean = true): Module {
         }
         bundle.combine(module);
     }
+
+    // As they are combined can remove imports
+    bundle.statements = bundle.statements.filter(statement => !(statement instanceof ImportStatement));
+
     return bundle;
 }

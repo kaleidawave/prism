@@ -157,16 +157,4 @@ export class Module implements IModule<StatementTypes> {
         const importStatement = new ImportStatement(variable, targetModule);
         this.statements.unshift(importStatement);
     }
-
-    removeImportsAndExports(): void {
-        for (let i = 0; i < this.statements.length; i++) {
-            const statement = this.statements[i];
-            if (statement instanceof ExportStatement) {
-                this.statements[i] = statement.exported;
-            } else if (statement instanceof ImportStatement) {
-                this.statements.splice(i, 1);
-                i--;
-            }
-        }
-    }
 }

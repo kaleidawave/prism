@@ -1,6 +1,5 @@
 import { HTMLElement, TextNode, HTMLComment, Node } from "../../chef/html/html";
-import { Expression, Operation } from "../../chef/javascript/components/value/expression";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { Expression, Operation, VariableReference } from "../../chef/javascript/components/value/expression";
 import { Value, ValueTypes, Type } from "../../chef/javascript/components/value/value";
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";

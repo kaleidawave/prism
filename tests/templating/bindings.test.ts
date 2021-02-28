@@ -1,6 +1,6 @@
 import { HTMLElement } from "../../src/chef/html/html";
 import { parseTemplate, ITemplateConfig, BindingAspect } from "../../src/templating/template";
-import { VariableReference } from "../../src/chef/javascript/components/value/variable";
+import { VariableReference } from "../../src/chef/javascript/components/value/expression";
 import { ForIteratorExpression } from "../../src/chef/javascript/components/statements/for";
 import { Operation } from "../../src/chef/javascript/components/value/expression";
 import { Component } from "../../src/component";

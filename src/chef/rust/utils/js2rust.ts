@@ -1,13 +1,12 @@
 import { Value as JSValue, Type as JSType } from "../../javascript/components/value/value";
 import { astTypes as JSAstTypes } from "../../javascript/javascript";
-import { VariableReference as JSVariableReference } from "../../javascript/components/value/variable";
 import { InterfaceDeclaration as JSInterfaceDeclaration } from "../../javascript/components/types/interface";
 import { TypeSignature as JSTypeSignature } from "../../javascript/components/types/type-signature";
 import { Type, Value, ValueTypes } from "../values/value";
 import { VariableReference } from "../values/variable";
 import { StructStatement, TypeSignature } from "../statements/struct";
 import { ImportStatement as JSImportStatement, ExportStatement as JSExportStatement } from "../../javascript/components/statements/import-export";
-import { Expression as JSExpression, Operation as JSOperation } from "../../javascript/components/value/expression";
+import { Expression as JSExpression, Operation as JSOperation, VariableReference as JSVariableReference } from "../../javascript/components/value/expression";
 import { UseStatement } from "../statements/use";
 import { Module } from "../module";
 import { Expression, Operation } from "../values/expression";
@@ -138,7 +137,7 @@ export function jsAstToRustAst(jsAst: JSAstTypes, rustModule: Module, jsModule: 
             ])
         );
     } else if (jsAst instanceof JSArgumentList) {
-        return new ArgumentList(jsAst.args.map(arg => 
+        return new ArgumentList(jsAst.args.map(arg =>
             new Expression(
                 (jsAstToRustAst(arg, rustModule, jsModule) as ValueTypes),
                 Operation.Borrow

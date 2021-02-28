@@ -1,6 +1,6 @@
 import { TextNode, HTMLElement, Node } from "../chef/html/html";
 import type { ValueTypes } from "../chef/javascript/components/value/value";
-import type { VariableReference } from "../chef/javascript/components/value/variable";
+import type { VariableReference } from "../chef/javascript/components/value/expression";
 import type { ForLoopExpression, ForIteratorExpression } from "../chef/javascript/components/statements/for";
 import { Component } from "../component";
 import { parseHTMLElement } from "./html-element";

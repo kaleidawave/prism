@@ -1,8 +1,7 @@
 import { ValueTypes } from "./value";
 import { TokenReader, IRenderSettings, makeRenderSettings, IRenderOptions, defaultRenderSettings, IRenderable } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
-import { Expression } from "./expression";
-import { VariableReference, tokenAsIdent } from "./variable";
+import { Expression, VariableReference, tokenAsIdent } from "./expression";
 import { FunctionDeclaration, functionPrefixes } from "../constructs/function";
 
 type ObjectLiteralKey = string | ValueTypes;
@@ -23,7 +22,7 @@ export class ObjectLiteral implements IRenderable {
     render(settings: IRenderSettings = defaultRenderSettings, options: Partial<IRenderOptions> = {}): string {
         settings = makeRenderSettings(settings);
         let acc = "{";
-        // @ts-ignore ts does not like null as value for object literal key BUT I want 
+        // @ts-ignore ts does not like concat and union type
         const values = Array.from(this.values).concat(Array.from(this.spreadValues).map(v => [null, v]));
         for (let i = 0; i < values.length; i++) {
             const [key, value] = values[i];

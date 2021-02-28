@@ -8,10 +8,9 @@ import { ExportStatement, ImportStatement } from "../../chef/javascript/componen
 import { ReturnStatement } from "../../chef/javascript/components/statements/statement";
 import { VariableDeclaration } from "../../chef/javascript/components/statements/variable";
 import { TypeSignature } from "../../chef/javascript/components/types/type-signature";
-import { Expression, Operation } from "../../chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "../../chef/javascript/components/value/expression";
 import { TemplateLiteral } from "../../chef/javascript/components/value/template-literal";
 import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/value";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
 import { IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode } from "../../templating/builders/server-render";

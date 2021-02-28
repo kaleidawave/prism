@@ -1,6 +1,5 @@
 import { FunctionDeclaration, ArgumentList } from "../../chef/javascript/components/constructs/function";
-import { Expression, Operation } from "../../chef/javascript/components/value/expression";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { Expression, Operation, VariableReference } from "../../chef/javascript/components/value/expression";
 import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/value";
 import { IEvent } from "../template";
 

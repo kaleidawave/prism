@@ -7,8 +7,7 @@ import { JSToken } from "../../javascript";
 import { InterfaceDeclaration } from "../types/interface";
 import { ValueTypes } from "../value/value";
 import { TypeDeclaration } from "../types/statements";
-import { VariableReference } from "../value/variable";
-import { Expression } from "../value/expression";
+import { Expression, VariableReference } from "../value/expression";
 
 const extensions = [".ts", ".js"];
 

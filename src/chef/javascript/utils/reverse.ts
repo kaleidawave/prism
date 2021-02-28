@@ -1,8 +1,7 @@
 import { ValueTypes, Value, Type } from "../components/value/value";
 import { TemplateLiteral } from "../components/value/template-literal";
-import { Expression, Operation } from "../components/value/expression";
+import { Expression, Operation, VariableReference } from "../components/value/expression";
 import { FunctionDeclaration, ArgumentList } from "../components/constructs/function";
-import { VariableReference } from "../components/value/variable";
 import { ReturnStatement } from "../components/statements/statement";
 import { Group } from "../components/value/group";
 import { replaceVariables, cloneAST } from "./variables";

@@ -1,10 +1,9 @@
 import { TokenReader, IRenderSettings, defaultRenderSettings, ScriptLanguages, IRenderable } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
-import { tokenAsIdent, VariableReference } from "../value/variable";
 import { Value, Type } from "../value/value";
 import { VariableDeclaration } from "../statements/variable";
 import { ObjectLiteral } from "../value/object";
-import { Expression, Operation } from "../value/expression";
+import { Expression, Operation, tokenAsIdent, VariableReference } from "../value/expression";
 
 export class EnumDeclaration implements IRenderable {
 

@@ -1,12 +1,11 @@
 import { ClassDeclaration } from "../components/constructs/class";
 import { ReturnStatement } from "../components/statements/statement";
-import { Expression, Operation } from "../components/value/expression";
+import { Expression, Operation, VariableReference } from "../components/value/expression";
 import { IfStatement, ElseStatement } from "../components/statements/if";
 import { ValueTypes, Type, Value } from "../components/value/value";
 import { ArgumentList, FunctionDeclaration } from "../components/constructs/function";
 import { TemplateLiteral } from "../components/value/template-literal";
 import { ObjectLiteral } from "../components/value/object";
-import { VariableReference } from "../components/value/variable";
 import { ForIteratorExpression, ForStatementExpression, ForStatement } from "../components/statements/for";
 import { VariableDeclaration } from "../components/statements/variable";
 import { ArrayLiteral } from "../components/value/array";
@@ -267,6 +266,11 @@ export function cloneAST(part: astTypes) {
             part.initializer ? cloneAST(part.initializer) : null, 
             part.condition ? cloneAST(part.condition) : null, 
             part.finalExpression ? cloneAST(part.finalExpression) : null
+        );
+    } else if (part instanceof ObjectLiteral) {
+        return new ObjectLiteral(
+            part.values ? new Map(part.values) : undefined,
+            part.spreadValues ? new Set(part.spreadValues) : undefined,
         );
     } else {
         throw Error(`Could not clone part of instance "${part.constructor.name}"`)

@@ -1,9 +1,8 @@
 import { BindingAspect, Locals, PartialBinding, ITemplateConfig, ITemplateData } from "../template";
-import { Expression } from "../../chef/javascript/components/value/expression";
+import { Expression, VariableReference } from "../../chef/javascript/components/value/expression";
 import { addIdentifierToElement, addBinding, createNullElseElement } from "../helpers";
 import { parseNode } from "../template";
 import { HTMLElement } from "../../chef/html/html";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
 import { assignToObjectMap } from "../../helpers";
 
 export function parseIfNode(

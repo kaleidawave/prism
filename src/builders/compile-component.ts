@@ -5,15 +5,28 @@ import { Stylesheet } from "../chef/css/stylesheet";
 import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { IFinalPrismSettings, IPrismSettings, makePrismSettings } from "../settings";
 import { fileBundle } from "../bundled-files";
-import { registerFSWriteCallback, registerFSReadCallback } from "../filesystem";
+import { registerFSWriteCallback, registerFSReadCallback, __fileSystemReadCallback, __fileSystemWriteCallback } from "../filesystem";
 import { join } from "path";
+import { ExportStatement, ImportStatement } from "../chef/javascript/components/statements/import-export";
 
+/**
+ * Component cannot import another component as there single source. Use `compileSingleComponentFromFSMap`
+ * for multiple components
+ * @param componentSource 
+ * @param partialSettings 
+ */
 export function compileSingleComponentFromString(
     componentSource: string, 
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
     if (typeof componentSource !== "string") throw Error("compileSingleComponentFromString requires string");
-    partialSettings.outputPath ??= "";
+    if (typeof partialSettings.outputPath === "undefined") {
+        partialSettings.outputPath = "";
+    }
+    const outputMap = new Map();
+    // swap callbacks
+    const fileSystemReadCallback = __fileSystemReadCallback;
+    const fileSystemWriteCallback = __fileSystemWriteCallback;
     registerFSReadCallback(filename => {
         if (filename === "/index.prism" || filename === "\\index.prism") {
             return componentSource;
@@ -21,12 +34,14 @@ export function compileSingleComponentFromString(
             throw Error(`Cannot read path '${filename}'`);
         }
     });
-    const map = new Map();
     registerFSWriteCallback((filename, content) => {
-        map.set(filename, content);
+        outputMap.set(filename, content);
     });
-    compileSingleComponent('/', partialSettings);
-    return map;
+    compileSingleComponent("", partialSettings);
+    // replace callbacks
+    registerFSReadCallback(fileSystemReadCallback);
+    registerFSWriteCallback(fileSystemWriteCallback);
+    return outputMap;
 }
 
 export function compileSingleComponentFromFSMap(
@@ -34,7 +49,15 @@ export function compileSingleComponentFromFSMap(
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
     if (!(componentSourceMap instanceof Map)) throw Error("compileSingleComponentFromFSMap requires Map");
-    partialSettings.outputPath ??= "";
+    if (typeof partialSettings.outputPath === "undefined") {
+        partialSettings.outputPath = "";
+    }
+    if (typeof partialSettings.projectPath === "undefined") {
+        partialSettings.projectPath = ".";
+    }
+    // swap callbacks
+    const fileSystemReadCallback = __fileSystemReadCallback;
+    const fileSystemWriteCallback = __fileSystemWriteCallback;
     registerFSReadCallback(filename => {
         if (componentSourceMap.has(filename)) {
             return componentSourceMap.get(filename)!;
@@ -42,17 +65,21 @@ export function compileSingleComponentFromFSMap(
             throw Error(`Cannot read path '${filename}'`);
         }
     });
-    const map = new Map();
+    const outputMap = new Map();
     registerFSWriteCallback((filename, content) => {
-        map.set(filename, content);
+        outputMap.set(filename, content);
     });
-    compileSingleComponent('/', partialSettings);
-    return map;
+    compileSingleComponent("", partialSettings);
+    // replace callbacks
+    registerFSReadCallback(fileSystemReadCallback);
+    registerFSWriteCallback(fileSystemWriteCallback);
+    return outputMap;
 }
 
 /**
- * Generate a script for a single client
- * @param projectPath The entry 
+ * Generate a script for a single component. Will also generate imported components down the tree. Unlike 
+ * compileSingleApplication does not do all components in src folder and does not generate router
+ * @param projectPath The entry point
  * @returns Returns the component component name
  */
 export function compileSingleComponent(
@@ -66,29 +93,66 @@ export function compileSingleComponent(
     if (settings.buildTimings) console.time("Parse component file and its imports");
     const component = Component.registerComponent(settings.absoluteComponentPath, settings, features);
     if (settings.buildTimings) console.timeEnd("Parse component file and its imports");
-
-    const bundledClientModule = getPrismClient(false);
-    treeShakeBundle(features, bundledClientModule);
-    bundledClientModule.filename = join(settings.absoluteOutputPath, "component.js");
-    const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, "component.css"));
-
-    // This bundles all the components together into a single client module, single stylesheet
-    addComponentToBundle(component, bundledClientModule, bundledStylesheet);
-
-    // TODO temporary removing of all imports and exports as it is a bundle 
-    bundledClientModule.removeImportsAndExports();
-
-    if (settings.buildTimings) console.time("Render and write script & style bundle");
-
+    
     const clientRenderSettings: Partial<IRenderSettings> = {
         minify: settings.minify,
         moduleFormat: ModuleFormat.ESM,
-        comments: settings.comments
+        comments: settings.comments,
+        scriptLanguage: settings.outputTypeScript ? ScriptLanguages.Typescript : ScriptLanguages.Javascript
     };
 
-    bundledClientModule.writeToFile(clientRenderSettings);
-    if (bundledStylesheet.rules.length > 0) {
-        bundledStylesheet.writeToFile(clientRenderSettings);
+    let bundledClientModule: Module;
+    if (settings.bundleOutput) {
+        bundledClientModule = getPrismClient(false);
+        if (settings.minify) {
+            treeShakeBundle(features, bundledClientModule);
+        }
+        bundledClientModule.filename = join(settings.absoluteOutputPath, "component.js");
+    } else {
+        const prismClient = getPrismClient(false);
+        prismClient.filename = join(settings.absoluteOutputPath, "prism");
+        prismClient.writeToFile(clientRenderSettings);
+    }
+    
+    const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, "component.css"));
+
+    // TODO rust
+    const serverRenderSettings: Partial<IRenderSettings> = {
+        scriptLanguage: settings.backendLanguage === "js" ? ScriptLanguages.Javascript : ScriptLanguages.Typescript
+    };
+
+    // This bundles all the components together into a single client module, single stylesheet
+    if (settings.bundleOutput) {
+        addComponentToBundle(component, bundledClientModule!, bundledStylesheet);
+    } else {
+        for (const [,registeredComponent] of Component.registeredComponents) {
+            registeredComponent.clientModule.writeToFile(clientRenderSettings);
+            if (registeredComponent.stylesheet && !registeredComponent.useShadowDOM) {
+                registeredComponent.stylesheet.writeToFile({ minify: settings.minify });
+            }
+            if (registeredComponent.serverModule) {
+                registeredComponent.serverModule.writeToFile(serverRenderSettings);
+            }
+        }
+    }
+
+    if (settings.buildTimings) console.time("Render and write script & style bundle");
+    
+    if (settings.bundleOutput) {
+        // TODO temporary removing of all imports as it is bundled
+        bundledClientModule!.statements = bundledClientModule!.statements
+            .filter(statement => 
+                !(statement instanceof ImportStatement)
+            ).map(statement => 
+                statement instanceof ExportStatement ?
+                    statement.exported :
+                    statement 
+            );
+
+        bundledClientModule!.writeToFile(clientRenderSettings);
+        if (bundledStylesheet.rules.length > 0) {
+            bundledStylesheet.writeToFile(clientRenderSettings);
+        }
     }
 
     if (settings.context === "isomorphic") {
@@ -100,11 +164,16 @@ export function compileSingleComponent(
         for (const [, comp] of Component.registeredComponents) {
             bundledServerModule.combine(comp.serverModule! as Module);
         }
-        bundledServerModule.removeImportsAndExports();
-        bundledServerModule.writeToFile({
-            scriptLanguage: settings.backendLanguage === "js" ? ScriptLanguages.Javascript : ScriptLanguages.Typescript
-        });
+
+        // TODO temporary removing of all imports as it is bundled
+        bundledClientModule!.statements = 
+            bundledClientModule!.statements.filter(statement => 
+                !(statement instanceof ImportStatement)
+            );
+        
+        bundledServerModule.writeToFile(serverRenderSettings);
     }
+    
     if (settings.buildTimings) console.timeEnd("Render and write script & style bundle");
 
     return component.tagName;

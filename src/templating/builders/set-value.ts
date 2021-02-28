@@ -1,6 +1,5 @@
 import { StatementTypes } from "../../chef/javascript/components/statements/statement";
-import { Expression, Operation } from "../../chef/javascript/components/value/expression";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { Expression, Operation, VariableReference } from "../../chef/javascript/components/value/expression";
 import { ArgumentList } from "../../chef/javascript/components/constructs/function";
 import { Value, Type, ValueTypes } from "../../chef/javascript/components/value/value";
 import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVariableReferenceFromChain, aliasVariables } from "../../chef/javascript/utils/variables";

@@ -1,6 +1,6 @@
 import { IServerRenderSettings, serverRenderPrismNode } from "../../src/templating/builders/server-render";
 import { HTMLElement, TextNode } from "../../src/chef/html/html";
-import { VariableReference } from "../../src/chef/javascript/components/value/variable";
+import { VariableReference } from "../../src/chef/javascript/components/value/expression";
 import { assignToObjectMap } from "../../src/helpers";
 
 const serverRenderSettings: IServerRenderSettings = { addDisableToElementWithEvents: false, minify: true };

@@ -1,7 +1,7 @@
 import { BindingAspect, Locals, VariableReferenceArray, PartialBinding, ITemplateData, ITemplateConfig } from "../template";
 import { ForStatement, ForStatementExpression } from "../../chef/javascript/components/statements/for";
 import { addIdentifierToElement, addBinding } from "../helpers";
-import { VariableReference } from "../../chef/javascript/components/value/variable";
+import { VariableReference } from "../../chef/javascript/components/value/expression";
 import { parseNode } from "../template";
 import { HTMLComment, HTMLElement } from "../../chef/html/html";
 import { assignToObjectMap } from "../../helpers";

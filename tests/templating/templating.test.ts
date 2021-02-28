@@ -1,6 +1,4 @@
 import { HTMLElement } from "../../src/chef/html/html";
-import { parseTemplate } from "../../src/templating/template";
-import { VariableReference } from "../../src/chef/javascript/components/value/variable";
 
 describe("Text nodes", () => {
 

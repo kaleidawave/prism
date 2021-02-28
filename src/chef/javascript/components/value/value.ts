@@ -1,11 +1,10 @@
 import { IRenderSettings, defaultRenderSettings, IRenderable, TokenReader } from "../../../helpers";
 import type { TemplateLiteral } from "./template-literal";
-import type { Expression } from "./expression";
+import type { Expression, VariableReference } from "./expression";
 import type { ObjectLiteral } from "./object";
 import type { ArrayLiteral } from "./array";
 import type { RegExpLiteral } from "./regex";
 import type { Group } from "./group";
-import type { VariableReference } from "./variable";
 import type { FunctionDeclaration } from "../constructs/function";
 import type { ClassDeclaration } from "../constructs/class";
 import { JSToken } from "../../javascript";

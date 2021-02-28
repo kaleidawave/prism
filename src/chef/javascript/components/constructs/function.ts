@@ -37,7 +37,7 @@ export class ArgumentList implements IRenderable {
         const renderedArgs = this.args.map(arg => arg.render(settings, { inline: true }));
         const totalWidth = renderedArgs.reduce((acc, cur) => acc + cur.length, 0);
         // Prettifies function arguments with long arguments
-        if (totalWidth > settings.columnWidth && settings.minify === false) {
+        if (totalWidth > settings.columnWidth && !settings.minify) {
             const tabNewLine = "\n" + " ".repeat(settings.indent);
             return `(${tabNewLine}${renderedArgs.map(arg => arg.replace(/\n/g, "\n" + " ".repeat(settings.indent))).join("," + tabNewLine)}\n)`;
         } else {
@@ -148,10 +148,14 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
         settings = makeRenderSettings(settings);
         let acc = "";
         if (this.decorators && settings.scriptLanguage === ScriptLanguages.Typescript) {
-            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n") + "\n";
+            const separator = settings.minify ? " " : "\n"; 
+            acc += this.decorators.map(decorator => decorator.render(settings)).join(separator) + separator;
         }
 
-        if (this.isAbstract && settings.scriptLanguage !== ScriptLanguages.Typescript) return acc;
+        if (this.isAbstract) {
+            if (settings.scriptLanguage !== ScriptLanguages.Typescript) return acc;
+            else acc += "abstract ";
+        }
 
         if (this.isStatic) acc += "static ";
         if (this.isAsync) acc += "async ";
@@ -207,7 +211,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
             }
             if (this.isGenerator) acc += "*";
             if (this.name) {
-                if (!asMember) acc += " "
+                if (!asMember) acc += " ";
                 if (settings.scriptLanguage === ScriptLanguages.Typescript) {
                     acc += this.name.render(settings);
                 } else {
@@ -233,9 +237,11 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
             if (!settings.minify) {
                 acc += " ";
             }
-            acc += "{";
-            acc += renderBlock(this.statements, settings);
-            acc += "}";
+            if (!(this.isAbstract && this.statements.length === 0)) {
+                acc += "{";
+                acc += renderBlock(this.statements, settings);
+                acc += "}";
+            }
             return acc;
         }
     }

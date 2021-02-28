@@ -1,7 +1,7 @@
 import { TokenReader, IRenderSettings, ScriptLanguages, defaultRenderSettings } from "../../../helpers";
 import { commentTokens, JSToken } from "../../javascript";
 import { TypeSignature } from "./type-signature";
-import { tokenAsIdent } from "../value/variable";
+import { tokenAsIdent } from "../value/expression";
 import { Decorator } from "./decorator";
 
 export class InterfaceDeclaration {
@@ -33,7 +33,8 @@ export class InterfaceDeclaration {
         }
         let acc = "";
         if (this.decorators && settings.scriptLanguage === ScriptLanguages.Typescript) {
-            acc += this.decorators.map(decorator => decorator.render(settings)).join("\n") + "\n";
+            const separator = settings.minify ? " " : "\n"; 
+            acc += this.decorators.map(decorator => decorator.render(settings)).join(separator) + separator;
         }
         acc += "interface ";
         acc += this.name.render(settings);
@@ -42,7 +43,7 @@ export class InterfaceDeclaration {
             acc += this.extendsType.render(settings);
         }
         acc += " {";
-        if (this.members.size > 0) acc += "\n";
+        if (this.members.size > 0 && !settings.minify) acc += "\n";
         const members = Array.from(this.members);
         for (let index = 0; index < members.length; index++) {
             const [key, value] = members[index];
@@ -57,9 +58,9 @@ export class InterfaceDeclaration {
             if (index + 1 < members.length) {
                 acc += ","
             }
-            acc += "\n";
+            if (!settings.minify) acc += "\n";
         }
-        acc += "}\n";
+        if (!settings.minify) acc += "\n";
         return acc;
     }
 
