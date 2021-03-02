@@ -5,6 +5,7 @@ import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables"
 import { NodeData } from "../template";
 import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
 import { IFunctionDeclaration } from "../../chef/abstract-asts";
+import { inbuiltTypes, IType } from "../../chef/javascript/utils/types";
 
 const dataVariable = new VariableReference("data");
 
@@ -28,7 +29,9 @@ export interface ServerRenderExpression {
 
 export interface FunctionCallServerRenderExpression {
     func: IFunctionDeclaration,
-    args: Map<string, ServerRenderChunk | ServerRenderedChunks | { argument: ValueTypes }>
+    args: Map<
+        string, [ServerRenderChunk | ServerRenderedChunks | { argument: ValueTypes }, IType]
+    >
 }
 
 export interface ConditionalServerRenderExpression {
@@ -95,11 +98,20 @@ export function serverRenderPrismNode(
             const componentsData: ValueTypes | null = elementData.dynamicAttributes?.get("data") ?? null;
 
             // A render function for a component goes attributes, componentData, contentSlot, ...context. With all of those being optional apart from contentSlot
-            const renderArgs: Map<string, ServerRenderedChunks | ServerRenderChunk | { argument: ValueTypes }> = new Map();
+            const renderArgs: Map<
+                string, 
+                [
+                    ServerRenderedChunks | ServerRenderChunk | { argument: ValueTypes }, 
+                    IType
+                ]
+            > = new Map();
 
             renderArgs.set(
                 "attributes", 
-                element.attributes ? serverRenderNodeAttribute(element, nodeData, locals) : []
+                [
+                    element.attributes ? serverRenderNodeAttribute(element, nodeData, locals) : [],
+                    inbuiltTypes.get("string")!
+                ]
             );
 
             if (component.hasSlots) {
@@ -113,18 +125,24 @@ export function serverRenderPrismNode(
                         if (!serverRenderSettings.minify && i !== element.children.length - 1) chunks.push("\n");
                     }
                 }
-                renderArgs.set("contentSlot", slotRenderFunction);
+                renderArgs.set("contentSlot", [slotRenderFunction, inbuiltTypes.get("string")!]);
             }
 
             if (componentsData) {
                 const aliasedData: ValueTypes = cloneAST(componentsData);
                 aliasVariables(aliasedData, dataVariable, locals)
-                renderArgs.set("data", { argument: aliasedData });
+                renderArgs.set("data", [{ argument: aliasedData }, component.componentDataType!]);
             }
 
             if (component.clientGlobals) {
                 for (const clientGlobal of component.clientGlobals) {
-                    renderArgs.set((clientGlobal[0].tail as VariableReference).name, { argument: clientGlobal[0] });
+                    renderArgs.set(
+                        (clientGlobal[0].tail as VariableReference).name, 
+                        [
+                            { argument: clientGlobal[0] },
+                            null!, // TODO :/
+                        ]
+                    );
                 }
             }
 

@@ -116,7 +116,13 @@ export function compileSingleComponent(
     
     const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, "component.css"));
 
-    // TODO rust
+    let scriptLanguage: ScriptLanguages;
+    switch (settings.backendLanguage) {
+        case "js": scriptLanguage = ScriptLanguages.Javascript; break;
+        case "ts": scriptLanguage = ScriptLanguages.Typescript; break;
+        case "rust": scriptLanguage = ScriptLanguages.Rust; break;
+        default: throw Error(`Unknown script language "${settings.backendLanguage}"`);
+    }
     const serverRenderSettings: Partial<IRenderSettings> = {
         scriptLanguage: settings.backendLanguage === "js" ? ScriptLanguages.Javascript : ScriptLanguages.Typescript
     };
@@ -155,10 +161,10 @@ export function compileSingleComponent(
         }
     }
 
-    if (settings.context === "isomorphic") {
-        if (settings.backendLanguage === "rust") {
-            throw Error("Not implemented: compile-component --backendLanguage rust")
-        }
+    // Bundle server modules and add util functions
+    // TODO current leaves rust component independent
+    // TODO noBundle
+    if (settings.context === "isomorphic" && settings.backendLanguage !== "rust") {
         const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!, "server.ts");
         bundledServerModule.filename = join(settings.absoluteOutputPath, "component.server.js");
         for (const [, comp] of Component.registeredComponents) {
@@ -169,8 +175,8 @@ export function compileSingleComponent(
         bundledClientModule!.statements = 
             bundledClientModule!.statements.filter(statement => 
                 !(statement instanceof ImportStatement)
-            );
-        
+                );
+                
         bundledServerModule.writeToFile(serverRenderSettings);
     }
     

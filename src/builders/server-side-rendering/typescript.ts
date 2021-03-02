@@ -57,11 +57,11 @@ function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes | string 
             rhs: new Value(Type.string)
         });
     } else if ("func" in serverChunk) {
-        const args = new Map(
-            Array.from(serverChunk.args).map(([name, value]) => {
+        const args: Map<string, ValueTypes> = new Map(
+            Array.from(serverChunk.args).map(([name, [value, _]]) => {
                 if (typeof value === "object" && "argument" in value) return [name, value.argument];
                 else if (Array.isArray(value)) return [name, templateLiteralFromServerRenderChunks(value)]
-                else return [name, renderServerChunk(value)];
+                else return [name, renderServerChunk(value) as ValueTypes];
             })
         );
         return new Expression({
@@ -92,8 +92,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
         } else if (statement instanceof ExportStatement) {
             if (statement.exported !== comp.componentClass) comp.serverModule!.statements.push(statement);
         } else if (statement instanceof ImportStatement) {
-            // .js is added during parsing imported components
-            if (statement.from.endsWith(".prism.js")) {
+            if (statement.from.endsWith(".prism")) {
                 const newImports: Array<string> = [];
                 let importedComponent: Component | null = null;
                 for (const [key] of statement.variable?.entries ?? []) {

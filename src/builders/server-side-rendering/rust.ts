@@ -2,7 +2,7 @@ import { StatementTypes } from "../../chef/rust/statements/block";
 import { ArgumentList, ClosureExpression, FunctionDeclaration, ReturnStatement } from "../../chef/rust/statements/function";
 import { VariableDeclaration } from "../../chef/rust/statements/variable";
 import { Expression, Operation } from "../../chef/rust/values/expression";
-import { Type, Value, ValueTypes } from "../../chef/rust/values/value";
+import { Type, Value, ValueTypes as RustValueTypes } from "../../chef/rust/values/value";
 import { VariableReference } from "../../chef/rust/values/variable";
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
@@ -67,30 +67,55 @@ function statementsFromServerRenderChunks(
                 new Expression(value, Operation.Borrow)
             ));
         } else if ("condition" in chunk) {
-            let value = jsAstToRustAst(chunk.condition, module, jsModule) as ValueTypes;
+            // TODO null
+            let value = jsAstToRustAst(chunk.condition, null, module, jsModule) as RustValueTypes;
             /* TODO TEMP:
              * Convert conditional properties (in rust these are Option<T>) to a boolean
              * and check strings are not empty
              * TODO does not work for for loop and nested variables...
-             * TODO numbers and strings to convert to Rust as does not have falsy values
             */
             if (value instanceof VariableReference) {
                 const name = value.name;
-                if (dataType?.properties?.get(name)?.isOptional) {
+                const isOptional = dataType?.properties?.get(name)?.isOptional;
+                if (isOptional) {
                     value = new Expression(
                         new VariableReference("is_some", value),
                         Operation.Call,
                     )
                 }
                 if (dataType?.properties?.get(name)?.name === "string") {
-                    value = new Expression(
-                        new Expression(
-                            new VariableReference("is_empty", value),
-                            Operation.Call,
-                        ),
-                        Operation.Not
-                    )
+                    // TODO should probably do destructured pattern matching with guard
+                    // Prevents .is_some().is_empty() with 'x.is_some() && x.as_ref().unwrap().is_empty()'
+                    if (isOptional) {
+                        value = new Expression(
+                            value,
+                            Operation.And,
+                            new Expression(
+                                new VariableReference(
+                                    "is_empty",
+                                    new Expression(
+                                        new VariableReference(
+                                            "unwrap",
+                                            // without the is_some()
+                                            ((value as Expression).lhs as VariableReference).parent!,
+                                        ),
+                                        Operation.Call,
+                                    ),
+                                ),
+                                Operation.Call,
+                            )
+                        );
+                    } else {
+                        value = new Expression(
+                            new Expression(
+                                new VariableReference("is_empty", value),
+                                Operation.Call,
+                                ),
+                            Operation.Not
+                        );
+                    }
                 }
+                // TODO numbers != 0
             }
             statements.push(new IfStatement(
                 value,
@@ -98,9 +123,11 @@ function statementsFromServerRenderChunks(
                 new ElseStatement(null, statementsFromServerRenderChunks(chunk.falsyRenderExpression, module, jsModule, dataType))
             ));
         } else if ("subject" in chunk) {
+            // TODO null
+            const expr = jsAstToRustAst(chunk.subject, null, module, jsModule) as RustValueTypes;
             statements.push(new ForStatement(
                 chunk.variable,
-                new Expression(jsAstToRustAst(chunk.subject, module, jsModule) as ValueTypes, Operation.Borrow),
+                new Expression(expr, Operation.Borrow),
                 statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule, dataType)
             ));
         } else if ("func" in chunk) {
@@ -125,14 +152,15 @@ function serverChunkToValue(
     module: Module,
     jsModule: JSModule,
     dataType: IType | null = null
-): ValueTypes {
+): RustValueTypes {
     if (typeof chunk === "string") {
         return new Expression(
             new VariableReference("to_string", new Value(Type.string, chunk)),
             Operation.Call
         );
     } else if ("value" in chunk) {
-        let value = jsAstToRustAst(chunk.value, module, jsModule) as ValueTypes;
+        // TODO null
+        let value = jsAstToRustAst(chunk.value, null, module, jsModule) as RustValueTypes;
         /* TODO TEMP:
          * Unwrap conditional properties (Option<T> in rust)
         */
@@ -164,12 +192,12 @@ function serverChunkToValue(
     } else if ("func" in chunk) {
         const args = new Map(
             Array.from(chunk.args)
-                .map(([name, value]) => {
+                .map(([name, [value, valueType]]) => {
                     if (typeof value === "object" && "argument" in value) {
                         return [
                             name,
                             new Expression(
-                                jsAstToRustAst(value.argument, module, jsModule) as ValueTypes,
+                                jsAstToRustAst(value.argument, valueType, module, jsModule) as RustValueTypes,
                                 Operation.Borrow
                             )
                         ];
@@ -195,7 +223,7 @@ function serverChunkToValue(
         );
     } else if ("subject" in chunk) {
         const mapFunctionOnSubject = new VariableReference("map", new Expression(
-            new VariableReference("iter", jsAstToRustAst(chunk.subject, module, jsModule) as ValueTypes),
+            new VariableReference("iter", jsAstToRustAst(chunk.subject, null, module, jsModule) as RustValueTypes),
             Operation.Call,
         ));
         const serverRenderedIteratorChunk = formatExpressionFromServerChunks(
@@ -232,7 +260,7 @@ function formatExpressionFromServerChunks(
     jsModule: JSModule,
 ): Expression {
     let formatString = "";
-    const args: Array<ValueTypes> = [];
+    const args: Array<RustValueTypes> = [];
     for (const chunk of serverChunks) {
         if (typeof chunk === "string") {
             formatString += chunk;
@@ -275,7 +303,7 @@ export function makeRustComponentServerModule(
         if ((statement instanceof JSExportStatement && statement.exported === comp.componentClass) || statement === comp.componentClass || statement === comp.customElementDefineStatement) {
             continue;
         } else if (statement instanceof JSImportStatement) {
-            if (statement.from.endsWith(".prism.js")) {
+            if (statement.from.endsWith(".prism")) {
                 const newImports: Array<string> = [];
                 let importedComponent: Component | null = null;
                 // If a imports a component class convert it to 
@@ -331,7 +359,7 @@ export function makeRustComponentServerModule(
             statement instanceof JSImportStatement ||
             statement instanceof JSExportStatement
         ) {
-            const rustStatement = jsAstToRustAst(statement, comp.serverModule, comp.clientModule);
+            const rustStatement = jsAstToRustAst(statement, null, comp.serverModule, comp.clientModule);
             if (rustStatement instanceof StructStatement) {
                 const memberDecorators = statement instanceof JSExportStatement ?
                     (statement.exported as TSInterfaceDeclaration).memberDecorators :
@@ -360,7 +388,7 @@ export function makeRustComponentServerModule(
 
     const rustRenderParameters: Array<[string, TypeSignature]> = comp.serverRenderParameters
         .map((vD) => {
-            const newTS = jsAstToRustAst(vD.typeSignature!, comp.serverModule!, comp.clientModule) as TypeSignature;
+            const newTS = jsAstToRustAst(vD.typeSignature!, null, comp.serverModule!, comp.clientModule) as TypeSignature;
             if (newTS.name !== "String") {
                 newTS.name = "&" + newTS.name;
             }
@@ -391,7 +419,7 @@ export function makeRustComponentServerModule(
     comp.serverModule.statements.push(comp.serverRenderFunction);
 
     if (comp.isPage) {
-        let metadataString: ValueTypes;
+        let metadataString: RustValueTypes;
         if (comp.metaDataChunks.length > 0) {
             metadataString = formatExpressionFromServerChunks(comp.metaDataChunks, comp.serverModule, comp.clientModule);
         } else {

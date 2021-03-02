@@ -42,6 +42,7 @@ import {
 import {
     makeRustComponentServerModule as rustModuleFromServerRenderedChunks
 } from "./builders/server-side-rendering/rust";
+import { DynamicStatement } from "./chef/rust/dynamic-statement";
 
 export class Component {
     // Registered tag names, prevents duplicate tags
@@ -62,7 +63,7 @@ export class Component {
     className: string; // The class name of the component
     tagName!: string; // Tag for component. Defaults to (ClassName)-component
 
-    needsData: boolean = false; // If the component has any data and needs to be passed data
+    needsData: boolean = true; // If the component has any data and needs to be passed data
     hasSlots: boolean = false; // If the component has slots
 
     // The root data of the component
@@ -75,7 +76,6 @@ export class Component {
     pageServerRenderFunction?: IFunctionDeclaration;
 
     usesLayout?: Component; // The layout the component extends (component must be a page to have a layout)
-    dataTypes: Map<string, Type>; // TODO merge with some kind of root data
 
     filename: string; // The full filename to the component
     relativeFilename: string; // The filename relative to the given src folder
@@ -84,11 +84,11 @@ export class Component {
 
     clientGlobals: Array<[VariableReference, TypeSignature]> = [];
     customElementDefineStatement: Expression;
-    defaultData: ObjectLiteral;
+    defaultData?: ObjectLiteral;
     templateData: ITemplateData;
 
     // Whether to not add a parameter for sending data to component in favor of using default data
-    noSSRData: boolean;
+    noSSRData: boolean = false;
 
     stylesheet?: Stylesheet;
 
@@ -106,12 +106,12 @@ export class Component {
     serverRenderParameters: VariableDeclaration[];
     // The TS type signature for the component
     dataTypeSignature: TypeSignature;
+    componentDataType: IType | null;
 
     // The template wrapped in a <*component-tag*> element
     componentHTMLTag: HTMLElement;
     // ServerRenderedChunks used for generating the concatenation for <head>
     metaDataChunks: ServerRenderedChunks;
-    componentDataType: IType | null;
 
     /**
      * Returns a component under a filename
@@ -459,23 +459,28 @@ export class Component {
             try {
                 componentDataType = typeSignatureToIType(componentClass.base!.typeArguments![0], this.clientModule);
                 // TODO kinda temp
-                this.needsData = Boolean(this.defaultData);
+                this.needsData = typeof this.defaultData === "undefined";
             } catch (error) {
                 error.message += ` in component "${this.filename}"`;
                 throw error;
             }
+        } else {
+            this.needsData = false;
         }
+
         this.componentDataType = componentDataType;
 
         /**
          * Recursively detects if some part of the the type has an Array
          * @param type 
          */
-        const hasArrayProperty = function hasArrayProperty(type: IType): boolean {
-            if (type.name === "Array") return true;
-            if (type.properties?.has("Array")) return true;
-            if (type.properties && Array.from(type.properties).some(([, property]) => hasArrayProperty(property))) return true;
-            return false;
+        function hasArrayProperty(type: IType): boolean {
+            return type.name === "Array" ||
+                (
+                    typeof type.properties !== "undefined" && 
+                        Array.from(type.properties)
+                        .some(([, property]) => hasArrayProperty(property))
+                )
         }
 
         if (!runtimeFeatures.observableArrays && componentDataType && hasArrayProperty(componentDataType)) {
@@ -599,7 +604,10 @@ export class Component {
             );
 
             if (!(this.isPage || this.isLayout)) {
-                assignToObjectMap(this.templateData.nodeData, this.componentHTMLTag, "rawAttribute", new VariableReference("attributes"));
+                assignToObjectMap(
+                    this.templateData.nodeData, this.componentHTMLTag, 
+                    "rawAttribute", new VariableReference("attributes")
+                );
                 parameters.push(new VariableDeclaration("attributes", {
                     typeSignature: new TypeSignature({ name: "string" }),
                     value: new Value(Type.string)
@@ -627,6 +635,7 @@ export class Component {
                     }
                 }
             }
+
             this.metaDataChunks = metadataString;
 
             if (this.hasSlots) {
@@ -639,6 +648,21 @@ export class Component {
 
             if (settings.backendLanguage === "rust") {
                 rustModuleFromServerRenderedChunks(this, settings, ssrSettings);
+
+                function hasDateTimeProperty(type: IType): boolean {
+                    return type.name === "Date" ||
+                        (
+                            typeof type.properties !== "undefined" && 
+                                Array.from(type.properties)
+                                .some(([, property]) => hasDateTimeProperty(property))
+                        )
+                }
+
+                if (this.componentDataType && hasDateTimeProperty(this.componentDataType)) {
+                    this.serverModule?.statements.unshift(
+                        new DynamicStatement("use chrono::{DateTime, TimeZone, Utc};")
+                    );
+                }
             } else {
                 tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
             }

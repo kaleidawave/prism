@@ -13,7 +13,9 @@ export enum Type {
 
 export class Value implements IRenderable {
     constructor(public type: Type, public value: string) { 
-        if (type === Type.string) this.value = this.value.replace(/\r?\n/g, "\\n");
+        if (type === Type.string) { 
+            this.value = this.value.replace(/\r?\n/g, "\\n");
+        }
     }
 
     render(settings: IRenderSettings = defaultRenderSettings, options?: Partial<IRenderOptions>): string {
