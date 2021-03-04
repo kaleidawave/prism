@@ -96,8 +96,14 @@ function statementsFromServerRenderChunks(
                                     new Expression(
                                         new VariableReference(
                                             "unwrap",
-                                            // without the is_some()
-                                            ((value as Expression).lhs as VariableReference).parent!,
+                                            new Expression(
+                                                new VariableReference(
+                                                    "as_ref",
+                                                    // without the is_some()
+                                                    ((value as Expression).lhs as VariableReference).parent!,
+                                                ),
+                                                Operation.Call
+                                            )
                                         ),
                                         Operation.Call,
                                     ),

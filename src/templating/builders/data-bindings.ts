@@ -115,7 +115,7 @@ export function constructBindings(
 }
 
 // Types that don't need to be compiled into the tree
-const ignoredTypes = new Set(["number", "Date", "string", "boolean"]);
+const ignoredTypes = new Set(["number", "string", "boolean"]);
 
 function generateBranch(
     point: IDataPoint,

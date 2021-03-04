@@ -6,7 +6,9 @@ export enum Operation {
     Call,
     Borrow, // Not sure whether this is operator but...    
     Not,  
-    And,
+    And, Or,
+    Equal,
+    LessThan, LessThanEqual, GreaterThan, GreaterThanEqual
 }
 
 export class Expression implements IRenderable {
@@ -31,6 +33,18 @@ export class Expression implements IRenderable {
                 return "!" + this.lhs.render(settings);
             case Operation.And:
                 return this.lhs.render(settings) + " && " + this.rhs!.render(settings);
+            case Operation.Or:
+                return this.lhs.render(settings) + " || " + this.rhs!.render(settings);
+            case Operation.Equal:
+                return this.lhs.render(settings) + " == " + this.rhs!.render(settings);
+            case Operation.LessThan:
+                return this.lhs.render(settings) + " < " + this.rhs!.render(settings);
+            case Operation.LessThanEqual:
+                return this.lhs.render(settings) + " <= " + this.rhs!.render(settings);
+            case Operation.GreaterThan:
+                return this.lhs.render(settings) + " > " + this.rhs!.render(settings);
+            case Operation.GreaterThanEqual:
+                return this.lhs.render(settings) + " >= " + this.rhs!.render(settings);
             default:
                 throw Error(`Cannot render operation "${Operation[this.operation]}"`);
         }

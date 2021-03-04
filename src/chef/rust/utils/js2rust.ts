@@ -32,13 +32,22 @@ const typeMap: Map<string, string> = new Map([
     ["Date", "DateTime<Utc>"], // DateTime from 'chrono' crate. TODO bad specifying type arguments here
 ]);
 
+// Used for converting literal types e.g. "text" to underlying type.
 const jsTypeMap: Map<JSType, string> = new Map([
     [JSType.string, "string"],
     [JSType.number, "number"],
 ]);
 
 const operationMap: Map<JSOperation, Operation> = new Map([
-    [JSOperation.Call, Operation.Call]
+    [JSOperation.Call, Operation.Call],
+    [JSOperation.StrictEqual, Operation.Equal],
+    [JSOperation.LogAnd, Operation.And],
+    [JSOperation.LogOr, Operation.Or],
+    [JSOperation.LessThan, Operation.LessThan],
+    [JSOperation.LessThanEqual, Operation.LessThanEqual],
+    [JSOperation.GreaterThan, Operation.GreaterThan],
+    [JSOperation.GreaterThanEqual, Operation.GreaterThanEqual],
+    [JSOperation.BitNot, Operation.Not],
 ]);
 
 /**

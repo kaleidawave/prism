@@ -31,6 +31,7 @@ function h(tn: string, a: Object | 0 = 0, v: Object | 0 = 0, ...c: Array<HTMLEle
     return e;
 }
 
+// Minimal version of create observable object for non datetime, array or nested object based envs
 function cOO<T>(
     this: Component<T>,
     m: any,

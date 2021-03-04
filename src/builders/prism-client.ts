@@ -22,11 +22,18 @@ export const preludeImports = ["Component", "conditionalSwap", "tryAssignData", 
 
 export type IRuntimeFeatures =
     Record<
-        "observableArrays" | "conditionals" | "isomorphic" | "svg" | "subObjects",
+        "observableArrays" | "conditionals" | "isomorphic" | "svg" | "subObjects" | "observableDates",
         boolean
     >;
 
-export const defaultRuntimeFeatures: IRuntimeFeatures = Object.freeze({observableArrays: false, conditionals: false, svg: false, subObjects: false, isomorphic: false});
+export const defaultRuntimeFeatures: IRuntimeFeatures = Object.freeze({
+    observableArrays: false, 
+    conditionals: false, 
+    svg: false, 
+    subObjects: false, 
+    isomorphic: false, 
+    observableDates: false
+});
 
 /**
  * Remove unused runtime logic from `bundle` according to the `runtimeFeatures` that are needed
@@ -71,9 +78,17 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
         ));
     }
     if (!runtimeFeatures.observableArrays) {
-        // Remove createObservableArray, isArrayHoley and setLength function
+        // Remove createObservableArray, isArrayHoley and setLength functions
         bundle.statements = bundle.statements.filter(statement => !(
             statement instanceof ExportStatement && statement.exported instanceof FunctionDeclaration && ["cOA", "isArrayHoley", "setLength"].includes(statement.exported.actualName!)
+        ));
+    }
+    if (!runtimeFeatures.observableDates) {
+        // Remove createObservableDate function
+        bundle.statements = bundle.statements.filter(statement => !(
+            statement instanceof ExportStatement && 
+            statement.exported instanceof FunctionDeclaration && 
+            statement.exported.actualName === "cOD"
         ));
     }
     if (!runtimeFeatures.svg) {
@@ -96,15 +111,16 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
                 ) as FunctionDeclaration)
                 .statements;
     }
-    if (!runtimeFeatures.subObjects) {
-        // Remove createObservable function
+    if (!runtimeFeatures.subObjects && !runtimeFeatures.observableDates && !runtimeFeatures.observableArrays) {
+        // Remove createObservable function (branching for creating observables on 
+        // dates, arrays, nested objects or other external components
         bundle.statements = bundle.statements.filter(statement => !(
             statement instanceof ExportStatement &&
             statement.exported instanceof FunctionDeclaration &&
             statement.exported.name?.name === "cO"
         ));
 
-        const createObservableObject = Module.fromString(fileBundle.get("others.ts")!, "others.ts")
+        const smallerCreateObservableObject = Module.fromString(fileBundle.get("others.ts")!, "others.ts")
             .statements.find(statement =>
                 statement instanceof FunctionDeclaration && statement.name?.name === "cOO"
             );
@@ -113,7 +129,7 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
             statement instanceof ExportStatement &&
             statement.exported instanceof FunctionDeclaration &&
             statement.exported.name?.name === "cOO"
-        ) as ExportStatement).exported = createObservableObject as ValueTypes;
+        ) as ExportStatement).exported = smallerCreateObservableObject as ValueTypes;
     }
 }
 

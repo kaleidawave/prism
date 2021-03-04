@@ -14,7 +14,8 @@ import { isArrayHoley } from "./helpers";
  * @param i Any indexes data is under
  */
 export function cO(this: Component<any>, c: any, d: any, ...i: Array<number>) {
-    if (c.get) return c.get.call(this, ...i);
+    if (c.type === "Date") return cOD.call(this, d, c.set, ...i);
+    else if (c.get) return c.get.call(this, ...i);
     else if (c.type === "Array") return cOA.call(this, c, d, [], ...i);
     else return cOO.call(this, c, d, {}, ...i);
 }
@@ -52,13 +53,15 @@ export function cOO<T>(
             if (!c) return;
             // If chunk has type then the property is an object
             if (c?.type) {
+                // TODO this is a bit janky 
                 return pC[p] ??
                     (pC[p] =
                         cO.call(
                             this,
                             c,
-                            t[p] ?? (t[p] = c.type === "Array" ? [] : {}),
-                            ...i)
+                            t[p] ?? (t[p] = c.type === "Array" ? [] : c.type === "Date" ? c.get?.call?.(this, ...i) : {}),
+                            ...i
+                        )
                     )
             }
             // Try get property from cache (target) else get the prop and set its value to the cache
@@ -150,4 +153,27 @@ export function cOA<T>(
             return true;
         }
     });
+}
+
+// Create observable Date object
+function cOD<T>(
+    this: Component<T>,
+    d: Date,
+    s?: (d: Date, ...i: Array<number>) => void,
+    ...i: Array<number>
+): Date {
+    return new Proxy(d, {
+        get: (t, p) => {
+            if (p.toString().startsWith("set")) {
+                return (...a) => {
+                    let v = t[p](...a);
+                    s?.call?.(this, t, ...i);
+                    return v;
+                }
+            } else {
+                // Bind needed as internal date methods need it lol
+                return t[p].bind(t)
+            }
+        }
+    })
 }

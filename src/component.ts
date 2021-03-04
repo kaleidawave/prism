@@ -487,12 +487,37 @@ export class Component {
             runtimeFeatures.observableArrays = true;
         }
 
+        function hasDateProperty(type: IType): boolean {
+            return type.name === "Date" ||
+                (
+                    typeof type.properties !== "undefined" && 
+                        Array.from(type.properties)
+                        .some(([, property]) => hasDateProperty(property))
+                )
+        }
+
+        const usesDate = componentDataType && hasDateProperty(componentDataType);
+
+        if (!runtimeFeatures.observableDates && usesDate) {
+            runtimeFeatures.observableDates = true;
+        }
+
+        if (!runtimeFeatures.observableArrays && componentDataType && hasArrayProperty(componentDataType)) {
+            runtimeFeatures.observableArrays = true;
+        }
+
+        // This also covers <OtherComponent $data=""> due to resolved IType 
         if (!runtimeFeatures.subObjects && componentDataType && Array.from(componentDataType.properties!).some(([, property]) => !inbuiltTypes.has(property.name!))) {
             runtimeFeatures.subObjects = true;
         }
 
         // Build the render method
-        const clientRenderMethod = buildClientRenderMethod(this.templateElement, templateData.nodeData, true, this.globals);
+        const clientRenderMethod = buildClientRenderMethod(
+            this.templateElement, 
+            templateData.nodeData, 
+            true, 
+            this.globals
+        );
         componentClass.addMember(clientRenderMethod);
 
         // Build event bindings for ssr components
@@ -648,17 +673,7 @@ export class Component {
 
             if (settings.backendLanguage === "rust") {
                 rustModuleFromServerRenderedChunks(this, settings, ssrSettings);
-
-                function hasDateTimeProperty(type: IType): boolean {
-                    return type.name === "Date" ||
-                        (
-                            typeof type.properties !== "undefined" && 
-                                Array.from(type.properties)
-                                .some(([, property]) => hasDateTimeProperty(property))
-                        )
-                }
-
-                if (this.componentDataType && hasDateTimeProperty(this.componentDataType)) {
+                if (usesDate) {
                     this.serverModule?.statements.unshift(
                         new DynamicStatement("use chrono::{DateTime, TimeZone, Utc};")
                     );
