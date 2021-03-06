@@ -178,10 +178,8 @@ export function stringToTokens(css: string, settings: ITokenizationSettings = {}
                 reader.add({ type: CSSToken.Identifier, value: acc, column: column - acc.length, line });
                 acc = "";
             }
-        } else {
-            if (css[index] !== "\n" && css[index] !== "\r") {
+        } else if (css[index] !== "\n" && css[index] !== "\r" && css[index] !== "\t") {
                 acc += css[index];
-            }
         }
         index++;
     }

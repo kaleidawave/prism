@@ -3,7 +3,7 @@ import { createPrismTemplateApp } from "./others/actions";
 // This node import also has side effects of setting callbacks to read from local filesystem 
 import { registerSettings, compileApplication, compileSingleComponent, runApplication } from "./node";
 
-switch (process.argv[2]) {
+switch (process.argv[2] ?? "info") {
     case "version":
     case "info":
         printInfoScreen();

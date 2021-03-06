@@ -383,7 +383,7 @@ export function stringToTokens(html: string, settings: ITokenizationSettings = {
                 }
                 break;
             case HTMLToken.TagName:
-                if (html[index] === " " || html[index] === "\n" || html[index] === "\r") {
+                if (html[index] === " " || html[index] === "\n" || html[index] === "\r" || html[index] === "\t") {
                     reader.add({ type: HTMLToken.AttributeKey, value: "", column: column + 1, line });
                 } else if (html[index] === ">") {
                     reader.add({ type: HTMLToken.TagEnd, column, line });
@@ -413,7 +413,7 @@ export function stringToTokens(html: string, settings: ITokenizationSettings = {
                     reader.add({ type: HTMLToken.Content, value: "", column: column + 1, line });
                 } else if (html[index] === " " && reader.top.value?.length !== 0) {
                     reader.add({ type: HTMLToken.AttributeKey, value: "", column, line })
-                } else if (html[index] !== " " && html[index] !== "\n" && html[index] !== "\r") {
+                } else if (html[index] !== " " && html[index] !== "\n" && html[index] !== "\r" && html[index] !== "\t") {
                     reader.top.value += html[index];
                 }
                 break;

@@ -467,14 +467,20 @@ export function stringToTokens(javascript: string, settings: ITokenizationSettin
             currentLiteral = Literals.Number;
         }
         // If break add the acc as a identifer
-        else if (javascript[index] === " " || javascript[index] === "\n" || javascript[index] === "\r") {
+        else if (
+            javascript[index] === " " || 
+            javascript[index] === "\n" || 
+            javascript[index] === "\r" || 
+            javascript[index] === "\t"
+        ) {
             if (acc.length > 0) {
                 reader.add(addIdent(acc, column - 1, line));
                 acc = "";
             }
         }
         // Else append the accumulator
-        else if (javascript[index] !== "\n" && javascript[index] !== "\r") {
+        // if (javascript[index] !== "\n" && javascript[index] !== "\r")
+        else {
             acc += javascript[index];
         }
         index++;

@@ -73,6 +73,9 @@ interface FunctionOptions {
     isAbstract: boolean, // TODO implement on IClassMember
 }
 
+/**
+ * TODO should inline functions and functions as a statement be treated differently
+ */
 export class FunctionDeclaration implements IFunctionDeclaration, FunctionOptions {
     name?: TypeSignature; // Null signifies anonymous function 
     returnType?: TypeSignature;
@@ -166,6 +169,7 @@ export class FunctionDeclaration implements IFunctionDeclaration, FunctionOption
             if (
                 this.parameters.length === 1
                 && this.parameters[0].name
+                && !this.parameters[0].spread
                 && settings.scriptLanguage === ScriptLanguages.Javascript // Cannot do shorthand with type signature
                 && !this.isAsync
             ) {
