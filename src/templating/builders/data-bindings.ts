@@ -14,7 +14,8 @@ import { IFinalPrismSettings } from "../../settings";
 /** Represents a data point */
 interface IDataPoint {
     variable: VariableReferenceArray, // The variable it references
-    type: IType,
+    type: IType, // The type of variable
+    isExternal: boolean | null, // null represents not set
     getReturnValue: ValueTypes | null,
     setStatements: Array<StatementTypes>,
     pushStatements?: Array<StatementTypes>
@@ -40,12 +41,13 @@ export function constructBindings(
 
             let dataPoint = findDataPoint(dataMap, variableChain);
 
-            if (!dataPoint) {
+            if (dataPoint === null) {
                 dataPoint = {
                     variable: variableChain,
                     getReturnValue: null,
                     setStatements: [],
-                    type
+                    type,
+                    isExternal: null
                 }
 
                 dataMap.push(dataPoint);
@@ -63,7 +65,8 @@ export function constructBindings(
                         variable: lengthVariableChain,
                         getReturnValue: null,
                         setStatements: [],
-                        type: { name: "number" } // TODO temp length === number
+                        type: { name: "number" }, // TODO temp length === number
+                        isExternal: null
                     }
 
                     dataMap.push(lengthDataPoint);
@@ -83,17 +86,24 @@ export function constructBindings(
                 (isomorphicContext && isReversibleBinding && !dataPoint.getReturnValue) ||
                 binding.aspect === BindingAspect.Data) {
                 try {
-                    dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, settings);
-                } catch { }
+                    dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings);
+                } catch (er) {
+                    // TODO some expr will fail which is okay but  
+                }
             }
+
+            const setStatement = makeSetFromBinding(binding, nodeData, variableChain, globals);
 
             if (binding.aspect === BindingAspect.Iterator) {
                 if (!dataPoint.pushStatements) dataPoint.pushStatements = [];
-                dataPoint.pushStatements.push(...makeSetFromBinding(binding, nodeData, variableChain, globals));
+                dataPoint.pushStatements.push(...setStatement);
             } else {
-                dataPoint.setStatements.push(...makeSetFromBinding(binding, nodeData, variableChain, globals));
+                dataPoint.setStatements.push(...setStatement);
             }
 
+            if (binding.aspect === BindingAspect.Data && dataPoint.isExternal === null) {
+                dataPoint.isExternal = true;
+            }
         }
     }
 

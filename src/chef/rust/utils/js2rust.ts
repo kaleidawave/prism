@@ -169,7 +169,7 @@ export function jsAstToRustAst(
         );
     } else if (jsAst instanceof JSObjectLiteral) {
         // TODO spread values
-        const x = new StructConstructor(
+        const struct = new StructConstructor(
             jsType?.name!,
             Array.from(jsAst.values)
                 .map(([key, value]) => [
@@ -177,8 +177,7 @@ export function jsAstToRustAst(
                     jsAstToRustAst(value, jsType!.properties!.get(key as string)!, rustModule, jsModule) as ValueTypes
                 ])
         );
-        console.log(x);
-        return x;
+        return struct;
     } else {
         throw Error(`Cannot convert "${jsAst.constructor.name}" "${jsAst.render()}" to Rust`);
     }

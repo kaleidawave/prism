@@ -5,6 +5,7 @@ import { FunctionDeclaration, ArgumentList } from "../components/constructs/func
 import { ReturnStatement } from "../components/statements/statement";
 import { Group } from "../components/value/group";
 import { replaceVariables, cloneAST } from "./variables";
+import { ObjectLiteral } from "../components/value/object";
 
 /**
  * Attempts to build a function that given the evaluated value as the argument will return the variable
@@ -13,38 +14,58 @@ import { replaceVariables, cloneAST } from "./variables";
  * TODO only accepts expression has one variables. Should consider other variables in the expression as arguments 
  * @param expression 
  */
-export function buildReverseFunction(expression: ValueTypes): FunctionDeclaration {
+export function buildReverseFunction(expression: ValueTypes, targetVariable: Array<string>): FunctionDeclaration {
     const func = new FunctionDeclaration(null, ["value"], [], { bound: false });
-    const reverseExpression = reverseValue(cloneAST(expression));
+    const reverseExpression = reverseValue(cloneAST(expression), targetVariable);
     func.statements.push(new ReturnStatement(reverseExpression));
     return func;
 }
 
+function arraysEqual<T>(array1: Array<T>, array2: Array<T>): boolean {
+    if (array1.length !== array2.length) {
+        return false;
+    }
+    for (let i = 0; i < array1.length; i++) {
+        if (array1[i] !== array2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 const value = new VariableReference("value");
 
-export function reverseValue(expression: ValueTypes | ArgumentList): ValueTypes {
-
+export function reverseValue(expression: ValueTypes | ArgumentList, targetVariable: Array<string>): ValueTypes {
     if (expression instanceof VariableReference) {
-        return value;
+        if (arraysEqual(expression.toChain(), targetVariable)) {
+            return value;
+        } else {
+            return expression;
+        }
     } else if (expression instanceof Value) {
         return expression;
-    }
-
-    if (expression instanceof TemplateLiteral) {
+    } else if (expression instanceof TemplateLiteral) {
         return reverseTemplateLiteral(expression);
     } else if (expression instanceof Expression) {
-        if (!expression.rhs) throw Error("Cannot reverse expression")
-        const lhs = reverseValue(expression.lhs);
-        const rhs = reverseValue(expression.rhs);
+        const lhs = reverseValue(expression.lhs, targetVariable);
+        const rhs = expression.rhs ? reverseValue(expression.rhs, targetVariable) : null;
         let reversedOperation: Operation;
         switch (expression.operation) {
             case Operation.Add: reversedOperation = Operation.Subtract; break; // TODO this assumes + numbers and not from string concatenation
             case Operation.Subtract: reversedOperation = Operation.Add; break;
             case Operation.Multiply: reversedOperation = Operation.Divide; break;
             case Operation.Divide: reversedOperation = Operation.Multiply; break;
+            case Operation.LogNot: reversedOperation = Operation.LogNot; break; // TODO this will only work for booleans
             default: throw Error(`Cannot reverse operation ${Operation[expression.operation]}`);
         }
         return new Expression({ lhs, rhs, operation: reversedOperation });
+    } else if (expression instanceof ObjectLiteral) {
+        // TODO catch undefined here:
+        // TODO what about nested object literals
+        const firstKey = targetVariable[0];
+        const matchingValue = expression.values.get(firstKey!);
+        const reversedValue = reverseValue(matchingValue!, targetVariable);
+        return new VariableReference(firstKey!, reversedValue);
     } else {
         throw Error(`Cannot reverse expression of construct "${expression.constructor.name}"`);
     }

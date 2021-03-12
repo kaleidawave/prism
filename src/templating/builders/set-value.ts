@@ -6,11 +6,12 @@ import { replaceVariables, cloneAST, newOptionalVariableReference, newOptionalVa
 import { getSlice, getElement, thisDataVariable } from "../helpers";
 import { BindingAspect, IBinding, VariableReferenceArray, NodeData } from "../template";
 import { HTMLElement, Node } from "../../chef/html/html";
+import { ObjectLiteral } from "../../chef/javascript/components/value/object";
 
 export function makeSetFromBinding(
     binding: IBinding,
     nodeData: WeakMap<Node, NodeData>,
-    variable: VariableReferenceArray,
+    variableChain: VariableReferenceArray,
     globals: Array<VariableReference> = []
 ): Array<StatementTypes> {
     const statements: Array<StatementTypes> = [];
@@ -18,7 +19,7 @@ export function makeSetFromBinding(
     const isElementNullable = binding.element ? nodeData.get(binding.element)?.nullable ?? false : false;
 
     // getSlice will return the trailing portion from the for iterator statement thing
-    const variableReference = VariableReference.fromChain(...getSlice(variable) as Array<string>) as VariableReference;
+    const variableReference = VariableReference.fromChain(...getSlice(variableChain) as Array<string>) as VariableReference;
 
     let newValue: ValueTypes | null = null;
     if (binding.expression) {
@@ -126,11 +127,30 @@ export function makeSetFromBinding(
                     ])
                 }));
             } else {
-                statements.push(new Expression({
-                    lhs: new VariableReference("data", elementStatement!),
-                    operation: Operation.Assign,
-                    rhs: newValue!
-                }));
+                if (newValue! instanceof ObjectLiteral) {
+                    const lhs = VariableReference.fromChain(elementStatement!, "data", ...variableChain.map((point) => {
+                        if (typeof point === "string") {
+                            return point
+                        } else {
+                            throw Error(`Cannot reverse ${binding.expression.render()}`);
+                        }
+                    }));
+                    let rhs: ValueTypes = newValue!;
+                    for (const property of variableChain) {
+                        if (typeof property === "string") {
+                            rhs = (rhs as ObjectLiteral).values.get(property)!;
+                        } else {
+                            throw Error("Cannot perform set for object literal thing");
+                        }
+                    }
+                    statements.push(new Expression({ lhs, operation: Operation.Assign, rhs }));
+                } else {
+                    statements.push(new Expression({
+                        lhs: new VariableReference("data", elementStatement!),
+                        operation: Operation.Assign,
+                        rhs: newValue!
+                    }));
+                }
             }
             break;
         case BindingAspect.DocumentTitle:

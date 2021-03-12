@@ -7,11 +7,11 @@
     "./package.json": "./package.json",
     ".": {
       "node": {
-        "require": "./cjs/index.cjs"
+        "require": "./cjs/node.cjs"
       }
     },
     "./bin": {
-      "node": "./lib/node/bin.js"
+      "node": "./lib/node/cli.js"
     },
     "./web": {
       "browser": {
@@ -30,7 +30,8 @@
     "test": "jest",
     "build": "packemon build --addExports",
     "build-tsc": "tsc",
-    "build-bundle": "node inject-bundle.js"
+    "build-bundle": "ts-node inject-bundle.ts",
+    "clean": "packemon clean"
   },
   "repository": {
     "type": "git",
@@ -50,10 +51,19 @@
     "url": "https://github.com/kaleidawave/prism/issues"
   },
   "files": [
-    "lib",
+    "cjs",
+    "cjs/",
+    "cjs/**/*.{cjs,map}",
     "esm",
+    "esm/",
+    "esm/**/*.{js,map}",
+    "lib",
+    "lib/",
+    "lib/**/*.{js,map}",
     "mjs",
-    "cjs"
+    "mjs/",
+    "mjs/**/*.{mjs,map}",
+    "src/**/*.{ts,tsx,json}"
   ],
   "homepage": "https://github.com/kaleidawave/prism#readme",
   "// Only used for testing and development:": "",
@@ -63,8 +73,9 @@
     "@types/node": "^13.13.25",
     "jest": "^25.5.4",
     "jest-cli": "^26.5.3",
-    "packemon": "^0.12.0",
+    "packemon": "^0.14.2",
     "ts-jest": "^26.4.1",
+    "ts-node": "^9.1.1",
     "typescript": "^3.9.7"
   },
   "packemon": [
@@ -106,7 +117,7 @@
   },
   "dependencies": {},
   "bin": {
-    "prism": "lib/node/bin.js"
+    "prism": "lib/node/cli.js"
   },
   "directories": {
     "example": "examples",

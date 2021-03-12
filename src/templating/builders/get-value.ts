@@ -1,4 +1,4 @@
-import { IBinding, NodeData, BindingAspect } from "../template";
+import { IBinding, NodeData, BindingAspect, VariableReferenceArray } from "../template";
 import { ValueTypes, Value, Type } from "../../chef/javascript/components/value/value";
 import { buildReverseFunction, compileIIFE } from "../../chef/javascript/utils/reverse";
 import { getElement } from "../helpers";
@@ -15,6 +15,7 @@ export function makeGetFromBinding(
     binding: IBinding,
     nodeData: WeakMap<Node, NodeData>,
     dataType: IType,
+    variableChain: VariableReferenceArray,
     settings: IFinalPrismSettings
 ): ValueTypes {
 
@@ -84,7 +85,16 @@ export function makeGetFromBinding(
     // If not a variable reference try build a reverser for the value
     if (!(binding.expression instanceof VariableReference) && !(binding.expression instanceof ForIteratorExpression)) {
         // "buildReverseFunction" will throw error if the expression cannot be reversed 
-        const reversedExpressionFunction = buildReverseFunction(binding.expression as ValueTypes);
+        const reversedExpressionFunction = buildReverseFunction(
+            binding.expression as ValueTypes,
+            variableChain.map((point) => {
+                if (typeof point === "string") {
+                    return point
+                } else {
+                    throw Error(`Cannot reverse ${binding.expression.render()}`);
+                }
+            }) 
+        );
 
         // Invoke the reverseFunction with the evaluate output (which is value)
         const iife = new Expression({
@@ -125,7 +135,11 @@ export function makeGetFromBinding(
                 rhs: new Value(Type.object)
             });
         }
-    } else if (dataType.name === "string" && !settings.minify && [BindingAspect.Attribute, BindingAspect.InnerText].includes(binding.aspect)) {
+    } else if (
+        dataType.name === "string" && 
+        !settings.minify && 
+        [BindingAspect.Attribute, BindingAspect.InnerText].includes(binding.aspect)
+    ) {
         value = new Expression({
             lhs: new VariableReference("trim", value),
             operation: isElementNullable ? Operation.OptionalCall : Operation.Call

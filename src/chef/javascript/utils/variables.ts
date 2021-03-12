@@ -269,8 +269,8 @@ export function cloneAST(part: astTypes) {
         );
     } else if (part instanceof ObjectLiteral) {
         return new ObjectLiteral(
-            part.values ? new Map(part.values) : undefined,
-            part.spreadValues ? new Set(part.spreadValues) : undefined,
+            part.values ? new Map(Array.from(part.values.entries()).map(([key, value]) => [key, cloneAST(value)])) : undefined,
+            part.spreadValues ? new Set(Array.from(part.spreadValues).map(value => cloneAST(value))) : undefined,
         );
     } else {
         throw Error(`Could not clone part of instance "${part.constructor.name}"`)
