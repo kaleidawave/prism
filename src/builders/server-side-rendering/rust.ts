@@ -2,7 +2,7 @@ import { StatementTypes } from "../../chef/rust/statements/block";
 import { ArgumentList, ClosureExpression, FunctionDeclaration, ReturnStatement } from "../../chef/rust/statements/function";
 import { VariableDeclaration } from "../../chef/rust/statements/variable";
 import { Expression, Operation } from "../../chef/rust/values/expression";
-import { Type, Value, ValueTypes as RustValueTypes } from "../../chef/rust/values/value";
+import { Type, Value, ValueTypes as RustValueTypes, ValueTypes } from "../../chef/rust/values/value";
 import { VariableReference } from "../../chef/rust/values/variable";
 import { Component } from "../../component";
 import { IFinalPrismSettings } from "../../settings";
@@ -14,7 +14,7 @@ import { UseStatement } from "../../chef/rust/statements/use";
 import { ElseStatement, IfStatement } from "../../chef/rust/statements/if";
 import { ForStatement } from "../../chef/rust/statements/for";
 import { IShellData } from "../template";
-import { jsAstToRustAst } from "../../chef/rust/utils/js2rust";
+import { jsAstToRustAst, typeMap } from "../../chef/rust/utils/js2rust";
 import { InterfaceDeclaration as TSInterfaceDeclaration } from "../../chef/javascript/components/types/interface";
 import { DynamicStatement } from "../../chef/rust/dynamic-statement";
 import { Comment as JSComment } from "../../chef/javascript/components/statements/comments";
@@ -46,12 +46,7 @@ function statementsFromServerRenderChunks(
     dataType: IType | null,
     includeStringDef = false,
 ): Array<StatementTypes> {
-    const statements: Array<StatementTypes> = includeStringDef ? [new VariableDeclaration("acc", true,
-        new Expression(
-            new VariableReference("new", new VariableReference("String"), true),
-            Operation.Call
-        )
-    )] : [];
+    const statements: Array<StatementTypes> = [];
     for (const chunk of serverChunks) {
         if (typeof chunk === "string") {
             statements.push(new Expression(
@@ -200,13 +195,15 @@ function serverChunkToValue(
             Array.from(chunk.args)
                 .map(([name, [value, valueType]]) => {
                     if (typeof value === "object" && "argument" in value) {
-                        return [
-                            name,
-                            new Expression(
-                                jsAstToRustAst(value.argument, valueType, module, jsModule) as RustValueTypes,
-                                Operation.Borrow
-                            )
-                        ];
+                        // TODO call destructured function
+                        return null!;
+                        // return [
+                        //     name,
+                        //     new Expression(
+                        //         jsAstToRustAst(value.argument, valueType, module, jsModule) as RustValueTypes,
+                        //         Operation.Borrow
+                        //     )
+                        // ];
                     } else {
                         if (Array.isArray(value)) {
                             if (value.length === 0) {
@@ -392,26 +389,79 @@ export function makeRustComponentServerModule(
         }
     }
 
-    const rustRenderParameters: Array<[string, TypeSignature]> = comp.serverRenderParameters
-        .map((vD) => {
-            const newTS = jsAstToRustAst(vD.typeSignature!, null, comp.serverModule!, comp.clientModule) as TypeSignature;
-            if (newTS.name !== "String") {
-                newTS.name = "&" + newTS.name;
-            }
-            return [
-                vD.name,
-                newTS
-            ]
-        });
+    /**
+     * May produce 4 statements
+     * - render_x
+     * - render_x_from_buffer
+     * - render_x_page
+     * - render_x_destructured
+     */
+    const rustRenderParameters: Array<[string, TypeSignature]> = [["acc", new TypeSignature("&mut String")]];
+    for (const parameter of comp.serverRenderParameters) {
+        const newTS = jsAstToRustAst(parameter.typeSignature!, null, comp.serverModule!, comp.clientModule) as TypeSignature;
+        newTS.name = "&" + newTS.name;
+        rustRenderParameters.push([
+            parameter.name,
+            newTS
+        ])
+    }
+    const camelCaseComponentName = comp.tagName
+        .replace(/-/g, "_")
+        .replace(/[A-Z]/g, (s, i) => i ? `_${s.toLowerCase()}` : s.toLowerCase());
 
-    const name = "render_" + comp.tagName.replace(/-/g, "_").replace(/[A-Z]/g, (s, i) => i ? `_${s.toLowerCase()}` : s.toLowerCase());
-    const componentRenderFunctionName = name + "_component";
+    const componentRenderFunctionName = "render_" + camelCaseComponentName + "_component";
+    const componentRenderFunctionFromBufferName = "render_" + camelCaseComponentName + "_component_from_buffer";
+    const componentRenderFunctionDestructuredName = componentRenderFunctionFromBufferName + "_destructured";
+    const pageRenderFunctionName = "render_" + camelCaseComponentName + "_page";
 
-    comp.serverRenderFunction = new FunctionDeclaration(componentRenderFunctionName, rustRenderParameters, new TypeSignature("String"), [], true);
+    // TODO add clientGlobals
+    // Used for "passthrough" functions e.g. render page and render (on new buffer)
+    const renderFunctionArguments = [
+        new VariableReference("data"),
+        new VariableReference("attributes"),
+    ];
 
-    const serverRenderChunks = serverRenderPrismNode(comp.componentHTMLTag, comp.templateData.nodeData, ssrSettings, comp.globals);
-    comp.serverRenderFunction.statements
-        = statementsFromServerRenderChunks(serverRenderChunks, comp.serverModule, comp.clientModule, comp.componentDataType, true);
+    // Component function which initializes string for you. TODO @WithCapacity
+    const componentRenderFunction = new FunctionDeclaration(
+        componentRenderFunctionName, 
+        rustRenderParameters.slice(1), // Ignore the acc parameter 
+        new TypeSignature("String"),
+        [
+            // Create new string
+            new VariableDeclaration("acc", true, new Expression(
+                new VariableReference("new", new VariableReference("String"), true),
+                Operation.Call
+            )),
+            // Call the buffer function
+            new Expression(
+                new VariableReference(componentRenderFunctionFromBufferName), 
+                Operation.Call, 
+                new ArgumentList([new VariableReference("&mut acc")].concat(renderFunctionArguments))
+            ),
+            // Return acc
+            new ReturnStatement(accVariable)
+        ], 
+        true
+    );
+
+    comp.serverModule.statements.push(componentRenderFunction);
+
+    const serverRenderChunks = serverRenderPrismNode(
+        comp.componentHTMLTag, 
+        comp.templateData.nodeData, 
+        ssrSettings, 
+        comp.globals, 
+        false, 
+        // If destructured method then data is sent down property wise rather than on a struct instance named "data"
+        !comp.createdUsingDestructured 
+    );
+    const statements = statementsFromServerRenderChunks(
+        serverRenderChunks, 
+        comp.serverModule, 
+        comp.clientModule, 
+        comp.componentDataType, 
+        false
+    );
 
     if (comp.usesLayout) {
         const returnLayoutWrap = new ReturnStatement(new Expression(
@@ -419,10 +469,65 @@ export function makeRustComponentServerModule(
             Operation.Call,
             accVariable
         ));
-        comp.serverRenderFunction.statements[comp.serverRenderFunction.statements.length - 1] = returnLayoutWrap;
+        // Replace `return acc` with `return render_layout(acc)`
+        statements[statements.length - 1] = returnLayoutWrap;
     }
 
-    comp.serverModule.statements.push(comp.serverRenderFunction);
+    /* For <OtherComponent $data="{x, y, z}"> it cannot generate &OtherComponentData { x, y, z } as OtherComponentData 
+       needs values and x, y, z values are only references. So instead creates a function with a references to 
+       individual properties instead a of instance. Exactly the same statements though
+    */
+    if (!comp.createdUsingDestructured) {
+        comp.serverRenderFunction = new FunctionDeclaration(
+            componentRenderFunctionFromBufferName, 
+            rustRenderParameters, 
+            null,
+            statements, 
+            true
+        );
+        comp.serverModule.statements.push(comp.serverRenderFunction);
+    } else {
+        const destructuredParameters = rustRenderParameters.filter(([propName]) => propName !== "data");
+
+        const destructuredArguments: Array<ValueTypes> = [
+            new VariableReference("acc"),
+            new VariableReference("attributes")
+        ];
+
+        for (const [name, type] of comp.componentDataType?.properties ?? []) {
+            // TODO deep destructuring
+            let rustTypeName = "&" + typeMap.get(type.name!)!;
+            if (type.isOptional) {
+                rustTypeName = `&Option<${rustTypeName}>`;
+            }
+            destructuredParameters.push([name, new TypeSignature(rustTypeName)]);
+            destructuredArguments.push(new VariableReference(name, new VariableReference("data")));
+        }
+        // TODO add client globals to destructuredParameters
+        const componentRenderFunctionDestructured = new FunctionDeclaration(
+            componentRenderFunctionDestructuredName, 
+            destructuredParameters, 
+            null,
+            statements, 
+            true
+        );
+        const componentRenderFunction = new FunctionDeclaration(
+            componentRenderFunctionFromBufferName, 
+            rustRenderParameters, 
+            null,
+            [
+                new Expression(
+                    new VariableReference(componentRenderFunctionDestructuredName),
+                    Operation.Call,
+                    new ArgumentList(destructuredArguments)
+                )
+            ], 
+            true
+        );
+        comp.serverRenderFunction = componentRenderFunction;
+        comp.destructuredServerRenderFunction = componentRenderFunctionDestructured;
+        comp.serverModule.statements.push(componentRenderFunctionDestructured, componentRenderFunction);
+    }
 
     if (comp.isPage) {
         let metadataString: RustValueTypes;
@@ -436,7 +541,7 @@ export function makeRustComponentServerModule(
         }
 
         const renderPageFunction = new FunctionDeclaration(
-            name + "_page",
+            pageRenderFunctionName,
             rustRenderParameters,
             new TypeSignature("String"),
             [
@@ -448,10 +553,7 @@ export function makeRustComponentServerModule(
                             new Expression(
                                 new VariableReference(componentRenderFunctionName),
                                 Operation.Call,
-                                new Expression(
-                                    new VariableReference("data"),
-                                    Operation.Borrow
-                                )
+                                new ArgumentList(renderFunctionArguments)
                             ),
                             metadataString
                         ])
@@ -460,10 +562,9 @@ export function makeRustComponentServerModule(
             ],
             true
         );
-        comp.serverModule.statements.push(renderPageFunction);
-    }
 
-    if (comp.isPage) {
+        comp.serverModule.statements.push(renderPageFunction);
+
         const pathToPrismModule = relative(
             settings.absoluteServerOutputPath,
             dirname(comp.serverModule.filename)

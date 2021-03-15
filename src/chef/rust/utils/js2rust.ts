@@ -24,7 +24,7 @@ import { ObjectLiteral as JSObjectLiteral } from "../../javascript/components/va
 type rustAstTypes = StatementTypes | ValueTypes | TypeSignature | ArgumentList;
 
 const literalTypeMap = new Map([[JSType.number, Type.number], [JSType.string, Type.string], [JSType.boolean, Type.boolean]]);
-const typeMap: Map<string, string> = new Map([
+export const typeMap: Map<string, string> = new Map([
     ["number", "f64"],
     ["string", "String"],
     ["boolean", "bool"],

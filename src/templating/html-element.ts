@@ -10,6 +10,8 @@ import { FunctionDeclaration } from "../chef/javascript/components/constructs/fu
 import { HTMLComment, HTMLDocument, HTMLElement } from "../chef/html/html";
 import { defaultRenderSettings } from "../chef/helpers";
 import { assignToObjectMap } from "../helpers";
+import { join } from "path";
+import { ObjectLiteral } from "../chef/javascript/components/value/object";
 
 export function parseHTMLElement(
     element: HTMLElement,
@@ -32,7 +34,7 @@ export function parseHTMLElement(
         }
 
         // Assert that if component needs data then the "$data" attribute is present
-        if (component.needsData && !element.attributes?.has("$data")) {
+        if (component.needsData && !element.attributes?.has?.("$data")) {
             // TODO filename and render the node
             throw Error(`Component: "${component.className}" requires data and was not passed data through "$data" at  and "${element.render(defaultRenderSettings, { inline: true })}"`);
         }
@@ -179,6 +181,9 @@ export function parseHTMLElement(
 
                 let binding: PartialBinding;
                 if (templateData.nodeData.get(element)?.component && subject === "data") {
+                    if (expression instanceof ObjectLiteral) {
+                        templateData.nodeData.get(element)!.component!.createdUsingDestructured = true;
+                    }
                     binding = {
                         aspect: BindingAspect.Data,
                         expression,

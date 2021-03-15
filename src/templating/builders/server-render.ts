@@ -63,7 +63,8 @@ export function serverRenderPrismNode(
     nodeData: WeakMap<Node, NodeData>,
     serverRenderSettings: IServerRenderSettings,
     locals: Array<VariableReference> = [],
-    skipOverServerExpression: boolean = false
+    skipOverServerExpression: boolean = false,
+    aliasWithDataVariable: boolean = true
 ): ServerRenderedChunks {
 
     const chunks: ServerRenderedChunks = []; // Entries is unique for each execution for indentation benefits
@@ -78,11 +79,14 @@ export function serverRenderPrismNode(
 
         // If node
         if (elementData?.conditionalExpression && !skipOverServerExpression) {
-            const truthyRenderExpression = serverRenderPrismNode(element, nodeData, serverRenderSettings, locals, true);
-            const falsyRenderExpression = serverRenderPrismNode(elementData.elseElement!, nodeData, serverRenderSettings, locals);
+            const truthyRenderExpression = serverRenderPrismNode(element, nodeData, serverRenderSettings, locals, true, aliasWithDataVariable);
+            const falsyRenderExpression = serverRenderPrismNode(elementData.elseElement!, nodeData, serverRenderSettings, locals, false, aliasWithDataVariable);
 
-            const serverAliasedExpression = cloneAST(elementData.conditionalExpression);
-            aliasVariables(serverAliasedExpression, dataVariable, locals);
+            let serverAliasedExpression = elementData.conditionalExpression; 
+            if (aliasWithDataVariable) {
+                serverAliasedExpression = cloneAST(serverAliasedExpression);
+                aliasVariables(serverAliasedExpression, dataVariable, locals);
+            }
 
             return [{
                 condition: serverAliasedExpression,
@@ -109,7 +113,7 @@ export function serverRenderPrismNode(
             renderArgs.set(
                 "attributes", 
                 [
-                    element.attributes ? serverRenderNodeAttribute(element, nodeData, locals) : [],
+                    element.attributes ? serverRenderNodeAttribute(element, nodeData, locals, aliasWithDataVariable) : [],
                     inbuiltTypes.get("string")!
                 ]
             );
@@ -120,7 +124,14 @@ export function serverRenderPrismNode(
                     for (let i = 0; i < element.children.length; i++) {
                         const child = element.children[i];
                         slotRenderFunction.push(
-                            ...serverRenderPrismNode(child, nodeData, serverRenderSettings, locals)
+                            ...serverRenderPrismNode(
+                                child, 
+                                nodeData, 
+                                serverRenderSettings, 
+                                locals, 
+                                skipOverServerExpression, 
+                                aliasWithDataVariable
+                            )
                         );
                         if (!serverRenderSettings.minify && i !== element.children.length - 1) chunks.push("\n");
                     }
@@ -129,9 +140,13 @@ export function serverRenderPrismNode(
             }
 
             if (componentsData) {
-                const aliasedData: ValueTypes = cloneAST(componentsData);
-                aliasVariables(aliasedData, dataVariable, locals)
-                renderArgs.set("data", [{ argument: aliasedData }, component.componentDataType!]);
+                if (aliasWithDataVariable) {
+                    const aliasedData: ValueTypes = cloneAST(componentsData);
+                    aliasVariables(aliasedData, dataVariable, locals)
+                    renderArgs.set("data", [{ argument: aliasedData }, component.componentDataType!]);
+                } else {
+                    renderArgs.set("data", [{ argument: componentsData }, component.componentDataType!]);
+                }
             }
 
             if (component.clientGlobals) {
@@ -156,7 +171,7 @@ export function serverRenderPrismNode(
 
         addChunk(`<${element.tagName}`, chunks);
 
-        serverRenderNodeAttribute(element, nodeData, locals).forEach(chunk => addChunk(chunk, chunks));
+        serverRenderNodeAttribute(element, nodeData, locals, aliasWithDataVariable).forEach(chunk => addChunk(chunk, chunks), aliasWithDataVariable);
 
         // If the element has any events disable it by default TODO explain why
         if (serverRenderSettings.addDisableToElementWithEvents && elementData?.events?.some(event => event.required)) {
@@ -170,8 +185,11 @@ export function serverRenderPrismNode(
         if (HTMLElement.selfClosingTags.has(element.tagName) || element.closesSelf) return chunks;
 
         if (elementData?.iteratorExpression) {
-            const serverAliasedExpression: ForIteratorExpression = cloneAST(elementData.iteratorExpression);
-            aliasVariables(serverAliasedExpression, dataVariable, locals);
+            let serverAliasedExpression: ForIteratorExpression = elementData.iteratorExpression;
+            if (aliasWithDataVariable) {
+                serverAliasedExpression = cloneAST(serverAliasedExpression);
+                aliasVariables(serverAliasedExpression, dataVariable, locals);
+            }
 
             addChunk({
                 subject: serverAliasedExpression.subject,
@@ -180,19 +198,31 @@ export function serverRenderPrismNode(
                     element.children[0],
                     nodeData,
                     serverRenderSettings,
-                    [serverAliasedExpression.variable.toReference(), ...locals]
+                    [serverAliasedExpression.variable.toReference(), ...locals],
+                    skipOverServerExpression,
+                    aliasWithDataVariable
                 )
             }, chunks)
         } else if (elementData?.rawInnerHTML) {
-            const aliasedRawInnerHTML: ValueTypes = cloneAST(elementData?.rawInnerHTML);
-            aliasVariables(aliasedRawInnerHTML, dataVariable, locals);
+            let aliasedRawInnerHTML: ValueTypes = elementData?.rawInnerHTML; 
+            if (aliasWithDataVariable) {
+                aliasedRawInnerHTML = cloneAST(aliasedRawInnerHTML);
+                aliasVariables(aliasedRawInnerHTML, dataVariable, locals);
+            }
             addChunk({
                 value: aliasedRawInnerHTML,
                 escape: false
             }, chunks);
         } else {
             for (const child of element.children) {
-                const parts = serverRenderPrismNode(child, nodeData, serverRenderSettings, locals);
+                const parts = serverRenderPrismNode(
+                    child, 
+                    nodeData, 
+                    serverRenderSettings, 
+                    locals, 
+                    skipOverServerExpression,
+                    aliasWithDataVariable
+                );
                 // Indent children
                 if (!serverRenderSettings.minify) {
                     for (let i = 0; i < parts.length; i++) {
@@ -219,9 +249,13 @@ export function serverRenderPrismNode(
     } else if (element instanceof TextNode) {
         const value = nodeData.get(element)?.textNodeValue;
         if (value) {
-            const aliasedPart = cloneAST(value);
-            aliasVariables(aliasedPart, dataVariable, locals);
-            addChunk({ value: aliasedPart, escape: true }, chunks);
+            if (aliasWithDataVariable) {
+                const aliasedPart = cloneAST(value);
+                aliasVariables(aliasedPart, dataVariable, locals);
+                addChunk({ value: aliasedPart, escape: true }, chunks);
+            } else {
+                addChunk({ value, escape: true }, chunks);
+            }
         } else {
             addChunk(element.text, chunks);
         }
@@ -233,7 +267,14 @@ export function serverRenderPrismNode(
     } else if (element instanceof HTMLDocument) {
         for (let i = 0; i < element.children.length; i++) {
             const child = element.children[i];
-            serverRenderPrismNode(child, nodeData, serverRenderSettings, locals).forEach(chunk => addChunk(chunk, chunks));
+            serverRenderPrismNode(
+                child, 
+                nodeData, 
+                serverRenderSettings, 
+                locals, 
+                skipOverServerExpression, 
+                aliasWithDataVariable
+            ).forEach(chunk => addChunk(chunk, chunks));
             if (!serverRenderSettings.minify && i !== element.children.length - 1) addChunk("\n", chunks);
         }
     } else {
@@ -245,7 +286,8 @@ export function serverRenderPrismNode(
 export function serverRenderNodeAttribute(
     element: HTMLElement,
     nodeData: WeakMap<Node, NodeData>,
-    locals: Array<VariableReference>
+    locals: Array<VariableReference>,
+    aliasWithDataVariable: boolean = true
 ) {
     const chunks: ServerRenderedChunks = [];
     if (element.attributes) {
@@ -265,11 +307,13 @@ export function serverRenderNodeAttribute(
     const dynamicAttributes = nodeData.get(element)?.dynamicAttributes;
     if (dynamicAttributes) {
         for (let [name, value] of dynamicAttributes) {
-            const aliasedValue = cloneAST(value);
-            aliasVariables(aliasedValue, dataVariable, locals);
+            if (aliasWithDataVariable) {
+                value = cloneAST(value);
+                aliasVariables(value, dataVariable, locals);
+            }
             if (HTMLElement.booleanAttributes.has(name)) {
                 addChunk({
-                    condition: aliasedValue,
+                    condition: value,
                     truthyRenderExpression: [" " + name],
                     falsyRenderExpression: [""]
                 }, chunks);
@@ -278,7 +322,7 @@ export function serverRenderNodeAttribute(
                 addChunk(" " + name, chunks);
                 if (value !== null) {
                     addChunk(`="`, chunks);
-                    addChunk({ value: aliasedValue, escape: true }, chunks);
+                    addChunk({ value, escape: true }, chunks);
                     addChunk(`"`, chunks);
                 }
             }

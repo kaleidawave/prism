@@ -73,6 +73,7 @@ export class Component {
 
     serverModule?: IModule<any>; // TODO any
     serverRenderFunction?: IFunctionDeclaration;
+    destructuredServerRenderFunction?: IFunctionDeclaration;
     pageServerRenderFunction?: IFunctionDeclaration;
 
     usesLayout?: Component; // The layout the component extends (component must be a page to have a layout)
@@ -112,6 +113,9 @@ export class Component {
     componentHTMLTag: HTMLElement;
     // ServerRenderedChunks used for generating the concatenation for <head>
     metaDataChunks: ServerRenderedChunks;
+
+    createdUsingDestructured: boolean = false;
+    server
 
     /**
      * Returns a component under a filename
