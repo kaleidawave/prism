@@ -56,7 +56,7 @@ function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes | string 
             operation: Operation.Call,
             rhs: new Value(Type.string)
         });
-    } else if ("func" in serverChunk) {
+    } else if ("component" in serverChunk) {
         const args: Map<string, ValueTypes> = new Map(
             Array.from(serverChunk.args).map(([name, [value, _]]) => {
                 if (typeof value === "object" && "argument" in value) return [name, value.argument];
@@ -64,10 +64,11 @@ function renderServerChunk(serverChunk: ServerRenderChunk): ValueTypes | string 
                 else return [name, renderServerChunk(value) as ValueTypes];
             })
         );
+        const func = serverChunk.component.serverRenderFunction!;
         return new Expression({
-            lhs: new VariableReference(serverChunk.func.actualName!),
+            lhs: new VariableReference(func.actualName!),
             operation: Operation.Call,
-            rhs: serverChunk.func.buildArgumentListFromArgumentsMap(args)
+            rhs: func.buildArgumentListFromArgumentsMap(args)
         });
     } else {
         throw Error();

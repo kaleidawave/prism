@@ -20,6 +20,7 @@ import { DynamicStatement } from "../../chef/rust/dynamic-statement";
 import { Comment as JSComment } from "../../chef/javascript/components/statements/comments";
 import { TemplateLiteral as JSTemplateLiteral } from "../../chef/javascript/components/value/template-literal";
 import { Type as JSType, Value as JSValue } from "../../chef/javascript/components/value/value";
+import { VariableReference as JSVariableReference } from "../../chef/javascript/components/value/expression";
 import { IType } from "../../chef/javascript/utils/types";
 import {
     IServerRenderSettings, ServerRenderChunk, ServerRenderedChunks, serverRenderPrismNode
@@ -29,6 +30,7 @@ import {
     ExportStatement as JSExportStatement
 } from "../../chef/javascript/components/statements/import-export";
 import { dirname, join, relative, basename } from "path";
+import { ObjectLiteral } from "../../chef/javascript/components/value/object";
 
 /** The variable which points to the String that is appended to */
 const accVariable = new VariableReference("acc");
@@ -44,7 +46,6 @@ function statementsFromServerRenderChunks(
     module: Module,
     jsModule: JSModule,
     dataType: IType | null,
-    includeStringDef = false,
 ): Array<StatementTypes> {
     const statements: Array<StatementTypes> = [];
     for (const chunk of serverChunks) {
@@ -111,7 +112,7 @@ function statementsFromServerRenderChunks(
                             new Expression(
                                 new VariableReference("is_empty", value),
                                 Operation.Call,
-                                ),
+                            ),
                             Operation.Not
                         );
                     }
@@ -131,7 +132,7 @@ function statementsFromServerRenderChunks(
                 new Expression(expr, Operation.Borrow),
                 statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule, dataType)
             ));
-        } else if ("func" in chunk) {
+        } else if ("component" in chunk) {
             statements.push(new Expression(
                 new VariableReference("push_str", accVariable),
                 Operation.Call,
@@ -144,7 +145,6 @@ function statementsFromServerRenderChunks(
             ));
         }
     }
-    if (includeStringDef) statements.push(new ReturnStatement(accVariable))
     return statements;
 }
 
@@ -190,39 +190,64 @@ function serverChunkToValue(
             );
         }
         return value;
-    } else if ("func" in chunk) {
-        const args = new Map(
-            Array.from(chunk.args)
-                .map(([name, [value, valueType]]) => {
-                    if (typeof value === "object" && "argument" in value) {
-                        // TODO call destructured function
-                        return null!;
-                        // return [
-                        //     name,
-                        //     new Expression(
-                        //         jsAstToRustAst(value.argument, valueType, module, jsModule) as RustValueTypes,
-                        //         Operation.Borrow
-                        //     )
-                        // ];
-                    } else {
-                        if (Array.isArray(value)) {
-                            if (value.length === 0) {
-                                return [name, new Expression(new VariableReference("to_string", new Value(Type.string, "")), Operation.Call)]
-                            } else if (value.length === 1) {
-                                return [name, serverChunkToValue(value[0], module, jsModule, dataType)];
-                            } else {
-                                return [name, formatExpressionFromServerChunks(value, module, jsModule)];
-                            }
-                        } else {
-                            return [name, serverChunkToValue(value, module, jsModule, dataType)];
-                        }
+    } else if ("component" in chunk) {
+        const useDestructured = chunk.args.has("data") &&
+            typeof chunk.args.get("data")![0] === "object" &&
+            "argument" in (chunk.args.get("data")![0] as object) &&
+            (chunk.args.get("data")![0] as any).argument instanceof ObjectLiteral;
+
+        const args: Map<string, RustValueTypes> = new Map([["acc", new VariableReference("acc")]]);
+        for (const [name, [value, valueType]] of chunk.args) {
+            if (typeof value === "object" && "argument" in value) {
+                if (value.argument instanceof ObjectLiteral) {
+                    for (const [olKey, olValue] of value.argument.values) {
+                        args.set(
+                            olKey as string, // TODO catch [Symbol.x] etc
+                            new Expression(
+                                jsAstToRustAst(olValue, valueType, module, jsModule) as RustValueTypes,
+                                Operation.Borrow
+                            )
+                        )
                     }
-                })
-        );
+                } else {
+                    args.set(
+                        name,
+                        new Expression(
+                            jsAstToRustAst(value.argument, valueType, module, jsModule) as RustValueTypes,
+                            Operation.Borrow
+                        )
+                    );
+                }
+            } else {
+                if (Array.isArray(value)) {
+                    if (value.length === 0) {
+                        args.set(
+                            name,
+                            new Expression(
+                                new Expression(
+                                    new VariableReference("to_string", new Value(Type.string, "")),
+                                    Operation.Call
+                                ),
+                                Operation.Borrow
+                            )
+                        );
+                    } else if (value.length === 1) {
+                        args.set(name, serverChunkToValue(value[0], module, jsModule, dataType));
+                    } else {
+                        args.set(name, formatExpressionFromServerChunks(value, module, jsModule));
+                    }
+                } else {
+                    args.set(name, serverChunkToValue(value, module, jsModule, dataType));
+                }
+            }
+        }
+        const func = useDestructured ?
+            chunk.component.destructuredServerRenderFunction! :
+            chunk.component.serverRenderFunction!;
         return new Expression(
-            new VariableReference(chunk.func.actualName!),
+            new VariableReference(func.actualName!),
             Operation.Call,
-            chunk.func.buildArgumentListFromArgumentsMap(args)
+            func.buildArgumentListFromArgumentsMap(args)
         );
     } else if ("subject" in chunk) {
         const mapFunctionOnSubject = new VariableReference("map", new Expression(
@@ -298,8 +323,12 @@ export function makeRustComponentServerModule(
     ssrSettings: IServerRenderSettings
 ): void {
     comp.serverModule = new Module(
-        join(settings.absoluteServerOutputPath, comp.relativeFilename.replace(/[.-]/g, "_") + ".rs")
+        join(settings.absoluteServerOutputPath, comp.relativeFilename).replace(/[.-]/g, "_") + ".rs"
     );
+
+    // Use encode_safe from html_escape crate
+    const useHTMLEscapeStatement = new UseStatement(["html_escape", "encode_safe"]);
+    comp.serverModule!.statements.push(useHTMLEscapeStatement);
 
     // Transition over statements
     for (const statement of comp.clientModule.statements) {
@@ -313,7 +342,14 @@ export function makeRustComponentServerModule(
                 for (const key of statement.variable!.entries!.values()) {
                     if (comp.importedComponents.has(key?.name!)) {
                         importedComponent = comp.importedComponents.get(key?.name!)!;
-                        newImports.push(importedComponent.serverRenderFunction!.actualName!)
+                        if (importedComponent.isLayout) {
+                            newImports.push(
+                                importedComponent.layoutServerRenderFunctions![0].actualName!,
+                                importedComponent.layoutServerRenderFunctions![1].actualName!,
+                            )
+                        } else {
+                            newImports.push(importedComponent.serverRenderFunction!.actualName!)
+                        }
                     } else {
                         newImports.push(key?.name!);
                     }
@@ -418,12 +454,15 @@ export function makeRustComponentServerModule(
     // Used for "passthrough" functions e.g. render page and render (on new buffer)
     const renderFunctionArguments = [
         new VariableReference("data"),
-        new VariableReference("attributes"),
     ];
+
+    if (!comp.isPage) {
+        renderFunctionArguments.push(new VariableReference("attributes"))
+    }
 
     // Component function which initializes string for you. TODO @WithCapacity
     const componentRenderFunction = new FunctionDeclaration(
-        componentRenderFunctionName, 
+        componentRenderFunctionName,
         rustRenderParameters.slice(1), // Ignore the acc parameter 
         new TypeSignature("String"),
         [
@@ -434,44 +473,71 @@ export function makeRustComponentServerModule(
             )),
             // Call the buffer function
             new Expression(
-                new VariableReference(componentRenderFunctionFromBufferName), 
-                Operation.Call, 
+                new VariableReference(componentRenderFunctionFromBufferName),
+                Operation.Call,
                 new ArgumentList([new VariableReference("&mut acc")].concat(renderFunctionArguments))
             ),
             // Return acc
             new ReturnStatement(accVariable)
-        ], 
+        ],
         true
     );
 
-    comp.serverModule.statements.push(componentRenderFunction);
-
     const serverRenderChunks = serverRenderPrismNode(
-        comp.componentHTMLTag, 
-        comp.templateData.nodeData, 
-        ssrSettings, 
-        comp.globals, 
-        false, 
+        comp.componentHTMLTag,
+        comp.templateData.nodeData,
+        ssrSettings,
+        comp.globals,
+        false,
         // If destructured method then data is sent down property wise rather than on a struct instance named "data"
-        !comp.createdUsingDestructured 
-    );
-    const statements = statementsFromServerRenderChunks(
-        serverRenderChunks, 
-        comp.serverModule, 
-        comp.clientModule, 
-        comp.componentDataType, 
-        false
+        !comp.createdUsingDestructured
     );
 
-    if (comp.usesLayout) {
-        const returnLayoutWrap = new ReturnStatement(new Expression(
-            new VariableReference(comp.usesLayout.serverRenderFunction!.actualName!),
-            Operation.Call,
-            accVariable
-        ));
-        // Replace `return acc` with `return render_layout(acc)`
-        statements[statements.length - 1] = returnLayoutWrap;
+    if (comp.isLayout) {
+        const pageInterpolationIndex = serverRenderChunks
+            .findIndex((value) => typeof value === "object" &&
+                "value" in value &&
+                value.value instanceof JSVariableReference &&
+                value.value.name === "contentSlot"
+            );
+
+        const prefixChunk = serverRenderChunks.slice(0, pageInterpolationIndex);
+        const suffixChunk = serverRenderChunks.slice(pageInterpolationIndex + 1);
+
+        const renderParameters = rustRenderParameters.filter(([name]) => name !== "contentSlot");
+
+        const prefixChunkRenderFunction = new FunctionDeclaration(
+            "render_" + camelCaseComponentName + "_layout_prefix",
+            renderParameters,
+            null,
+            statementsFromServerRenderChunks(
+                prefixChunk,
+                comp.serverModule,
+                comp.clientModule,
+                comp.componentDataType,
+            ),
+            true
+        );
+
+        const suffixChunkRenderFunction = new FunctionDeclaration(
+            "render_" + camelCaseComponentName + "_layout_suffix",
+            renderParameters,
+            null,
+            statementsFromServerRenderChunks(
+                suffixChunk,
+                comp.serverModule,
+                comp.clientModule,
+                comp.componentDataType,
+            ),
+            true
+        );
+
+        comp.layoutServerRenderFunctions = [prefixChunkRenderFunction, suffixChunkRenderFunction];
+        comp.serverModule.statements.push(prefixChunkRenderFunction, suffixChunkRenderFunction);
+        return;
     }
+
+    comp.serverModule.statements.push(componentRenderFunction);
 
     /* For <OtherComponent $data="{x, y, z}"> it cannot generate &OtherComponentData { x, y, z } as OtherComponentData 
        needs values and x, y, z values are only references. So instead creates a function with a references to 
@@ -479,10 +545,10 @@ export function makeRustComponentServerModule(
     */
     if (!comp.createdUsingDestructured) {
         comp.serverRenderFunction = new FunctionDeclaration(
-            componentRenderFunctionFromBufferName, 
-            rustRenderParameters, 
+            componentRenderFunctionFromBufferName,
+            rustRenderParameters,
             null,
-            statements, 
+            [],
             true
         );
         comp.serverModule.statements.push(comp.serverRenderFunction);
@@ -496,24 +562,24 @@ export function makeRustComponentServerModule(
 
         for (const [name, type] of comp.componentDataType?.properties ?? []) {
             // TODO deep destructuring
-            let rustTypeName = "&" + typeMap.get(type.name!)!;
+            let rustTypeName = typeMap.get(type.name!)!;
             if (type.isOptional) {
-                rustTypeName = `&Option<${rustTypeName}>`;
+                rustTypeName = `Option<${rustTypeName}>`;
             }
-            destructuredParameters.push([name, new TypeSignature(rustTypeName)]);
+            destructuredParameters.push([name, new TypeSignature("&" + rustTypeName)]);
             destructuredArguments.push(new VariableReference(name, new VariableReference("data")));
         }
         // TODO add client globals to destructuredParameters
         const componentRenderFunctionDestructured = new FunctionDeclaration(
-            componentRenderFunctionDestructuredName, 
-            destructuredParameters, 
+            componentRenderFunctionDestructuredName,
+            destructuredParameters,
             null,
-            statements, 
+            [],
             true
         );
         const componentRenderFunction = new FunctionDeclaration(
-            componentRenderFunctionFromBufferName, 
-            rustRenderParameters, 
+            componentRenderFunctionFromBufferName,
+            rustRenderParameters,
             null,
             [
                 new Expression(
@@ -521,12 +587,39 @@ export function makeRustComponentServerModule(
                     Operation.Call,
                     new ArgumentList(destructuredArguments)
                 )
-            ], 
+            ],
             true
         );
         comp.serverRenderFunction = componentRenderFunction;
         comp.destructuredServerRenderFunction = componentRenderFunctionDestructured;
         comp.serverModule.statements.push(componentRenderFunctionDestructured, componentRenderFunction);
+    }
+
+    // Statements must be set after "comp.serverRenderFunction" is set to allow for recursive components
+    const statements = statementsFromServerRenderChunks(
+        serverRenderChunks,
+        comp.serverModule,
+        comp.clientModule,
+        comp.componentDataType,
+    );
+
+    comp.serverRenderFunction.statements = statements;
+    
+    if (comp.usesLayout) {
+        // TODO imports
+        const [prefixFunction, suffixFunction] = comp.usesLayout.layoutServerRenderFunctions!;
+        // Call prefix function
+        statements.unshift(new Expression(
+            new VariableReference(prefixFunction.actualName!),
+            Operation.Call,
+            new ArgumentList([new VariableReference("acc")]) // TODO client globals
+        ));
+        // Call suffix function
+        statements.push(new Expression(
+            new VariableReference(suffixFunction.actualName!),
+            Operation.Call,
+            new ArgumentList([new VariableReference("acc")]) // TODO client globals
+        ));
     }
 
     if (comp.isPage) {
@@ -540,25 +633,53 @@ export function makeRustComponentServerModule(
             );
         }
 
+        /*
+            new String
+            call1
+            append metadata
+            call2
+            append content
+            call3
+            return string
+         */
         const renderPageFunction = new FunctionDeclaration(
             pageRenderFunctionName,
-            rustRenderParameters,
+            rustRenderParameters.slice(1), // Skip &mut acc
             new TypeSignature("String"),
             [
-                new ReturnStatement(
-                    new Expression(
-                        new VariableReference("render_html"),
-                        Operation.Call,
-                        new ArgumentList([
-                            new Expression(
-                                new VariableReference(componentRenderFunctionName),
-                                Operation.Call,
-                                new ArgumentList(renderFunctionArguments)
-                            ),
-                            metadataString
-                        ])
-                    )
-                )
+                // Create new string (TODO with capacity)
+                new VariableDeclaration("acc", true, new Expression(
+                    new VariableReference("new", new VariableReference("String"), true),
+                    Operation.Call
+                )),
+                new Expression(
+                    new VariableReference(htmlRenderFunctionOne),
+                    Operation.Call,
+                    new ArgumentList([new VariableReference("&mut acc")])
+                ),
+                new Expression(
+                    new VariableReference("push_str", accVariable),
+                    Operation.Call,
+                    metadataString
+                ),
+                new Expression(
+                    new VariableReference(htmlRenderFunctionTwo),
+                    Operation.Call,
+                    new ArgumentList([new VariableReference("&mut acc")])
+                ),
+                // Call the buffer function
+                new Expression(
+                    new VariableReference(componentRenderFunctionFromBufferName),
+                    Operation.Call,
+                    new ArgumentList([new VariableReference("&mut acc")].concat(renderFunctionArguments))
+                ),
+                new Expression(
+                    new VariableReference(htmlRenderFunctionThree),
+                    Operation.Call,
+                    new ArgumentList([new VariableReference("&mut acc")])
+                ),
+                // Return acc
+                new ReturnStatement(accVariable)
             ],
             true
         );
@@ -572,11 +693,11 @@ export function makeRustComponentServerModule(
         const useStatement = new UseStatement(["super", ...pathToPrismModule, "prism", "render_html"]);
         comp.serverModule!.statements.unshift(useStatement);
     }
-
-    // Use encode_safe from html_escape crate
-    const useHTMLEscapeStatement = new UseStatement(["html_escape", "encode_safe"]);
-    comp.serverModule!.statements.unshift(useHTMLEscapeStatement);
 }
+
+const htmlRenderFunctionOne = "render_html_one";
+const htmlRenderFunctionTwo = "render_html_two";
+const htmlRenderFunctionThree = "render_html_three";
 
 export function buildPrismServerModule(
     template: IShellData,
@@ -586,24 +707,47 @@ export function buildPrismServerModule(
     const baseServerModule = new Module(join(settings.absoluteServerOutputPath, "prism.rs"));
 
     // Create a template literal to build the index page. As the template has been parsed it will include slots for rendering slots
-    const serverChunks = serverRenderPrismNode(template.document, template.nodeData, {
+    const chunks = serverRenderPrismNode(template.document, template.nodeData, {
         minify: settings.minify, addDisableToElementWithEvents: false
     });
-    const renderHTMLStatements
-        = statementsFromServerRenderChunks(serverChunks, baseServerModule, new JSModule(""), null, true);
+
+    const metaLocation = chunks
+        .findIndex((value) => typeof value === "object" &&
+            "value" in value &&
+            value.value instanceof JSVariableReference &&
+            value.value.name === "metaSlot"
+        );
+
+    const contentLocation = chunks
+        .findIndex((value) => typeof value === "object" &&
+            "value" in value &&
+            value.value instanceof JSVariableReference &&
+            value.value.name === "contentSlot"
+        );
 
     // Create function with content and meta slot parameters
-    const pageRenderFunction = new FunctionDeclaration(
-        "render_html",
-        [
-            ["contentSlot", new TypeSignature("String")],
-            ["metaSlot", new TypeSignature("String")]
-        ],
-        new TypeSignature("String"),
-        renderHTMLStatements,
+    const pageRenderFunctionOne = new FunctionDeclaration(
+        htmlRenderFunctionOne,
+        [["acc", new TypeSignature("&mut String")]],
+        null,
+        statementsFromServerRenderChunks(chunks.slice(0, metaLocation), baseServerModule, new JSModule(""), null),
         true
     );
-    baseServerModule.statements.push(pageRenderFunction);
+    const pageRenderFunctionTwo = new FunctionDeclaration(
+        htmlRenderFunctionTwo,
+        [["acc", new TypeSignature("&mut String")]],
+        null,
+        statementsFromServerRenderChunks(chunks.slice(metaLocation + 1, contentLocation), baseServerModule, new JSModule(""), null),
+        true
+    );
+    const pageRenderFunctionThree = new FunctionDeclaration(
+        htmlRenderFunctionThree,
+        [["acc", new TypeSignature("&mut String")]],
+        null,
+        statementsFromServerRenderChunks(chunks.slice(contentLocation + 1), baseServerModule, new JSModule(""), null),
+        true
+    );
+    baseServerModule.statements.push(pageRenderFunctionOne, pageRenderFunctionTwo, pageRenderFunctionThree);
 
     outputFiles.push(baseServerModule.filename);
     const directoryModules: Map<string, Module> = new Map();

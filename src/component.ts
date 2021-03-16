@@ -16,7 +16,7 @@ import { ObjectLiteral } from "./chef/javascript/components/value/object";
 import { TemplateLiteral } from "./chef/javascript/components/value/template-literal";
 import { Stylesheet } from "./chef/css/stylesheet";
 import { prefixSelector, ISelector } from "./chef/css/selectors";
-import { addBinding, getElement, randomPrismId, thisDataVariable } from "./templating/helpers";
+import { addBinding, getElement, hasDateProperty, randomPrismId, thisDataVariable } from "./templating/helpers";
 import { ImportStatement } from "./chef/javascript/components/statements/import-export";
 import { getImportPath, defaultRenderSettings, makeRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
@@ -75,6 +75,7 @@ export class Component {
     serverRenderFunction?: IFunctionDeclaration;
     destructuredServerRenderFunction?: IFunctionDeclaration;
     pageServerRenderFunction?: IFunctionDeclaration;
+    layoutServerRenderFunctions?: [IFunctionDeclaration, IFunctionDeclaration];
 
     usesLayout?: Component; // The layout the component extends (component must be a page to have a layout)
 
@@ -115,7 +116,8 @@ export class Component {
     metaDataChunks: ServerRenderedChunks;
 
     createdUsingDestructured: boolean = false;
-    server
+
+    codeGenerated: boolean = false;
 
     /**
      * Returns a component under a filename
@@ -176,7 +178,7 @@ export class Component {
     }
 
     processComponent(settings: IFinalPrismSettings, runtimeFeatures: IRuntimeFeatures) {
-        this.relativeFilename = relative(settings.projectPath, this.filename);
+        this.relativeFilename = relative(settings.absoluteProjectPath, this.filename);
 
         // Find component class
         let componentClass = this.clientModule.classes?.find(cls => cls.base?.name === "Component");
@@ -491,15 +493,6 @@ export class Component {
             runtimeFeatures.observableArrays = true;
         }
 
-        function hasDateProperty(type: IType): boolean {
-            return type.name === "Date" ||
-                (
-                    typeof type.properties !== "undefined" && 
-                        Array.from(type.properties)
-                        .some(([, property]) => hasDateProperty(property))
-                )
-        }
-
         const usesDate = componentDataType && hasDateProperty(componentDataType);
 
         if (!runtimeFeatures.observableDates && usesDate) {
@@ -573,10 +566,7 @@ export class Component {
         // Build the server render module
         if (settings.context === "isomorphic") {
             // TODO events.forEach(x => x.addAttribute("disable")) ...
-            const ssrSettings: IServerRenderSettings = {
-                minify: settings.minify,
-                addDisableToElementWithEvents: settings.disableEventElements
-            }
+            
 
             this.dataTypeSignature = this.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
 
@@ -645,6 +635,10 @@ export class Component {
 
             let metadataString: ServerRenderedChunks = [];
             if (this.isPage) {
+                const ssrSettings: IServerRenderSettings = {
+                    minify: settings.minify,
+                    addDisableToElementWithEvents: settings.disableEventElements
+                }
                 // Build the metadata
                 if (this.title) {
                     const title = new HTMLElement("title");
@@ -674,24 +668,7 @@ export class Component {
             }
 
             this.serverRenderParameters = parameters;
-
-            if (settings.backendLanguage === "rust") {
-                rustModuleFromServerRenderedChunks(this, settings, ssrSettings);
-                if (usesDate) {
-                    this.serverModule?.statements.unshift(
-                        new DynamicStatement("use chrono::{DateTime, TimeZone, Utc};")
-                    );
-                }
-            } else {
-                tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
-            }
         }
-
-        // Set client module to now point to output path.
-        this.clientModule.filename = join(
-            settings.absoluteOutputPath,
-            this.relativeFilename
-        );
 
         // Add prism prelude
         this.clientModule.addImport(
@@ -840,5 +817,35 @@ export class Component {
         // TODO Prism decorators have no other use other than for marking information. Removing 
         // to prevent TypeScript issues
         delete this.componentClass.decorators;
+    }
+
+    // TODO move over client side 
+    generateCode(settings: IFinalPrismSettings) {
+        if (this.codeGenerated) {
+            return;
+        }
+        const ssrSettings: IServerRenderSettings = {
+            minify: settings.minify,
+            addDisableToElementWithEvents: settings.disableEventElements
+        }
+        if (settings.backendLanguage === "rust") {
+            rustModuleFromServerRenderedChunks(this, settings, ssrSettings);
+            // TODO do this in `rustModuleFromServerRenderedChunks`
+            const usesDate = this.componentDataType && hasDateProperty(this.componentDataType);
+            if (usesDate) {
+                this.serverModule?.statements.unshift(
+                    new DynamicStatement("use chrono::{DateTime, TimeZone, Utc};")
+                );
+            }
+        } else {
+            tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
+        }
+        this.codeGenerated = true;
+
+        // Set client module to now point to output path.
+        this.clientModule.filename = join(
+            settings.absoluteOutputPath,
+            this.relativeFilename
+        );
     }
 }

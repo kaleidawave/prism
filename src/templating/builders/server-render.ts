@@ -4,8 +4,8 @@ import { VariableReference } from "../../chef/javascript/components/value/expres
 import { aliasVariables, cloneAST } from "../../chef/javascript/utils/variables";
 import { NodeData } from "../template";
 import { ForIteratorExpression } from "../../chef/javascript/components/statements/for";
-import { IFunctionDeclaration } from "../../chef/abstract-asts";
 import { inbuiltTypes, IType } from "../../chef/javascript/utils/types";
+import { Component } from "../../component";
 
 const dataVariable = new VariableReference("data");
 
@@ -28,7 +28,7 @@ export interface ServerRenderExpression {
 }
 
 export interface FunctionCallServerRenderExpression {
-    func: IFunctionDeclaration,
+    component: Component,
     args: Map<
         string, [ServerRenderChunk | ServerRenderedChunks | { argument: ValueTypes }, IType]
     >
@@ -162,7 +162,7 @@ export function serverRenderPrismNode(
             }
 
             chunks.push({
-                func: component.serverRenderFunction!,
+                component,
                 args: renderArgs
             });
 

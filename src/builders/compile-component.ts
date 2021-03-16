@@ -101,6 +101,10 @@ export function compileSingleComponent(
         scriptLanguage: settings.outputTypeScript ? ScriptLanguages.Typescript : ScriptLanguages.Javascript
     };
 
+    for (const registeredComponent of Component.registeredComponents.values()) {
+        registeredComponent.generateCode(settings);
+    }
+
     let bundledClientModule: Module;
     if (settings.bundleOutput) {
         bundledClientModule = getPrismClient(false);

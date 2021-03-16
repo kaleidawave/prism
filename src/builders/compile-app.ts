@@ -100,7 +100,8 @@ export function compileApplication(
 
     // Combine all registered components client modules and stylesheets and write out the server module separately
     if (settings.buildTimings) console.time("Combine all component scripts and styles, write out server modules");
-    for (const [, registeredComponent] of Component.registeredComponents) {
+    for (const registeredComponent of Component.registeredComponents.values()) {
+        registeredComponent.generateCode(settings);
         if (settings.bundleOutput) {
             clientScriptBundle.combine(registeredComponent.clientModule);
             // If uses shadow dom the styles are written into render methods so do not output stylesheet

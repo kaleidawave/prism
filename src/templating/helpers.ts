@@ -246,3 +246,12 @@ export function getSlice(arr: VariableReferenceArray): Array<string> {
         return arr as Array<string>;
     }
 }
+
+export function hasDateProperty(type: IType): boolean {
+    return type.name === "Date" ||
+        (
+            typeof type.properties !== "undefined" && 
+                Array.from(type.properties)
+                .some(([, property]) => hasDateProperty(property))
+        )
+}
