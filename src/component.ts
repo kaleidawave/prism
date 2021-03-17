@@ -119,6 +119,9 @@ export class Component {
 
     codeGenerated: boolean = false;
 
+    // Whether to load content from server
+    renderFromEndpoint?: DynamicUrl;
+
     /**
      * Returns a component under a filename
      * If a component has been parsed will return it from the register and not re parse it
@@ -299,6 +302,7 @@ export class Component {
         }
 
         // Create methods that are needed for client side states updates
+        // These methods are also needed for renderFromEndpoint components for when state changes
         for (const binding of templateData.bindings) {
             if (binding.aspect === BindingAspect.Iterator) {
                 const expression = binding.expression as ForIteratorExpression;
@@ -431,13 +435,6 @@ export class Component {
 
         // If using shadow dom add runtime flag and imbed style element
         if (this.useShadowDOM) {
-            componentClass.addMember(
-                new VariableDeclaration("useShadow", {
-                    isStatic: true,
-                    value: new Value(Type.boolean, true)
-                })
-            );
-
             if (this.stylesheet) {
                 this.templateElement.children.push(
                     new HTMLElement("style", new Map, [
@@ -508,15 +505,68 @@ export class Component {
             runtimeFeatures.subObjects = true;
         }
 
-        // Build the render method
-        const clientRenderMethod = buildClientRenderMethod(
-            this.templateElement, 
-            templateData.nodeData, 
-            true, 
-            this.globals
-        );
+        let clientRenderMethod: FunctionDeclaration;
+        if (this.renderFromEndpoint) {
+            const url: Array<string | ValueTypes> = [];
+            for (const part of this.renderFromEndpoint) {
+                url.push("/")
+                if (typeof part === "string") {
+                    url.push(part)
+                } else {
+                    url.push(VariableReference.fromChain("this", "data", part.name));
+                }
+            }
+            // Fetch endpoint and set innerHTML response text
+            clientRenderMethod = new FunctionDeclaration(
+                "render",
+                [],
+                [
+                    new Expression({
+                        lhs: new VariableReference("then", new Expression({
+                            lhs: new VariableReference("fetch"),
+                            operation: Operation.Call,
+                            rhs: new TemplateLiteral(url)
+                        })),
+                        operation: Operation.Call,
+                        rhs: new FunctionDeclaration(
+                            null, 
+                            ["resp"], 
+                            [
+                                new Expression({
+                                    lhs: VariableReference.fromChain("this", "innerHTML"),
+                                    operation: Operation.Assign,
+                                    rhs: new Expression({
+                                        lhs: new Expression({
+                                            lhs: VariableReference.fromChain("resp", "text"),
+                                            operation: Operation.Call
+                                        }),
+                                        operation: Operation.Await
+                                    })
+                                }),
+                                // add events when innerHTML set this.handleEvents?.(true)
+                                new Expression({
+                                    lhs: VariableReference.fromChain("this", "handleEvents"),
+                                    operation: Operation.OptionalCall,
+                                    rhs: new Value(Type.boolean, true)
+                                })
+                            ], 
+                            { isAsync: true, bound: false }
+                        )
+                    })
+                ]
+            );
+        } else {
+            // Build the render method
+            clientRenderMethod = buildClientRenderMethod(
+                this.templateElement, 
+                templateData.nodeData, 
+                true, 
+                this.useShadowDOM,
+                this.globals
+            );
+        }
         componentClass.addMember(clientRenderMethod);
-
+        
         // Build event bindings for ssr components
         if (settings.context === "isomorphic" && templateData.events.length > 0) {
             componentClass.addMember(
@@ -566,8 +616,6 @@ export class Component {
         // Build the server render module
         if (settings.context === "isomorphic") {
             // TODO events.forEach(x => x.addAttribute("disable")) ...
-            
-
             this.dataTypeSignature = this.componentClass.base!.typeArguments?.[0] ?? new TypeSignature({ name: "any" });
 
             // Construct ssr function parameters
@@ -805,10 +853,13 @@ export class Component {
                 case "Shadow":
                     this.useShadowDOM = true;
                     break;
-                case "Singleton":
-                    throw Error(`Not implement - @${decorator.name}`);
                 case "RenderFromEndpoint":
-                    throw Error(`Not implement - @${decorator.name}`);
+                    const url = decorator.args[0] as Value;
+                    if (url.type !== Type.string) {
+                        throw Error(`RenderFromEndpoint required string argument in form /x/:param`);
+                    }
+                    this.renderFromEndpoint = stringToDynamicUrl(url.value!);
+                    break;
                 default:
                     throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators`)
             }

@@ -9,7 +9,7 @@ import { IFinalPrismSettings } from "../../settings";
 import { Module } from "../../chef/rust/module";
 import { Module as JSModule } from "../../chef/javascript/components/module";
 import { ModStatement } from "../../chef/rust/statements/mod";
-import { StructStatement, TypeSignature } from "../../chef/rust/statements/struct";
+import { TypeSignature } from "../../chef/rust/statements/struct";
 import { UseStatement } from "../../chef/rust/statements/use";
 import { ElseStatement, IfStatement } from "../../chef/rust/statements/if";
 import { ForStatement } from "../../chef/rust/statements/for";
@@ -18,8 +18,7 @@ import { jsAstToRustAst, typeMap } from "../../chef/rust/utils/js2rust";
 import { InterfaceDeclaration as TSInterfaceDeclaration } from "../../chef/javascript/components/types/interface";
 import { DynamicStatement } from "../../chef/rust/dynamic-statement";
 import { Comment as JSComment } from "../../chef/javascript/components/statements/comments";
-import { TemplateLiteral as JSTemplateLiteral } from "../../chef/javascript/components/value/template-literal";
-import { Type as JSType, Value as JSValue } from "../../chef/javascript/components/value/value";
+import { Value as JSValue } from "../../chef/javascript/components/value/value";
 import { VariableReference as JSVariableReference } from "../../chef/javascript/components/value/expression";
 import { IType } from "../../chef/javascript/utils/types";
 import {
@@ -223,7 +222,12 @@ function serverChunkToValue(
                             )
                         );
                     } else if (value.length === 1) {
-                        args.set(name, serverChunkToValue(value[0], module, jsModule, dataType));
+                        const rustValue = serverChunkToValue(value[0], module, jsModule, dataType);
+                        if (value[0] instanceof JSValue) {
+                            args.set(name, new Expression(rustValue, Operation.Borrow));
+                        } else {
+                            args.set(name, rustValue);
+                        }
                     } else {
                         args.set(name, formatExpressionFromServerChunks(value, module, jsModule));
                     }
@@ -516,6 +520,42 @@ export function makeRustComponentServerModule(
         comp.layoutServerRenderFunctions = [prefixChunkRenderFunction, suffixChunkRenderFunction];
         comp.serverModule.statements.push(prefixChunkRenderFunction, suffixChunkRenderFunction);
         return;
+    }
+
+    if (comp.renderFromEndpoint) {
+        // TODO recomputing chunks slow :( 
+        // Same chunks without component tag
+        const chunks = comp.componentHTMLTag.children
+            .flatMap((child) => serverRenderPrismNode(
+                child,
+                comp.templateData.nodeData,
+                ssrSettings,
+                comp.globals,
+                false,
+                true
+            )
+        );
+
+        comp.serverModule.statements.push(new FunctionDeclaration(
+            componentRenderFunctionName + "_content",
+            rustRenderParameters.slice(1, -1), // Ignore the acc & attributes parameter 
+            new TypeSignature("String"),
+            [
+                // Create new string
+                new VariableDeclaration("acc", true, new Expression(
+                    new VariableReference("new", new VariableReference("String"), true),
+                    Operation.Call
+                )),
+                ...statementsFromServerRenderChunks(chunks, 
+                    comp.serverModule,
+                    comp.clientModule,
+                    comp.componentDataType
+                ),
+                // Return acc
+                new ReturnStatement(accVariable)
+            ],
+            true
+        ));
     }
 
     comp.serverModule.statements.push(componentRenderFunction);

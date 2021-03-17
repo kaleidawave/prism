@@ -69,13 +69,7 @@ function cOO<T>(
 }
 
 function connectedCallback() {
-    // @ts-expect-error .useShadow does exist statically on derived class (abstract static)
-    if (this.constructor.useShadow) {
-        this.attachShadow({ mode: "open" }).append(...this.render());
-    } else {
-        // Uses super to avoiding conflicting with a possible append override on the component 
-        super.append(...this.render())
-    }
+    this.render();
     this.connected?.();
     this._isR = true;
 }

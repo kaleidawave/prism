@@ -15,31 +15,41 @@ import { NodeData } from "../template";
  * @param aliasDataToThis given data variables point them towards this 
  * TODO settings object
  */
-export function buildClientRenderMethod(template: HTMLElement, nodeData: WeakMap<Node, NodeData>, aliasDataToThis: boolean, locals: Array<VariableReference> = []): FunctionDeclaration {
+export function buildClientRenderMethod(
+    template: HTMLElement,
+    nodeData: WeakMap<Node, NodeData>,
+    aliasDataToThis: boolean,
+    shadowDOM: boolean = false,
+    locals: Array<VariableReference> = []
+): FunctionDeclaration {
     if (template instanceof HTMLComment) throw Error();
 
-    const statements: Array<Expression> = [];
+    const args: Array<ValueTypes> = [];
     for (const child of template.children) {
         const clientChildRendered = clientRenderPrismNode(child, nodeData, aliasDataToThis, locals);
         if (clientChildRendered === null) continue;
-
-        let statement: Expression;
-        // Convert `yield ...abc` to `yield* abc`
-        if (clientChildRendered instanceof Expression && clientChildRendered.operation === Operation.Spread) {
-            statement = new Expression({
-                operation: Operation.DelegatedYield,
-                lhs: clientChildRendered.lhs,
-            });
-        } else {
-            statement = new Expression({
-                operation: Operation.Yield,
-                lhs: clientChildRendered,
-            });
-        }
-        statements.push(statement);
+        args.push(clientChildRendered);
     }
 
-    return new FunctionDeclaration("render", [], statements, { isGenerator: true });
+    const attachTo = shadowDOM ?
+        new Expression({
+            lhs: VariableReference.fromChain("this", "attachShadow"),
+            operation: Operation.Call,
+            rhs: new ObjectLiteral(new Map([["mode", new Value(Type.string, "open")]]))
+        })
+        // super used to prevent collision with slot catching
+        : new VariableReference("super");
+    return new FunctionDeclaration(
+        "render",
+        [],
+        [
+            new Expression({
+                lhs: new VariableReference("append", attachTo),
+                operation: Operation.Call,
+                rhs: new ArgumentList(args)
+            }),
+        ]
+    );
 }
 
 /**
@@ -162,7 +172,7 @@ export function clientRenderPrismNode(
                             })
                         })
                     ];
-                } 
+                }
                 // Produce a ternary expression:
                 // *conditionExpression* ? *renderTruthyNode* : *renderFalsyChild*
                 else {
@@ -194,7 +204,7 @@ export function clientRenderPrismNode(
                 element.children.map(element => clientRenderPrismNode(element, nodeData, aliasDataToThis, locals))
         }
 
-        
+
         const attributeArgument: ValueTypes = attrs.length > 0 ?
             new ObjectLiteral(new Map(attrs)) :
             new Value(Type.number, 0); // 0 is used as a falsy value

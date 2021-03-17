@@ -36,5 +36,14 @@ bundledFilesDotTS.addExport(new VariableDeclaration("fileBundle", {
     })
 }));
 
-writeFileSync(join(process.cwd(), "src", "bundled-files.ts"), bundledFilesDotTS.render({scriptLanguage: ScriptLanguages.Typescript}));
+const prismVersion = JSON.parse(readFileSync("package.json").toString()).version;
+
+bundledFilesDotTS.addExport(new VariableDeclaration("prismVersion", {
+    value: new Value(Type.string, prismVersion)
+}));
+
+writeFileSync(
+    join(process.cwd(), "src", "bundled-files.ts"), 
+    bundledFilesDotTS.render({scriptLanguage: ScriptLanguages.Typescript})
+);
 console.log("Built file bundle");

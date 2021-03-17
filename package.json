@@ -1,6 +1,6 @@
 {
   "name": "@kaleidawave/prism",
-  "version": "1.4.4",
+  "version": "1.5.0-pre",
   "description": "Isomorphic web app compiler",
   "main": "./cjs/index.cjs",
   "exports": {
@@ -28,7 +28,8 @@
   },
   "scripts": {
     "test": "jest",
-    "build": "packemon build --addExports",
+    "build": "npm run build-bundle && npm run build-packemon",
+    "build-packemon": "packemon build",
     "build-tsc": "tsc",
     "build-bundle": "ts-node inject-bundle.ts",
     "clean": "packemon clean"

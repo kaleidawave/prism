@@ -24,7 +24,7 @@ export abstract class Component<T> extends HTMLElement {
     abstract load?: (params?: Object) => Promise<void>;
 
     // CSR component
-    abstract render(): Generator<HTMLElement | string>;
+    abstract render();
 
     // Add and remove event bindings, a = add
     abstract handleEvents(a: boolean): void;
@@ -80,13 +80,7 @@ export abstract class Component<T> extends HTMLElement {
             this._d = {};
             this.handleEvents?.(true);
         } else {
-            // @ts-expect-error .useShadow does exist statically on derived class (abstract static)
-            if (this.constructor.useShadow) {
-                this.attachShadow({ mode: "open" }).append(...this.render());
-            } else {
-                // Uses super to avoiding conflicting with a possible append override on the component 
-                super.append(...this.render())
-            }
+            this.render()
         }
         this.connected?.();
         this._isR = true;
@@ -96,5 +90,6 @@ export abstract class Component<T> extends HTMLElement {
         this.disconnected?.();
         this.handleEvents?.(false);
         this._isR = false;
+        this._eC.clear()
     }
 }

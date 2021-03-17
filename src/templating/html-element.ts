@@ -117,7 +117,7 @@ export function parseHTMLElement(
             const href = element.attributes.get("href");
             // TODO prefix hrefs for dynamic routes
             if (href) {
-                element.attributes.set("href", templateConfig.staticSrc + href);
+                element.attributes.set("href", join(templateConfig.staticSrc, href).replace(/\\/g, "/"));
             }
         }
 
