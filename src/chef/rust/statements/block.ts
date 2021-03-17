@@ -9,8 +9,9 @@ import { ForStatement } from "./for";
 import { ModStatement } from "./mod";
 import { DeriveStatement } from "./derive";
 import { DynamicStatement } from "../dynamic-statement";
+import { ValueTypes } from "../values/value";
 
-export type StatementTypes = Expression | VariableDeclaration | FunctionDeclaration | ReturnStatement | UseStatement | StructStatement | IfStatement | ForStatement | ModStatement | DeriveStatement | DynamicStatement;
+export type StatementTypes = Expression | VariableDeclaration | FunctionDeclaration | ReturnStatement | UseStatement | StructStatement | IfStatement | ForStatement | ModStatement | DeriveStatement | DynamicStatement | ValueTypes;
 
 export function renderStatements(statements: Array<StatementTypes>, settings = defaultRenderSettings, doIndent: boolean = true): string {
     let acc = "";

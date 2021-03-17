@@ -133,16 +133,7 @@ function statementsFromServerRenderChunks(
                 statementsFromServerRenderChunks(chunk.childRenderExpression, module, jsModule, dataType)
             ));
         } else if ("component" in chunk) {
-            statements.push(new Expression(
-                new VariableReference("push_str", accVariable),
-                Operation.Call,
-                new ArgumentList([
-                    new Expression(
-                        serverChunkToValue(chunk, module, jsModule, dataType),
-                        Operation.Borrow
-                    )
-                ])
-            ));
+            statements.push(serverChunkToValue(chunk, module, jsModule, dataType));
         }
     }
     return statements;
@@ -237,7 +228,12 @@ function serverChunkToValue(
                         args.set(name, formatExpressionFromServerChunks(value, module, jsModule));
                     }
                 } else {
-                    args.set(name, serverChunkToValue(value, module, jsModule, dataType));
+                    const rustValue = serverChunkToValue(value, module, jsModule, dataType)
+                    if (value instanceof JSValue) {
+                        args.set(name, new Expression(rustValue, Operation.Borrow));
+                    } else {
+                        args.set(name, rustValue);
+                    }
                 }
             }
         }
@@ -323,7 +319,7 @@ export function makeRustComponentServerModule(
     ssrSettings: IServerRenderSettings
 ): void {
     comp.serverModule = new Module(
-        join(settings.absoluteServerOutputPath, comp.relativeFilename).replace(/[.-]/g, "_") + ".rs"
+        join(settings.absoluteServerOutputPath, comp.relativeFilename.replace(/[.-]/g, "_")) + ".rs"
     );
 
     // Use encode_safe from html_escape crate
@@ -332,7 +328,11 @@ export function makeRustComponentServerModule(
 
     // Transition over statements
     for (const statement of comp.clientModule.statements) {
-        if ((statement instanceof JSExportStatement && statement.exported === comp.componentClass) || statement === comp.componentClass || statement === comp.customElementDefineStatement) {
+        if (
+            statement instanceof JSExportStatement && (
+                statement.exported === comp.componentClass) ||
+            statement === comp.componentClass ||
+            statement === comp.customElementDefineStatement) {
             continue;
         } else if (statement instanceof JSImportStatement) {
             if (statement.from.endsWith(".prism")) {
@@ -348,6 +348,9 @@ export function makeRustComponentServerModule(
                                 importedComponent.layoutServerRenderFunctions![1].actualName!,
                             )
                         } else {
+                            if (importedComponent.destructuredServerRenderFunction) {
+                                newImports.push(importedComponent.destructuredServerRenderFunction!.actualName!)
+                            }
                             newImports.push(importedComponent.serverRenderFunction!.actualName!)
                         }
                     } else {
@@ -399,28 +402,6 @@ export function makeRustComponentServerModule(
             statement instanceof JSExportStatement
         ) {
             const rustStatement = jsAstToRustAst(statement, null, comp.serverModule, comp.clientModule);
-            if (rustStatement instanceof StructStatement) {
-                const memberDecorators = statement instanceof JSExportStatement ?
-                    (statement.exported as TSInterfaceDeclaration).memberDecorators :
-                    (statement as TSInterfaceDeclaration).memberDecorators;
-                for (const [name, decorator] of memberDecorators) {
-                    if (decorator.name === "useRustStatement") {
-                        const firstArg = decorator.args[0];
-                        if (!firstArg || decorator.args.length > 1) {
-                            throw Error("@useRustStatement must have a single string or template literal arg");
-                        }
-                        let value: string;
-                        if (firstArg instanceof JSValue && firstArg.type === JSType.string) {
-                            value = firstArg.value!;
-                        } else if (firstArg instanceof JSTemplateLiteral && typeof firstArg.entries[0] === "string") {
-                            value = firstArg.entries[0];
-                        } else {
-                            throw Error("@useRustStatement must have a single string or template literal arg")
-                        }
-                        rustStatement.memberAttributes.set(name, new DynamicStatement(value));
-                    }
-                }
-            }
             if (rustStatement) comp.serverModule.statements.push(rustStatement);
         }
     }
@@ -562,12 +543,18 @@ export function makeRustComponentServerModule(
 
         for (const [name, type] of comp.componentDataType?.properties ?? []) {
             // TODO deep destructuring
-            let rustTypeName = typeMap.get(type.name!)!;
+            let rustTypeName = typeMap.get(type.name!) ?? type.name!;
+            if (type.name === "Array") {
+                rustTypeName += `<${typeMap.get(type.indexed!.name!) ?? type.indexed!.name!}>`;
+            }
             if (type.isOptional) {
                 rustTypeName = `Option<${rustTypeName}>`;
             }
             destructuredParameters.push([name, new TypeSignature("&" + rustTypeName)]);
-            destructuredArguments.push(new VariableReference(name, new VariableReference("data")));
+            destructuredArguments.push(new Expression(
+                new VariableReference(name, new VariableReference("data")),
+                Operation.Borrow
+            ));
         }
         // TODO add client globals to destructuredParameters
         const componentRenderFunctionDestructured = new FunctionDeclaration(
@@ -602,9 +589,12 @@ export function makeRustComponentServerModule(
         comp.clientModule,
         comp.componentDataType,
     );
+    if (comp.createdUsingDestructured) {
+        comp.destructuredServerRenderFunction!.statements = statements;
+    } else {
+        comp.serverRenderFunction.statements = statements;
+    }
 
-    comp.serverRenderFunction.statements = statements;
-    
     if (comp.usesLayout) {
         // TODO imports
         const [prefixFunction, suffixFunction] = comp.usesLayout.layoutServerRenderFunctions!;
@@ -660,7 +650,7 @@ export function makeRustComponentServerModule(
                 new Expression(
                     new VariableReference("push_str", accVariable),
                     Operation.Call,
-                    metadataString
+                    new Expression(metadataString, Operation.Borrow)
                 ),
                 new Expression(
                     new VariableReference(htmlRenderFunctionTwo),
@@ -690,7 +680,15 @@ export function makeRustComponentServerModule(
             settings.absoluteServerOutputPath,
             dirname(comp.serverModule.filename)
         ).split(settings.pathSplitter).filter(Boolean);
-        const useStatement = new UseStatement(["super", ...pathToPrismModule, "prism", "render_html"]);
+        const useStatement = new UseStatement([
+            "super",
+            ...pathToPrismModule,
+            "prism", [
+                "render_html_one",
+                "render_html_two",
+                "render_html_three"
+            ]
+        ]);
         comp.serverModule!.statements.unshift(useStatement);
     }
 }

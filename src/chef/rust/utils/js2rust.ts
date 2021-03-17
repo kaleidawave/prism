@@ -1,6 +1,6 @@
 import { Value as JSValue, Type as JSType } from "../../javascript/components/value/value";
 import { astTypes as JSAstTypes } from "../../javascript/javascript";
-import { InterfaceDeclaration as JSInterfaceDeclaration } from "../../javascript/components/types/interface";
+import { InterfaceDeclaration, InterfaceDeclaration as JSInterfaceDeclaration } from "../../javascript/components/types/interface";
 import { TypeSignature as JSTypeSignature } from "../../javascript/components/types/type-signature";
 import { Type, Value, ValueTypes } from "../values/value";
 import { VariableReference } from "../values/variable";
@@ -14,12 +14,13 @@ import { ArgumentList as JSArgumentList } from "../../javascript/components/cons
 import { ArgumentList } from "../statements/function";
 import { VariableDeclaration as JSVariableDeclaration } from "../../javascript/components/statements/variable";
 import { VariableDeclaration } from "../statements/variable";
-import { TemplateLiteral } from "../../javascript/components/value/template-literal";
+import { TemplateLiteral as JSTemplateLiteral } from "../../javascript/components/value/template-literal";
 import { Module as JSModule } from "../../javascript/components/module";
 import { findTypeDeclaration, IType } from "../../javascript/utils/types";
 import { StatementTypes } from "../statements/block";
 import { basename } from "path";
 import { ObjectLiteral as JSObjectLiteral } from "../../javascript/components/value/object";
+import { DynamicStatement } from "../dynamic-statement";
 
 type rustAstTypes = StatementTypes | ValueTypes | TypeSignature | ArgumentList;
 
@@ -80,18 +81,44 @@ export function jsAstToRustAst(
                 }
                 return [name, rts] as [string, TypeSignature];
             });
+
+        const memberDecorators = new Map(jsAst.memberDecorators);
         if (jsAst.extendsType) {
             // Rust does not do extends so do it in place
             const [extendingTypeDef, moduleItsIn] = findTypeDeclaration(jsModule, jsAst.extendsType.name!);
+            if (extendingTypeDef instanceof InterfaceDeclaration) {
+                for (const [property, decorator] of extendingTypeDef.memberDecorators) {
+                    memberDecorators.set(property, decorator);
+                }
+            }
             // Add the extended definitions onto this declaration
             members.push(
                 ...(jsAstToRustAst(extendingTypeDef, null, rustModule, moduleItsIn) as StructStatement).members
             );
         }
+        // If `@UseRustStatement` convert to attributes
+        const memberAttributes = new Map();
+        for (const [name, decorator] of memberDecorators) {
+            if (decorator.name === "useRustStatement") {
+                const firstArg = decorator.args[0];
+                if (!firstArg || decorator.args.length > 1) {
+                    throw Error("@useRustStatement must have a single string or template literal arg");
+                }
+                let value: string;
+                if (firstArg instanceof JSValue && firstArg.type === JSType.string) {
+                    value = firstArg.value!;
+                } else if (firstArg instanceof JSTemplateLiteral && typeof firstArg.entries[0] === "string") {
+                    value = firstArg.entries[0];
+                } else {
+                    throw Error("@useRustStatement must have a single string or template literal arg")
+                }
+                memberAttributes.set(name, new DynamicStatement(value));
+            }
+        }
         return new StructStatement(
             jsAstToRustAst(jsAst.name, null, rustModule, jsModule) as TypeSignature,
             new Map(members),
-            new Map,
+            memberAttributes,
             true // TODO temp will say its true for now ...
         );
     } else if (jsAst instanceof JSTypeSignature) {
@@ -135,7 +162,7 @@ export function jsAstToRustAst(
             operation,
             jsAst.rhs ? jsAstToRustAst(jsAst.rhs, null, rustModule, jsModule) as ValueTypes : undefined
         );
-    } else if (jsAst instanceof TemplateLiteral) {
+    } else if (jsAst instanceof JSTemplateLiteral) {
         let formatString = "";
         const formatArgs: Array<ValueTypes> = [];
         for (const entry of jsAst.entries) {
