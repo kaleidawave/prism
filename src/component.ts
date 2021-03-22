@@ -122,6 +122,9 @@ export class Component {
     // Whether to load content from server
     renderFromEndpoint?: DynamicUrl;
 
+    // Set a capacity for the SSR buffer
+    withCapacity: number = 0;
+
     /**
      * Returns a component under a filename
      * If a component has been parsed will return it from the register and not re parse it
@@ -513,7 +516,13 @@ export class Component {
                 if (typeof part === "string") {
                     url.push(part)
                 } else {
-                    url.push(VariableReference.fromChain("this", "data", part.name));
+                    const name = new VariableReference(part.name);
+                    const binding: PartialBinding  = {
+                        aspect: BindingAspect.ServerParameter,
+                        expression: name,
+                    };
+                    addBinding(binding, [], this.globals, this.bindings)
+                    url.push(VariableReference.fromChain("this", "data", name));
                 }
             }
             // Fetch endpoint and set innerHTML response text
@@ -718,14 +727,18 @@ export class Component {
             this.serverRenderParameters = parameters;
         }
 
-        // Add prism prelude
-        this.clientModule.addImport(
-            preludeImports,
-            getImportPath(
-                this.clientModule.filename,
-                join(settings.absoluteOutputPath, "prism")
-            )
-        );
+        // Add prism prelude. Remove "Router" if no clientSideRouting
+        const prismPreludeImports = settings.clientSideRouting ? 
+            preludeImports : 
+            preludeImports.filter((varName) => varName.name !== "Router");
+        const prismPreludeImport = new ImportStatement(prismPreludeImports, getImportPath(
+            this.clientModule.filename,
+            join(settings.absoluteOutputPath, "prism")
+        ));
+
+        // TODO bad method but prevents this being in the server module
+        (prismPreludeImport as any).prismPrelude = true;
+        this.clientModule.statements.unshift(prismPreludeImport);
     }
 
     // TODO return object rather than defining properties on this
@@ -856,9 +869,16 @@ export class Component {
                 case "RenderFromEndpoint":
                     const url = decorator.args[0] as Value;
                     if (url.type !== Type.string) {
-                        throw Error(`RenderFromEndpoint required string argument in form /x/:param`);
+                        throw Error(`RenderFromEndpoint required string argument in form "/x/:param"`);
                     }
                     this.renderFromEndpoint = stringToDynamicUrl(url.value!);
+                    break;
+                case "WithCapacity":
+                    const capacity = decorator.args[0] as Value;
+                    if (capacity.type !== Type.number) {
+                        throw Error(`WithCapacity required number argument`);
+                    }
+                    this.withCapacity = parseInt(capacity.value!);
                     break;
                 default:
                     throw Error(`Unknown decorator ${decorator.name}. Prism does not support external decorators`)
@@ -875,21 +895,23 @@ export class Component {
         if (this.codeGenerated) {
             return;
         }
-        const ssrSettings: IServerRenderSettings = {
-            minify: settings.minify,
-            addDisableToElementWithEvents: settings.disableEventElements
-        }
-        if (settings.backendLanguage === "rust") {
-            rustModuleFromServerRenderedChunks(this, settings, ssrSettings);
-            // TODO do this in `rustModuleFromServerRenderedChunks`
-            const usesDate = this.componentDataType && hasDateProperty(this.componentDataType);
-            if (usesDate) {
-                this.serverModule?.statements.unshift(
-                    new DynamicStatement("use chrono::{DateTime, TimeZone, Utc};")
-                );
+        if (settings.context === "isomorphic") {
+            const ssrSettings: IServerRenderSettings = {
+                minify: settings.minify,
+                addDisableToElementWithEvents: settings.disableEventElements
             }
-        } else {
-            tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
+            if (settings.backendLanguage === "rust") {
+                rustModuleFromServerRenderedChunks(this, settings, ssrSettings);
+                // TODO do this in `rustModuleFromServerRenderedChunks`
+                const usesDate = this.componentDataType && hasDateProperty(this.componentDataType);
+                if (usesDate) {
+                    this.serverModule?.statements.unshift(
+                        new DynamicStatement("use chrono::{DateTime, TimeZone, Utc};")
+                    );
+                }
+            } else {
+                tsModuleFromServerRenderedChunks(this, settings, ssrSettings);
+            }
         }
         this.codeGenerated = true;
 

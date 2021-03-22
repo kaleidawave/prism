@@ -77,7 +77,7 @@ export function makePrismSettings(
     const assetPath = partialSettings.assetPath ?? join(projectPath, "assets");
     const serverOutputPath = partialSettings.serverOutputPath ?? join(outputPath, "server");
     const templatePath = partialSettings.templatePath ?? defaultSettings.templatePath;
-    const componentPath = partialSettings.componentPath ?? join(cwd, "index.prism"); // TODO cwd..?
+    const componentPath = partialSettings.componentPath ?? join(cwd, "index.prism");
     return {
         ...defaultSettings,
         ...partialSettings,

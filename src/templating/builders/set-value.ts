@@ -190,6 +190,27 @@ export function makeSetFromBinding(
                 rhs: newValue!
             }));
             break;
+        case BindingAspect.ServerParameter:
+            const name = (binding.expression as VariableReference).name;
+            const resetData = new Expression({
+                lhs: VariableReference.fromChain("this", "_d"),
+                operation: Operation.Assign,
+                rhs: new ObjectLiteral(new Map([[name, new VariableReference("value")]]))
+            });
+            const removeDataProxy = new Expression({
+                lhs: VariableReference.fromChain("this", "_pC"),
+                operation: Operation.Delete
+            });
+            const clearElementCache = new Expression({
+                lhs: VariableReference.fromChain("this", "_eC", "clear"),
+                operation: Operation.Call
+            });
+            const renderCall = new Expression({
+                lhs: VariableReference.fromChain("this", "render"),
+                operation: Operation.Call,
+            });
+            statements.push(resetData, removeDataProxy, clearElementCache, renderCall);
+            break;
         default:
             throw Error(`Unknown aspect ${BindingAspect[binding.aspect]}`)
     }

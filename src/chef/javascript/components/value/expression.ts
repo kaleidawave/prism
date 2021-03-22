@@ -233,6 +233,10 @@ export class Expression implements IRenderable {
                     return acc;
                 case Operation.Await:
                     return `await ${this.lhs.render(settings)}`;
+                case Operation.Delete:
+                    return `delete ${this.lhs.render(settings)}`;
+                case Operation.Void:
+                    return `void ${this.lhs.render(settings)}`;
                 case Operation.LogNot:
                     return "!" + this.lhs.render(settings);
                 case Operation.PrefixIncrement:

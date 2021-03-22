@@ -17,7 +17,7 @@ export function makeGetFromBinding(
     dataType: IType,
     variableChain: VariableReferenceArray,
     settings: IFinalPrismSettings
-): ValueTypes {
+): ValueTypes | null {
 
     // If the element is multiple get the "pivot" of that element and building a chain
     const elementStatement = binding.element ? getElement(binding.element, nodeData) : null; 
@@ -77,8 +77,10 @@ export function makeGetFromBinding(
                 newOptionalVariableReference("innerHTML", elementStatement!) :
                 new VariableReference("innerHTML", elementStatement!);
             break;
+        case BindingAspect.ServerParameter:
+            return null;
         default:
-            throw Error(`Not implemented - get hookup for binding of type ${BindingAspect[binding.aspect]}`)
+            throw Error(`Not implemented - get resolver for binding of type ${BindingAspect[binding.aspect]}`)
     }
 
     let value: ValueTypes = getSource;

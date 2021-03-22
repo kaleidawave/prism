@@ -80,31 +80,34 @@ function statementsFromServerRenderChunks(
                 }
                 if (dataType?.properties?.get(name)?.name === "string") {
                     // TODO should probably do destructured pattern matching with guard
-                    // Prevents .is_some().is_empty() with 'x.is_some() && x.as_ref().unwrap().is_empty()'
+                    // Prevents .is_some().is_empty() with 'x.is_some() && !x.as_ref().unwrap().is_empty()'
                     if (isOptional) {
                         value = new Expression(
                             value,
                             Operation.And,
                             new Expression(
-                                new VariableReference(
-                                    "is_empty",
-                                    new Expression(
-                                        new VariableReference(
-                                            "unwrap",
-                                            new Expression(
-                                                new VariableReference(
-                                                    "as_ref",
-                                                    // without the is_some()
-                                                    ((value as Expression).lhs as VariableReference).parent!,
-                                                ),
-                                                Operation.Call
-                                            )
+                                new Expression(
+                                    new VariableReference(
+                                        "is_empty",
+                                        new Expression(
+                                            new VariableReference(
+                                                "unwrap",
+                                                new Expression(
+                                                    new VariableReference(
+                                                        "as_ref",
+                                                        // without the is_some()
+                                                        ((value as Expression).lhs as VariableReference).parent!,
+                                                    ),
+                                                    Operation.Call
+                                                )
+                                            ),
+                                            Operation.Call,
                                         ),
-                                        Operation.Call,
                                     ),
+                                    Operation.Call,
                                 ),
-                                Operation.Call,
-                            )
+                                Operation.Not
+                            ),
                         );
                     } else {
                         value = new Expression(
@@ -167,10 +170,16 @@ function serverChunkToValue(
                 Operation.Call,
             )
         }
-        value = new Expression(
-            new VariableReference("to_string", value),
-            Operation.Call
-        );
+        // TODO for deep properties
+        const typeIsString = 
+            chunk.value instanceof JSVariableReference && 
+            dataType?.properties?.get(chunk.value.name)?.name === "string"
+        if (!typeIsString) {
+            value = new Expression(
+                new VariableReference("to_string", value),
+                Operation.Call
+            );
+        }
         if (chunk.escape) {
             // TODO if text (not a attribute could use "encode_text")
             value = new Expression(
@@ -223,7 +232,7 @@ function serverChunkToValue(
                         );
                     } else if (value.length === 1) {
                         const rustValue = serverChunkToValue(value[0], module, jsModule, dataType);
-                        if (value[0] instanceof JSValue) {
+                        if (typeof value[0] === "string") {
                             args.set(name, new Expression(rustValue, Operation.Borrow));
                         } else {
                             args.set(name, rustValue);
@@ -452,10 +461,7 @@ export function makeRustComponentServerModule(
         new TypeSignature("String"),
         [
             // Create new string
-            new VariableDeclaration("acc", true, new Expression(
-                new VariableReference("new", new VariableReference("String"), true),
-                Operation.Call
-            )),
+            new VariableDeclaration("acc", true, getNewString(comp.withCapacity)),
             // Call the buffer function
             new Expression(
                 new VariableReference(componentRenderFunctionFromBufferName),
@@ -538,21 +544,20 @@ export function makeRustComponentServerModule(
 
         comp.serverModule.statements.push(new FunctionDeclaration(
             componentRenderFunctionName + "_content",
-            rustRenderParameters.slice(1, -1), // Ignore the acc & attributes parameter 
+            rustRenderParameters.filter(([paramName]) => !["acc", "attributes"].includes(paramName)),
             new TypeSignature("String"),
             [
                 // Create new string
-                new VariableDeclaration("acc", true, new Expression(
-                    new VariableReference("new", new VariableReference("String"), true),
-                    Operation.Call
-                )),
+                new VariableDeclaration("buf", true, getNewString(comp.withCapacity)),
+                // buf is owned (mutable) String but many statements require a mutable reference so acc is &mut buf
+                new VariableDeclaration("acc", false, new VariableReference("&mut buf")),
                 ...statementsFromServerRenderChunks(chunks, 
                     comp.serverModule,
                     comp.clientModule,
                     comp.componentDataType
                 ),
                 // Return acc
-                new ReturnStatement(accVariable)
+                new ReturnStatement(new VariableReference("buf"))
             ],
             true
         ));
@@ -677,11 +682,8 @@ export function makeRustComponentServerModule(
             rustRenderParameters.slice(1), // Skip &mut acc
             new TypeSignature("String"),
             [
-                // Create new string (TODO with capacity)
-                new VariableDeclaration("acc", true, new Expression(
-                    new VariableReference("new", new VariableReference("String"), true),
-                    Operation.Call
-                )),
+                // Create new string
+                new VariableDeclaration("acc", true, getNewString(comp.withCapacity)),
                 new Expression(
                     new VariableReference(htmlRenderFunctionOne),
                     Operation.Call,
@@ -803,4 +805,21 @@ export function buildPrismServerModule(
     directoryModules.forEach(value => value.writeToFile({}))
 
     return baseServerModule;
+}
+
+function getNewString(initialBufferCapacity: number): Expression {
+    if (initialBufferCapacity === 0) {
+        return new Expression(
+            new VariableReference("new", new VariableReference("String"), true),
+            Operation.Call
+        )
+    } else {
+        return new Expression(
+            new VariableReference("with_capacity", new VariableReference("String"), true),
+            Operation.Call,
+            new ArgumentList([
+                new Value(Type.number, initialBufferCapacity.toString())
+            ])
+        )
+    }
 }

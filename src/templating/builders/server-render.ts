@@ -301,7 +301,7 @@ export function serverRenderNodeAttribute(
     const rawAttribute = nodeData.get(element)?.rawAttribute;
     if (rawAttribute) {
         addChunk(" ", chunks);
-        addChunk({ value: rawAttribute, escape: true }, chunks);
+        addChunk({ value: rawAttribute, escape: false }, chunks);
     }
 
     const dynamicAttributes = nodeData.get(element)?.dynamicAttributes;

@@ -3,7 +3,6 @@ import { ValueTypes } from "../chef/javascript/components/value/value";
 import { Expression, VariableReference } from "../chef/javascript/components/value/expression";
 import { HTMLComment, TextNode } from "../chef/html/html";
 import { addIdentifierToElement, addBinding } from "./helpers";
-import { HTMLElement } from "../chef/html/html";
 import { assignToObjectMap } from "../helpers";
 
 export function parseTextNode(
@@ -12,7 +11,7 @@ export function parseTextNode(
     templateConfig: ITemplateConfig,
     locals: Array<VariableReference>,
     localData: Locals,
-    multiple: boolean = false
+    multiple: boolean = false,
 ): void {
     // TODO what about "Hello {name(x: {})}"; Uhh? Maybe alternative to regex?
     const text = textNode.text.split(/{(.+?)}/g);
@@ -25,12 +24,6 @@ export function parseTextNode(
     // If no instances of {...} return;
     if (text.length <= 1) {
         return;
-    }
-
-    // TODO allow interpolated variables alongside elements
-    // Check could also be done via element.parent.children.length > 1 but ...
-    if (textNode.parent?.children.some(element => element instanceof HTMLElement)) {
-        throw Error("Not supported - Interpolated variables alongside elements");
     }
 
     const fragments: Array<string | ValueTypes> = []
@@ -48,6 +41,9 @@ export function parseTextNode(
             }
         }
     }
+
+    // This does account for previous text nodes being split up
+    const offset = textNode.parent.children.indexOf(textNode); 
 
     if (!multiple) {
         addIdentifierToElement(textNode.parent, templateData.nodeData);
@@ -70,7 +66,7 @@ export function parseTextNode(
                 expression: fragment,
                 // Under SSR comments are needed to create text nodes,
                 // therefore the text nodes are every other index and the need for *2
-                fragmentIndex: templateConfig.ssrEnabled ? i * 2 : i
+                fragmentIndex: (templateConfig.ssrEnabled ? i * 2 : i) + offset
             }
 
             addBinding(bindings, localData, locals, templateData.bindings);

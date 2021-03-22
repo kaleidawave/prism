@@ -127,9 +127,9 @@ export function cOA<T>(
             return t[p] ?? (t[p] = m["*"].get.call(this, ...i, p));
         },
         set: (t, p, v, r) => {
-            Reflect.set(t, p, v);
             // prevLength
             let pl = t.length;
+            Reflect.set(t, p, v);
             if (p === "length") {
                 if (v < pl) {
                     m.length.set.call(this, ...i, v);

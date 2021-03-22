@@ -8,6 +8,7 @@ import { fileBundle } from "../bundled-files";
 import { registerFSWriteCallback, registerFSReadCallback, __fileSystemReadCallback, __fileSystemWriteCallback } from "../filesystem";
 import { join } from "path";
 import { ExportStatement, ImportStatement } from "../chef/javascript/components/statements/import-export";
+import { UseStatement } from "../chef/rust/statements/use";
 
 /**
  * Component cannot import another component as there single source. Use `compileSingleComponentFromFSMap`
@@ -86,6 +87,12 @@ export function compileSingleComponent(
     projectPath: string,
     partialSettings: Partial<IPrismSettings> = {}
 ): string {
+    // In general components are built for client. Override isomorphic default
+    if (typeof partialSettings.context === "undefined") {
+        partialSettings.context = "client";
+    }
+    // Component doesn't include routing
+    partialSettings.clientSideRouting = false;
     const settings: IFinalPrismSettings = makePrismSettings(projectPath, partialSettings);
 
     const features: IRuntimeFeatures = { ...defaultRuntimeFeatures, isomorphic: settings.context === "isomorphic" };
@@ -127,9 +134,7 @@ export function compileSingleComponent(
         case "rust": scriptLanguage = ScriptLanguages.Rust; break;
         default: throw Error(`Unknown script language "${settings.backendLanguage}"`);
     }
-    const serverRenderSettings: Partial<IRenderSettings> = {
-        scriptLanguage: settings.backendLanguage === "js" ? ScriptLanguages.Javascript : ScriptLanguages.Typescript
-    };
+    const serverRenderSettings: Partial<IRenderSettings> = { scriptLanguage };
 
     // This bundles all the components together into a single client module, single stylesheet
     if (settings.bundleOutput) {
@@ -166,9 +171,7 @@ export function compileSingleComponent(
     }
 
     // Bundle server modules and add util functions
-    // TODO current leaves rust component independent
-    // TODO noBundle
-    if (settings.context === "isomorphic" && settings.backendLanguage !== "rust") {
+    if (settings.context === "isomorphic") {
         const bundledServerModule = Module.fromString(fileBundle.get("server.ts")!, "server.ts");
         bundledServerModule.filename = join(settings.absoluteOutputPath, "component.server.js");
         for (const [, comp] of Component.registeredComponents) {
@@ -176,10 +179,17 @@ export function compileSingleComponent(
         }
 
         // TODO temporary removing of all imports as it is bundled
-        bundledClientModule!.statements = 
-            bundledClientModule!.statements.filter(statement => 
-                !(statement instanceof ImportStatement)
+        if (settings.backendLanguage === "rust") {
+            bundledServerModule!.statements = 
+                bundledServerModule!.statements.filter(statement => 
+                    !(statement instanceof UseStatement)
                 );
+        } else {
+            bundledServerModule!.statements = 
+                bundledServerModule!.statements.filter(statement => 
+                    !(statement instanceof ImportStatement)
+                );
+        }
                 
         bundledServerModule.writeToFile(serverRenderSettings);
     }

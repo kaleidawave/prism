@@ -114,10 +114,12 @@ export function parseHTMLElement(
             }
 
             // Rewrite href to be in terms staticSrc
-            const href = element.attributes.get("href");
-            // TODO prefix hrefs for dynamic routes
-            if (href) {
-                element.attributes.set("href", join(templateConfig.staticSrc, href).replace(/\\/g, "/"));
+            // TODO for dynamic paths
+            if (element.attributes.has("href")) {
+                element.attributes.set(
+                    "href", 
+                    join(templateConfig.staticSrc, element.attributes.get("href")!).replace(/\\/g, "/")
+                );
             }
         }
 

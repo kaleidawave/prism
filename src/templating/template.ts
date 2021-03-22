@@ -62,7 +62,8 @@ export enum BindingAspect {
     Conditional, // Affects if a node is rendered TODO not visible but exists
     DocumentTitle, // Affects the document title
     SetHook, // Hook to method on a class
-    Style // A css style
+    Style, // A css style
+    ServerParameter // Used in referencing the 
 }
 
 // Represents a link between data and a element

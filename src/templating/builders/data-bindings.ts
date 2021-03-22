@@ -7,7 +7,7 @@ import { makeGetFromBinding, getLengthFromIteratorBinding } from "./get-value";
 import { makeSetFromBinding, setLengthForIteratorBinding } from "./set-value";
 import { getTypeFromVariableReferenceArray } from "../helpers";
 import { IType } from "../../chef/javascript/utils/types";
-import { VariableReference } from "../../chef/javascript/components/value/expression";
+import { Expression, Operation, VariableReference } from "../../chef/javascript/components/value/expression";
 import { Node } from "../../chef/html/html";
 import { IFinalPrismSettings } from "../../settings";
 
@@ -16,6 +16,7 @@ interface IDataPoint {
     variable: VariableReferenceArray, // The variable it references
     type: IType, // The type of variable
     isExternal: boolean | null, // null represents not set
+    getReturnValueNullable?: boolean,
     getReturnValue: ValueTypes | null,
     setStatements: Array<StatementTypes>,
     pushStatements?: Array<StatementTypes>
@@ -81,12 +82,25 @@ export function constructBindings(
 
             const isomorphicContext = settings.context === "isomorphic";
             const isReversibleBinding = binding.aspect !== BindingAspect.Iterator;
+            const buildReverseBinding = !dataPoint.getReturnValue || dataPoint.getReturnValueNullable === true;
 
             if (
-                (isomorphicContext && isReversibleBinding && !dataPoint.getReturnValue) ||
-                binding.aspect === BindingAspect.Data) {
+                (isomorphicContext && isReversibleBinding && buildReverseBinding) || binding.aspect === BindingAspect.Data) {
                 try {
-                    dataPoint.getReturnValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings);
+                    const getValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings);
+                    if (getValue !== null) {
+                        if (dataPoint.getReturnValueNullable !== true) {
+                            dataPoint.getReturnValue = getValue;
+                        } else {
+                            dataPoint.getReturnValue = new Expression({
+                                lhs: dataPoint.getReturnValue!, 
+                                operation: Operation.NullCoalescing, 
+                                rhs: getValue
+                            });
+                        }
+                        dataPoint.getReturnValueNullable = binding.element ? 
+                            nodeData.get(binding.element)?.nullable ?? false : false;
+                    }
                 } catch (er) {
                     // TODO some expr will fail which is okay but  
                 }

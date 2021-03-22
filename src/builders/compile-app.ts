@@ -1,6 +1,6 @@
 import { filesInFolder } from "../helpers";
 import { Component } from "../component";
-import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
+import { getImportPath, IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers";
 import { Module } from "../chef/javascript/components/module";
 import { defaultRuntimeFeatures, getPrismClient, IRuntimeFeatures, treeShakeBundle } from "./prism-client";
 import { parseTemplateShell, writeIndexHTML } from "./template";
@@ -57,17 +57,21 @@ export function compileApplication(
         includeExtensionsInImports: settings.deno
     };
 
-    const jsName = settings.versioning ? `bundle.${randomId()}.js` : "bundle.js";
-    const cssName = settings.versioning ? `bundle.${randomId()}.css` : "bundle.css";
-    const clientScriptBundle = new Module(join(settings.absoluteOutputPath, jsName));
+    const name = settings.bundleOutput ? "bundle" : "index";
+    const jsEntryPointName = settings.versioning ? `${name}.${randomId()}.js` : `${name}.js`;
+    const cssName = settings.versioning ? `${name}.${randomId()}.css` : `${name}.css`;
+    const clientScriptBundle = new Module(join(settings.absoluteOutputPath, jsEntryPointName));
     const clientStyleBundle = new Stylesheet(join(settings.absoluteOutputPath, cssName));
 
-    const template = parseTemplateShell(settings, jsName, cssName);
+    const template = parseTemplateShell(settings, jsEntryPointName, cssName);
 
     const prismClient = getPrismClient(settings.clientSideRouting);
-    treeShakeBundle(features, prismClient);
+    prismClient.filename = join(settings.absoluteOutputPath, "prism.js");
     if (settings.bundleOutput) {
+        treeShakeBundle(features, prismClient);
         clientScriptBundle.combine(prismClient);
+    } else {
+        prismClient.writeToFile(clientRenderSettings);
     }
 
     if (exists(settings.absoluteAssetPath)) {
@@ -89,7 +93,9 @@ export function compileApplication(
                 }
             }
         } else {
-            throw "Not implemented";
+            for (const moduleOrStylesheet of modulesAndStylesheets) {
+                moduleOrStylesheet.writeToFile();
+            }
         }
 
         if (settings.buildTimings) console.timeEnd("Move static assets");
@@ -102,7 +108,7 @@ export function compileApplication(
     if (settings.buildTimings) console.time("Combine all component scripts and styles, write out server modules");
     for (const registeredComponent of Component.registeredComponents.values()) {
         registeredComponent.generateCode(settings);
-        
+
         if (settings.bundleOutput) {
             clientScriptBundle.combine(registeredComponent.clientModule);
             // If uses shadow dom the styles are written into render methods so do not output stylesheet
@@ -114,6 +120,13 @@ export function compileApplication(
                 registeredComponent.serverModule.writeToFile(serverRenderSettings);
             }
         } else {
+            // Add `import "*clientModule"` so bundlers can bundle registered components
+            clientScriptBundle.statements.push(
+                new ImportStatement(
+                    null, 
+                    getImportPath(clientScriptBundle.filename, registeredComponent.clientModule.filename)
+                )
+            );
             registeredComponent.clientModule.writeToFile(clientRenderSettings);
             if (registeredComponent.stylesheet && !registeredComponent.useShadowDOM) {
                 registeredComponent.stylesheet.writeToFile();

@@ -83,7 +83,11 @@ function templateLiteralFromServerRenderChunks(serverChunks: ServerRenderedChunk
     return new TemplateLiteral(serverChunks.map(serverChunk => renderServerChunk(serverChunk)));
 }
 
-export function makeTsComponentServerModule(comp: Component, settings: IFinalPrismSettings, ssrSettings: IServerRenderSettings): void {
+export function makeTsComponentServerModule(
+    comp: Component, 
+    settings: IFinalPrismSettings, 
+    ssrSettings: IServerRenderSettings
+): void {
     comp.serverModule = new Module(join(settings.absoluteServerOutputPath, comp.relativeFilename));
 
     for (const statement of comp.clientModule.statements) {
@@ -110,7 +114,7 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
                 );
                 const newImport = new ImportStatement(newImports, newPath, statement.as, statement.typeOnly);
                 comp.serverModule!.statements.push(newImport);
-            } else {
+            } else if (!(statement as any).prismPrelude) {
                 const newPath = getImportPath(
                     comp.serverModule!.filename!,
                     resolve(dirname(comp.filename), statement.from)
@@ -123,7 +127,11 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
         }
     }
 
-    comp.serverRenderFunction = new FunctionDeclaration(`render${comp.className}Component`, comp.serverRenderParameters, []);
+    comp.serverRenderFunction = new FunctionDeclaration(
+        `render${comp.className}Component`, 
+        comp.serverRenderParameters, 
+        []
+    );
 
     if (comp.defaultData && comp.noSSRData) {
         comp.serverRenderFunction.statements.push(new VariableDeclaration("data", {
@@ -177,6 +185,29 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
 
     comp.serverModule!.addExport(comp.serverRenderFunction);
 
+    if (comp.renderFromEndpoint) {
+        // TODO recomputing chunks slow :( 
+        // Same chunks without component tag
+        const chunks = comp.componentHTMLTag.children
+            .flatMap((child) => serverRenderPrismNode(
+                child,
+                comp.templateData.nodeData,
+                ssrSettings,
+                comp.globals,
+                false,
+                true
+            )
+        );
+
+        comp.serverModule.statements.push(new FunctionDeclaration(
+            `render${comp.className}Content`,
+            comp.serverRenderParameters.filter((name) => name.name !== "attributes"),
+            [
+                new ReturnStatement(templateLiteralFromServerRenderChunks(chunks))
+            ]
+        ));
+    }
+
     // If has page decorator, add another function that renders the page into full document with head
     if (comp.isPage) {
         const pageRenderArgs: Array<ValueTypes> = comp.needsData ? [new VariableReference("data")] : [];
@@ -188,7 +219,9 @@ export function makeTsComponentServerModule(comp: Component, settings: IFinalPri
             rhs: new ArgumentList(pageRenderArgs)
         });
 
-        const metaDataArg: ValueTypes = (comp.title || comp.metadata) ? templateLiteralFromServerRenderChunks(comp.metaDataChunks) : new Value(Type.string);
+        const metaDataArg: ValueTypes = (comp.title || comp.metadata) ? 
+            templateLiteralFromServerRenderChunks(comp.metaDataChunks) : 
+            new Value(Type.string);
 
         // Creates "return renderHTML(renderComponent(***))"
         const renderAsPage = new ReturnStatement(

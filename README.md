@@ -276,7 +276,7 @@ As of 1.3.0 prism supports compiling server render functions to native rust func
 | -------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | minify               | false                                                        | Whether to minify the output. This includes HTML, CSS and JS |
 | comments             | false                                                        | Whether to include comments in bundle output                 |
-| projectPath          | ./src                                                        | The folder for `.prism` components                           |
+| projectPath          | ./views                                                      | The folder for `.prism` components                           |
 | assetPath            | projectPath + /assets                                        | The folder with assets to include                            |
 | outputPath           | ./out                                                        | The folder to place a public folder for hosting public assets |
 | serverOutputPath     | outputPath + /server                                         | The folder to write functions for rendering pages            |
@@ -291,6 +291,8 @@ As of 1.3.0 prism supports compiling server render functions to native rust func
 | clientSideRouting    | true                                                         | Whether to do client side routing |
 | deno                 | false                                                        | Whether to add file extensions to the end of imports. For doing SSR  |
 | relativeBasePath     | "/"                                                          | The index path the site is hosted under. Useful for GH pages etc |
+| bundleOutput         | true                                                         | Whether to concatenate all modules together. (not recommended for prod)  |
+| outputTypeScript     | false                                                        | Output client modules with TypeScript syntax (for doing client ts checking) |
 
 Assigning these settings is first done through reading in `prism.config.json` in the current working directory. Then by looking at arguments behind any of the commands. e.g.
 
