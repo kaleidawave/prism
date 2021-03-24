@@ -34,8 +34,9 @@ registerFSPathInfoCallback(lstatSync);
 export { registerFSCopyCallback, registerFSExistsCallback, registerFSPathInfoCallback, registerFSReadCallback, registerFSReadDirectoryCallback, registerFSWriteCallback };
 
 export { compileApplication } from "./builders/compile-app";
-export { compileSingleComponent, compileSingleComponentFromFSMap, compileSingleComponentFromString } from "./builders/compile-component";
+export { compileComponent, compileComponentFromFSMap, compileSingleComponentFromString } from "./builders/compile-component";
 export { makePrismSettings } from "./settings";
+export { prismVersion } from "./bundled-files";
 
 export function registerSettings(cwd: string): Partial<IPrismSettings> {
     let configFilePath: string;

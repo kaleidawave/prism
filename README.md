@@ -17,6 +17,7 @@ Install with:
 
 *(not to be confused with highlighting library [prismjs](https://github.com/PrismJS/prism) and database toolkit [prisma](https://github.com/prisma/prisma))*
 
+### [Quick start tutorial](https://github.com/kaleidawave/prism/blob/main/docs/quickstart.md)
 
 ## Ultra efficient isomorphic. No JSON state, No *rerender* on hydration:
 
@@ -35,8 +36,6 @@ There is also the benefit that Prism does not need as JSON blob to do hydration 
 ### Web components authorization:
 
 Prism compiles down to native web components. Prism takes HTML templates and compiles them into native DOM api calls. It takes event bindings and compiles in attaching event listeners. Prism can output single component definitions that can be shared and work natively. Building a app with Prism consists of batch component compilation and injecting a client side router to build a SPA.
-
-### [Quick start tutorial](https://github.com/kaleidawave/prism-docs/blob/main/md/quickstart.md)
 
 ### Development:
 

@@ -11,7 +11,7 @@ import { ExportStatement, ImportStatement } from "../chef/javascript/components/
 import { UseStatement } from "../chef/rust/statements/use";
 
 /**
- * Component cannot import another component as there single source. Use `compileSingleComponentFromFSMap`
+ * Component cannot import another component as there single source. Use `compileComponentFromFSMap`
  * for multiple components
  * @param componentSource 
  * @param partialSettings 
@@ -38,18 +38,18 @@ export function compileSingleComponentFromString(
     registerFSWriteCallback((filename, content) => {
         outputMap.set(filename, content);
     });
-    compileSingleComponent("", partialSettings);
+    compileComponent("", partialSettings);
     // replace callbacks
     registerFSReadCallback(fileSystemReadCallback);
     registerFSWriteCallback(fileSystemWriteCallback);
     return outputMap;
 }
 
-export function compileSingleComponentFromFSMap(
+export function compileComponentFromFSMap(
     componentSourceMap: Map<string, string>, 
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
-    if (!(componentSourceMap instanceof Map)) throw Error("compileSingleComponentFromFSMap requires Map");
+    if (!(componentSourceMap instanceof Map)) throw Error("compileComponentFromFSMap requires Map");
     if (typeof partialSettings.outputPath === "undefined") {
         partialSettings.outputPath = "";
     }
@@ -70,7 +70,7 @@ export function compileSingleComponentFromFSMap(
     registerFSWriteCallback((filename, content) => {
         outputMap.set(filename, content);
     });
-    compileSingleComponent("", partialSettings);
+    compileComponent("", partialSettings);
     // replace callbacks
     registerFSReadCallback(fileSystemReadCallback);
     registerFSWriteCallback(fileSystemWriteCallback);
@@ -78,12 +78,12 @@ export function compileSingleComponentFromFSMap(
 }
 
 /**
- * Generate a script for a single component. Will also generate imported components down the tree. Unlike 
- * compileSingleApplication does not do all components in src folder and does not generate router
+ * Generate a script for a component. Will also generate imported components down the tree. Unlike 
+ * compileApplication does not do all components in src folder and does not generate router
  * @param projectPath The entry point
  * @returns Returns the component component name
  */
-export function compileSingleComponent(
+export function compileComponent(
     projectPath: string,
     partialSettings: Partial<IPrismSettings> = {}
 ): string {

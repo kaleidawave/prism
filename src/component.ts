@@ -20,7 +20,7 @@ import { addBinding, getElement, hasDateProperty, randomPrismId, thisDataVariabl
 import { ImportStatement } from "./chef/javascript/components/statements/import-export";
 import { getImportPath, defaultRenderSettings, makeRenderSettings } from "./chef/helpers";
 import { IType, typeSignatureToIType, inbuiltTypes } from "./chef/javascript/utils/types";
-import { relative, resolve, dirname, join, isAbsolute } from "path";
+import { relative, dirname, join } from "path";
 import { Rule } from "./chef/css/rule";
 import { MediaRule } from "./chef/css/at-rules";
 import { IfStatement, ElseStatement } from "./chef/javascript/components/statements/if";
@@ -205,23 +205,28 @@ export class Component {
         this.importedComponents = new Map();
         Component.parsingComponents.add(this.filename);
         for (const import_ of this.clientModule.imports) {
-            // TODO other imports such as css etc
-            // TODO will make the component accessible based ONLY based on the path. e.g. it assumes the statement
-            // is `import * from "x.prism"`. Should look at the `variable` property on the import...
             if (import_.from.endsWith(".prism")) {
-                let componentPath: string;
-                if (isAbsolute(this.filename)) {
-                    componentPath = resolve(dirname(this.filename), import_.from);
-                } else {
-                    componentPath = relative(dirname(this.filename), import_.from);
-                }
+                // TODO absolute imports, possible look in node_modules etc
+                const componentPath: string = join(dirname(this.filename), import_.from);
                 const component = Component.registerComponent(componentPath, settings, runtimeFeatures);
-                this.importedComponents.set(component.className, component);
+
+                // Only add to importedComponents if it is imported. (e.g may import a method not a component)
+                // TODO export default & import x from ".."
+                if (
+                    import_.variable === null || 
+                    import_.variable?.entries?.has(component.className)
+                ) {
+                    this.importedComponents.set(component.className, component);
+                }
+                
+                // Change to relative path TODO check
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
                 import_.from = relativePath;
             } else {
                 this.imports.push(import_);
             }
+
+            // TODO other imports such as css etc
         }
         Component.parsingComponents.delete(this.filename);
 
@@ -726,19 +731,6 @@ export class Component {
 
             this.serverRenderParameters = parameters;
         }
-
-        // Add prism prelude. Remove "Router" if no clientSideRouting
-        const prismPreludeImports = settings.clientSideRouting ? 
-            preludeImports : 
-            preludeImports.filter((varName) => varName.name !== "Router");
-        const prismPreludeImport = new ImportStatement(prismPreludeImports, getImportPath(
-            this.clientModule.filename,
-            join(settings.absoluteOutputPath, "prism")
-        ));
-
-        // TODO bad method but prevents this being in the server module
-        (prismPreludeImport as any).prismPrelude = true;
-        this.clientModule.statements.unshift(prismPreludeImport);
     }
 
     // TODO return object rather than defining properties on this
@@ -920,5 +912,20 @@ export class Component {
             settings.absoluteOutputPath,
             this.relativeFilename
         );
+
+        // Add prism prelude. Remove "Router" if no clientSideRouting
+        const prismPreludeImports = settings.clientSideRouting ? 
+            preludeImports : 
+            preludeImports.filter((varName) => varName.name !== "Router");
+
+        const pathToPrismJS = getImportPath(
+            this.clientModule.filename,
+            join(settings.absoluteOutputPath, "prism")
+        );
+        const prismPreludeImport = new ImportStatement(prismPreludeImports, pathToPrismJS);
+
+        // TODO bad method but prevents this being in the server module
+        (prismPreludeImport as any).prismPrelude = true;
+        this.clientModule.statements.unshift(prismPreludeImport);
     }
 }

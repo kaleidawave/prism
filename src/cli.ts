@@ -1,7 +1,7 @@
 import { printHelpScreen, printInfoScreen, printWarningBanner } from "./others/banners";
 import { createPrismTemplateApp } from "./others/actions";
 // This node import also has side effects of setting callbacks to read from local filesystem 
-import { registerSettings, compileApplication, compileSingleComponent, runApplication } from "./node";
+import { registerSettings, compileApplication, compileComponent, runApplication } from "./node";
 
 switch (process.argv[2] ?? "info") {
     case "version":
@@ -18,7 +18,7 @@ switch (process.argv[2] ?? "info") {
         const settings = registerSettings(process.cwd());
         printWarningBanner();
         if (settings.buildTimings) console.time("Building single component");
-        let componentTagName = compileSingleComponent(process.cwd(), settings);
+        let componentTagName = compileComponent(process.cwd(), settings);
         if (settings.buildTimings) console.timeEnd("Building single component");
         console.log(`Wrote out component.js and component.css to ${settings.outputPath}`);
         console.log(`Built web component, use with "<${componentTagName}></${componentTagName}>" or "document.createElement("${componentTagName}")"`);

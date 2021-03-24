@@ -1,8 +1,8 @@
 {
   "name": "@kaleidawave/prism",
-  "version": "1.5.0-pre",
+  "version": "1.5.1",
   "description": "Isomorphic web app compiler",
-  "main": "./cjs/index.cjs",
+  "main": "./cjs/node.cjs",
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -63,8 +63,7 @@
     "lib/**/*.{js,map}",
     "mjs",
     "mjs/",
-    "mjs/**/*.{mjs,map}",
-    "src/**/*.{ts,tsx,json}"
+    "mjs/**/*.{mjs,map}"
   ],
   "homepage": "https://github.com/kaleidawave/prism#readme",
   "// Only used for testing and development:": "",
@@ -74,7 +73,7 @@
     "@types/node": "^13.13.25",
     "jest": "^25.5.4",
     "jest-cli": "^26.5.3",
-    "packemon": "^0.14.2",
+    "packemon": "^0.14.3",
     "ts-jest": "^26.4.1",
     "ts-node": "^9.1.1",
     "typescript": "^3.9.7"
