@@ -12,7 +12,7 @@ export function conditionalSwap(this: Component<any>, p: boolean, id: string, el
     // Don't change the element if the value of the predicate hasn't changed
     if (!!p === oE.hasAttribute("data-else")) {
         // this._ifSwapElemCache.get(id) will always return the prev discarded (if it was generated)
-        const nE = this._ifEC.get(id) ?? elementGenerator.call(this);
+        const nE = this._ifEC.get(id) ?? elementGenerator.call(this, p);
         this.setElem(id, nE); // Manually update cache
         this._ifEC.set(id, oE);
         oE.replaceWith(nE); // Replace the element

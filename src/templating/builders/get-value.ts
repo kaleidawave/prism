@@ -10,8 +10,10 @@ import { HTMLElement, Node } from "../../chef/html/html";
 import { newOptionalVariableReference, newOptionalVariableReferenceFromChain } from "../../chef/javascript/utils/variables";
 import { Group } from "../../chef/javascript/components/value/group";
 import { IFinalPrismSettings } from "../../settings";
+import { Component } from "../../component";
 
 export function makeGetFromBinding(
+    component: Component,
     binding: IBinding,
     nodeData: WeakMap<Node, NodeData>,
     dataType: IType,
@@ -20,7 +22,7 @@ export function makeGetFromBinding(
 ): ValueTypes | null {
 
     // If the element is multiple get the "pivot" of that element and building a chain
-    const elementStatement = binding.element ? getElement(binding.element, nodeData) : null; 
+    const elementStatement = binding.element ? getElement(binding.element, nodeData, component.templateElement) : null; 
     const isElementNullable = binding.element ? nodeData.get(binding.element)?.nullable ?? false : false;
 
     let getSource: ValueTypes;
@@ -157,7 +159,7 @@ export function makeGetFromBinding(
 export function getLengthFromIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): ValueTypes {
     if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
 
-    const getElemExpression = getElement(binding.element!, nodeData);
+    const getElemExpression = getElement(binding.element!, nodeData, null);
 
     // TODO this a temp fix for some conditionals being based on empty arrays but
     // makes the assumption that if parent component is not rendered due to #if="someArr.length > 0"

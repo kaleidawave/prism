@@ -156,7 +156,10 @@ function getSingleElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData
  * @param ancestor a ancestor of the descendant
  * @param element a descendant of the descendant
  */
-export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>): ValueTypes {
+export function getElement(element: HTMLElement, nodeData: WeakMap<Node, NodeData>, comp: HTMLElement | null): ValueTypes {
+    if (element === comp) {
+        return new VariableReference("this");
+    }
     const { multiple, nullable: isRootElementNullable } = nodeData.get(element) ?? {};
 
     if (!multiple) {

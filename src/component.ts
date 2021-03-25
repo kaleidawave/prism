@@ -8,7 +8,7 @@ import { constructBindings } from "./templating/builders/data-bindings";
 import { FunctionDeclaration, ArgumentList, GetSet } from "./chef/javascript/components/constructs/function";
 import { Expression, Operation, VariableReference } from "./chef/javascript/components/value/expression";
 import { VariableDeclaration } from "./chef/javascript/components/statements/variable";
-import { Value, Type, ValueTypes } from "./chef/javascript/components/value/value";
+import { Value, Type, ValueTypes, nullValue } from "./chef/javascript/components/value/value";
 import { ReturnStatement } from "./chef/javascript/components/statements/statement";
 import { setNotFoundRoute, addRoute } from "./builders/client-side-routing";
 import { DynamicUrl, stringToDynamicUrl } from "./chef/dynamic-url";
@@ -221,7 +221,8 @@ export class Component {
                 
                 // Change to relative path TODO check
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
-                import_.from = relativePath;
+                // For bundlers to know this is a JS file
+                import_.from = relativePath + (settings.outputTypeScript ? ".ts" : ".js"); 
             } else {
                 this.imports.push(import_);
             }
@@ -339,11 +340,17 @@ export class Component {
                 const clientAliasedConditionExpression = cloneAST(conditionalExpression!);
                 aliasVariables(clientAliasedConditionExpression, thisDataVariable, this.globals);
 
+                const valueCheck = new Expression({
+                    lhs: new VariableReference("value"),
+                    operation: Operation.NullCoalescing,
+                    rhs: clientAliasedConditionExpression
+                });
+
                 const renderMethod = new FunctionDeclaration(
                     "render" + identifier!,
-                    [],
+                    [new VariableDeclaration("value", { value: nullValue })],
                     [
-                        new IfStatement(clientAliasedConditionExpression as ValueTypes, [
+                        new IfStatement(valueCheck as ValueTypes, [
                             new ReturnStatement(renderTruthyChild)
                         ], new ElseStatement(null, [
                             new ReturnStatement(renderFalsyChild)
@@ -368,7 +375,7 @@ export class Component {
 
             // The reference to a variable in which to call the append method on
             const referenceToSlotElement = parentOfSlotElement.tagName === "template"
-                ? new VariableReference("super") : getElement(parentOfSlotElement, templateData.nodeData);
+                ? new VariableReference("super") : getElement(parentOfSlotElement, templateData.nodeData, this.templateElement);
 
             // Overrides the HTMLElements append method
             // It stores it in a property under the component which is refereed to during initial csr
@@ -401,7 +408,7 @@ export class Component {
             if (!contentSlot) {
                 throw Error(`Layout must have content slot for page content`)
             }
-            const getReferenceToSlotParent = getElement(contentSlot.parent as HTMLElement, templateData.nodeData);
+            const getReferenceToSlotParent = getElement(contentSlot.parent as HTMLElement, templateData.nodeData, this.templateElement);
             const getFirstChild = new VariableReference("firstElementChild", getReferenceToSlotParent);
             const getFirstChildGetter = new FunctionDeclaration("firstElementChild", [], [
                 new ReturnStatement(getFirstChild)
@@ -607,6 +614,7 @@ export class Component {
                 }
 
                 const bindingTree = constructBindings(
+                    this,
                     templateData.bindings,
                     templateData.nodeData,
                     componentDataType,

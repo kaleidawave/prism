@@ -7,15 +7,19 @@ import { getSlice, getElement, thisDataVariable } from "../helpers";
 import { BindingAspect, IBinding, VariableReferenceArray, NodeData } from "../template";
 import { HTMLElement, Node } from "../../chef/html/html";
 import { ObjectLiteral } from "../../chef/javascript/components/value/object";
+import { Component } from "../../component";
+
+const valueParam = new VariableReference("value");
 
 export function makeSetFromBinding(
+    component: Component,
     binding: IBinding,
     nodeData: WeakMap<Node, NodeData>,
     variableChain: VariableReferenceArray,
     globals: Array<VariableReference> = []
 ): Array<StatementTypes> {
     const statements: Array<StatementTypes> = [];
-    const elementStatement = binding.element ? getElement(binding.element, nodeData) : null;
+    const elementStatement = binding.element ? getElement(binding.element, nodeData, component.templateElement) : null;
     const isElementNullable = binding.element ? nodeData.get(binding.element)?.nullable ?? false : false;
 
     // getSlice will return the trailing portion from the for iterator statement thing
@@ -24,7 +28,7 @@ export function makeSetFromBinding(
     let newValue: ValueTypes | null = null;
     if (binding.expression) {
         const clonedExpression = cloneAST(binding.expression) as ValueTypes;
-        const valueParam = new VariableReference("value");
+        
         replaceVariables(clonedExpression, valueParam, [variableReference]);
         aliasVariables(clonedExpression, thisDataVariable, [valueParam, ...globals]);
         newValue = clonedExpression;
@@ -128,22 +132,18 @@ export function makeSetFromBinding(
                 }));
             } else {
                 if (newValue! instanceof ObjectLiteral) {
-                    const lhs = VariableReference.fromChain(elementStatement!, "data", ...variableChain.map((point) => {
-                        if (typeof point === "string") {
-                            return point
-                        } else {
-                            throw Error(`Cannot reverse ${binding.expression.render()}`);
-                        }
-                    }));
-                    let rhs: ValueTypes = newValue!;
-                    for (const property of variableChain) {
-                        if (typeof property === "string") {
-                            rhs = (rhs as ObjectLiteral).values.get(property)!;
-                        } else {
-                            throw Error("Cannot perform set for object literal thing");
-                        }
-                    }
-                    statements.push(new Expression({ lhs, operation: Operation.Assign, rhs }));
+                    // TODO only supports { x: y } or { x } atm (rhs has to be VariableReference)
+                    // TODO rather than === valueParam should be has valueParam to parse expressions
+                    const [property, value] = Array.from(newValue.values.entries())
+                        .find(([_, val]) => val instanceof VariableReference && val.name === "value")!;
+
+                    statements.push(
+                        new Expression({ 
+                            lhs: VariableReference.fromChain(elementStatement!, "data", property as string), 
+                            operation: Operation.Assign, 
+                            rhs: value
+                        })
+                    );
                 } else {
                     statements.push(new Expression({
                         lhs: new VariableReference("data", elementStatement!),
@@ -220,7 +220,7 @@ export function makeSetFromBinding(
 
 export function setLengthForIteratorBinding(binding: IBinding, nodeData: WeakMap<Node, NodeData>): StatementTypes {
     if (binding.aspect !== BindingAspect.Iterator) throw Error("Expected iterator binding");
-    const getElemExpression = getElement(binding.element!, nodeData);
+    const getElemExpression = getElement(binding.element!, nodeData, null);
 
     // Uses the setLength helper to assist with sorting cache and removing from DOM
     return new Expression({

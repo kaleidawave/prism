@@ -10,6 +10,7 @@ import { IType } from "../../chef/javascript/utils/types";
 import { Expression, Operation, VariableReference } from "../../chef/javascript/components/value/expression";
 import { Node } from "../../chef/html/html";
 import { IFinalPrismSettings } from "../../settings";
+import { Component } from "../../component";
 
 /** Represents a data point */
 interface IDataPoint {
@@ -26,6 +27,7 @@ interface IDataPoint {
  * Creates the object literal structure that runtime observables use
  */
 export function constructBindings(
+    component: Component,
     bindings: Array<IBinding>,
     nodeData: WeakMap<Node, NodeData>,
     variableType: IType,
@@ -87,7 +89,7 @@ export function constructBindings(
             if (
                 (isomorphicContext && isReversibleBinding && buildReverseBinding) || binding.aspect === BindingAspect.Data) {
                 try {
-                    const getValue = makeGetFromBinding(binding, nodeData, type, variableChain, settings);
+                    const getValue = makeGetFromBinding(component, binding, nodeData, type, variableChain, settings);
                     if (getValue !== null) {
                         if (dataPoint.getReturnValueNullable !== true) {
                             dataPoint.getReturnValue = getValue;
@@ -106,7 +108,7 @@ export function constructBindings(
                 }
             }
 
-            const setStatement = makeSetFromBinding(binding, nodeData, variableChain, globals);
+            const setStatement = makeSetFromBinding(component, binding, nodeData, variableChain, globals);
 
             if (binding.aspect === BindingAspect.Iterator) {
                 if (!dataPoint.pushStatements) dataPoint.pushStatements = [];

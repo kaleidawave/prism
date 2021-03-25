@@ -29,7 +29,7 @@ export function compileSingleComponentFromString(
     const fileSystemReadCallback = __fileSystemReadCallback;
     const fileSystemWriteCallback = __fileSystemWriteCallback;
     registerFSReadCallback(filename => {
-        if (filename === "/index.prism" || filename === "\\index.prism") {
+        if (filename === "/index.prism" || filename === "\\index.prism" || filename === "index.prism") {
             return componentSource;
         } else {
             throw Error(`Cannot read path '${filename}'`);
