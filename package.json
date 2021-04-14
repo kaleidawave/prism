@@ -1,127 +1,130 @@
 {
-  "name": "@kaleidawave/prism",
-  "version": "1.5.2",
-  "description": "Isomorphic web app compiler",
-  "main": "./cjs/node.cjs",
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "node": {
-        "require": "./cjs/node.cjs"
-      }
+    "name": "@kaleidawave/prism",
+    "version": "1.5.2",
+    "description": "Isomorphic web app compiler",
+    "main": "./cjs/node.cjs",
+    "exports": {
+        "./package.json": "./package.json",
+        ".": {
+            "node": {
+                "require": "./cjs/node.cjs"
+            }
+        },
+        "./bin": {
+            "node": "./lib/node/cli.js"
+        },
+        "./web": {
+            "browser": {
+                "import": "./esm/web.js",
+                "module": "./esm/web.js",
+                "default": "./lib/browser/web.js"
+            }
+        },
+        "./import": {
+            "node": {
+                "import": "./mjs/import.mjs"
+            }
+        }
     },
-    "./bin": {
-      "node": "./lib/node/cli.js"
+    "scripts": {
+        "test": "jest",
+        "build": "npm run build-bundle && npm run build-packemon",
+        "build-packemon": "packemon build --declaration standard",
+        "postbuild-packemon": "node post-build.js",
+        "build-tsc": "tsc",
+        "build-bundle": "ts-node inject-bundle.ts",
+        "clean": "packemon clean"
     },
-    "./web": {
-      "browser": {
-        "import": "./esm/web.js",
-        "module": "./esm/web.js",
-        "default": "./lib/browser/web.js"
-      }
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kaleidawave/prism.git"
     },
-    "./import": {
-      "node": {
-        "import": "./mjs/import.mjs"
-      }
-    }
-  },
-  "scripts": {
-    "test": "jest",
-    "build": "npm run build-bundle && npm run build-packemon",
-    "build-packemon": "packemon build",
-    "build-tsc": "tsc",
-    "build-bundle": "ts-node inject-bundle.ts",
-    "clean": "packemon clean"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/kaleidawave/prism.git"
-  },
-  "keywords": [
-    "web-components",
-    "ssr",
-    "template",
-    "isomorphic",
-    "framework",
-    "compiler"
-  ],
-  "author": "kaleidawave",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/kaleidawave/prism/issues"
-  },
-  "files": [
-    "cjs",
-    "cjs/",
-    "cjs/**/*.{cjs,map}",
-    "esm",
-    "esm/",
-    "esm/**/*.{js,map}",
-    "lib",
-    "lib/",
-    "lib/**/*.{js,map}",
-    "mjs",
-    "mjs/",
-    "mjs/**/*.{mjs,map}"
-  ],
-  "homepage": "https://github.com/kaleidawave/prism#readme",
-  "// Only used for testing and development:": "",
-  "devDependencies": {
-    "@types/jest": "^25.2.3",
-    "@types/jest-cli": "^24.3.0",
-    "@types/node": "^13.13.25",
-    "jest": "^25.5.4",
-    "jest-cli": "^26.5.3",
-    "packemon": "^0.14.3",
-    "ts-jest": "^26.4.1",
-    "ts-node": "^9.1.1",
-    "typescript": "^3.9.7"
-  },
-  "packemon": [
-    {
-      "inputs": {
-        "index": "src/node.ts"
-      },
-      "format": "cjs",
-      "platform": "node"
+    "keywords": [
+        "web-components",
+        "ssr",
+        "template",
+        "isomorphic",
+        "framework",
+        "compiler"
+    ],
+    "author": "kaleidawave",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kaleidawave/prism/issues"
     },
-    {
-      "inputs": {
-        "bin": "src/cli.ts"
-      },
-      "platform": "node"
+    "files": [
+        "cjs",
+        "cjs/",
+        "cjs/**/*.{cjs,map}",
+        "dts/**/*.d.ts",
+        "esm",
+        "esm/",
+        "esm/**/*.{js,map}",
+        "lib",
+        "lib/",
+        "lib/**/*.{js,map}",
+        "mjs",
+        "mjs/",
+        "mjs/**/*.{mjs,map}"
+    ],
+    "homepage": "https://github.com/kaleidawave/prism#readme",
+    "// Only used for testing and development:": "",
+    "devDependencies": {
+        "@types/jest": "^25.2.3",
+        "@types/jest-cli": "^24.3.0",
+        "@types/node": "^13.13.48",
+        "jest": "^25.5.4",
+        "jest-cli": "^26.5.3",
+        "packemon": "^0.15.0",
+        "ts-jest": "^26.5.4",
+        "ts-node": "^9.1.1",
+        "typescript": "^3.9.9"
     },
-    {
-      "inputs": {
-        "web": "src/web.ts"
-      },
-      "platform": "browser",
-      "support": "current"
+    "packemon": [
+        {
+            "inputs": {
+                "index": "src/node.ts"
+            },
+            "format": "cjs",
+            "platform": "node"
+        },
+        {
+            "inputs": {
+                "bin": "src/cli.ts"
+            },
+            "platform": "node"
+        },
+        {
+            "inputs": {
+                "web": "src/web.ts"
+            },
+            "platform": "browser",
+            "support": "current"
+        },
+        {
+            "inputs": {
+                "import": "src/web.ts"
+            },
+            "platform": "node",
+            "format": "mjs",
+            "support": "current"
+        }
+    ],
+    "jest": {
+        "preset": "ts-jest"
     },
-    {
-      "inputs": {
-        "import": "src/web.ts"
-      },
-      "platform": "node",
-      "format": "mjs",
-      "support": "current"
-    }
-  ],
-  "jest": {
-    "preset": "ts-jest"
-  },
-  "engines": {
-    "node": ">=10.3.0",
-    "npm": ">=6.1.0"
-  },
-  "dependencies": {},
-  "bin": {
-    "prism": "lib/node/cli.js"
-  },
-  "directories": {
-    "example": "examples",
-    "test": "tests"
-  },
-  "type": "commonjs"
+    "engines": {
+        "node": ">=10.3.0",
+        "npm": ">=6.1.0"
+    },
+    "dependencies": {},
+    "bin": {
+        "prism": "lib/node/cli.js"
+    },
+    "directories": {
+        "example": "examples",
+        "test": "tests"
+    },
+    "type": "commonjs",
+    "types": "./dts/node.d.ts"
 }

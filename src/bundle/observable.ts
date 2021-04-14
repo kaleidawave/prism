@@ -16,7 +16,7 @@ import { isArrayHoley } from "./helpers";
 export function cO(this: Component<any>, c: any, d: any, ...i: Array<number>) {
     if (c.type === "Date") return cOD.call(this, d, c.set, ...i);
     else if (c.get) return c.get.call(this, ...i);
-    else if (c.type === "Array") return cOA.call(this, c, d, [], ...i);
+    else if (c.type === "Array") return cOA.call(this, c, d, new Array(d?.length ?? c.length()), ...i);
     else return cOO.call(this, c, d, {}, ...i);
 }
 

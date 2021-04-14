@@ -16,8 +16,8 @@
         "declaration": true,
         "declarationDir": "dts",
         "outDir": "dts",
-        "noEmit": true,
-        "resolveJsonModule": false,
+        "noEmit": false,
+        "resolveJsonModule": false
     },
     "files": [
         "src/cli.ts",

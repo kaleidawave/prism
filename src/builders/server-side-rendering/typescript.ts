@@ -114,7 +114,7 @@ export function makeTsComponentServerModule(
                 );
                 const newImport = new ImportStatement(newImports, newPath, statement.as, statement.typeOnly);
                 comp.serverModule!.statements.push(newImport);
-            } else if (!(statement as any).prismPrelude) {
+            } else if (!(statement as any).prismPrelude && !statement.from.endsWith(".css")) {
                 const newPath = getImportPath(
                     comp.serverModule!.filename!,
                     resolve(dirname(comp.filename), statement.from)

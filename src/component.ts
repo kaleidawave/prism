@@ -180,7 +180,11 @@ export class Component {
         const styleElement: HTMLElement = componentFile.children.find(child =>
             child instanceof HTMLElement && child.tagName === "style") as HTMLElement;
 
-        this.stylesheet = styleElement?.stylesheet;
+        if (styleElement) {
+            const componentStylesheet = styleElement.stylesheet!;
+            componentStylesheet.filename += ".css";
+            this.stylesheet = componentStylesheet;
+        }
     }
 
     processComponent(settings: IFinalPrismSettings, runtimeFeatures: IRuntimeFeatures) {
@@ -213,16 +217,16 @@ export class Component {
                 // Only add to importedComponents if it is imported. (e.g may import a method not a component)
                 // TODO export default & import x from ".."
                 if (
-                    import_.variable === null || 
+                    import_.variable === null ||
                     import_.variable?.entries?.has(component.className)
                 ) {
                     this.importedComponents.set(component.className, component);
                 }
-                
+
                 // Change to relative path TODO check
                 const relativePath = getImportPath(this.relativeFilename, component.relativeFilename);
                 // For bundlers to know this is a JS file
-                import_.from = relativePath + (settings.outputTypeScript ? ".ts" : ".js"); 
+                import_.from = relativePath + (settings.outputTypeScript ? ".ts" : ".js");
             } else {
                 this.imports.push(import_);
             }
@@ -495,8 +499,8 @@ export class Component {
         function hasArrayProperty(type: IType): boolean {
             return type.name === "Array" ||
                 (
-                    typeof type.properties !== "undefined" && 
-                        Array.from(type.properties)
+                    typeof type.properties !== "undefined" &&
+                    Array.from(type.properties)
                         .some(([, property]) => hasArrayProperty(property))
                 )
         }
@@ -529,7 +533,7 @@ export class Component {
                     url.push(part)
                 } else {
                     const name = new VariableReference(part.name);
-                    const binding: PartialBinding  = {
+                    const binding: PartialBinding = {
                         aspect: BindingAspect.ServerParameter,
                         expression: name,
                     };
@@ -550,8 +554,8 @@ export class Component {
                         })),
                         operation: Operation.Call,
                         rhs: new FunctionDeclaration(
-                            null, 
-                            ["resp"], 
+                            null,
+                            ["resp"],
                             [
                                 new Expression({
                                     lhs: VariableReference.fromChain("this", "innerHTML"),
@@ -570,7 +574,7 @@ export class Component {
                                     operation: Operation.OptionalCall,
                                     rhs: new Value(Type.boolean, true)
                                 })
-                            ], 
+                            ],
                             { isAsync: true, bound: false }
                         )
                     })
@@ -579,15 +583,15 @@ export class Component {
         } else {
             // Build the render method
             clientRenderMethod = buildClientRenderMethod(
-                this.templateElement, 
-                templateData.nodeData, 
-                true, 
+                this.templateElement,
+                templateData.nodeData,
+                true,
                 this.useShadowDOM,
                 this.globals
             );
         }
         componentClass.addMember(clientRenderMethod);
-        
+
         // Build event bindings for ssr components
         if (settings.context === "isomorphic" && templateData.events.length > 0) {
             componentClass.addMember(
@@ -597,12 +601,19 @@ export class Component {
 
         // Define component to customElement register call
         this.customElementDefineStatement = new Expression({
-            lhs: VariableReference.fromChain("window", "customElements", "define"),
+            lhs: VariableReference.fromChain("customElements", "define"),
             operation: Operation.Call,
             rhs: new ArgumentList([new Value(Type.string, this.tagName), new VariableReference(this.className)])
         });
 
         this.clientModule.statements.push(this.customElementDefineStatement);
+        
+        // For bundlers to include css files
+        if (this.stylesheet && !settings.bundleOutput && !this.useShadowDOM) {
+            this.clientModule.statements.unshift(
+                new ImportStatement(null, getImportPath(this.filename, this.stylesheet.filename))
+            );
+        }
 
         // Construct bindings
         if (templateData.bindings.length > 0 && !this.passive) {
@@ -694,7 +705,7 @@ export class Component {
 
             if (!(this.isPage || this.isLayout)) {
                 assignToObjectMap(
-                    this.templateData.nodeData, this.componentHTMLTag, 
+                    this.templateData.nodeData, this.componentHTMLTag,
                     "rawAttribute", new VariableReference("attributes")
                 );
                 parameters.push(new VariableDeclaration("attributes", {
@@ -922,8 +933,8 @@ export class Component {
         );
 
         // Add prism prelude. Remove "Router" if no clientSideRouting
-        const prismPreludeImports = settings.clientSideRouting ? 
-            preludeImports : 
+        const prismPreludeImports = settings.clientSideRouting ?
+            preludeImports :
             preludeImports.filter((varName) => varName.name !== "Router");
 
         const pathToPrismJS = getImportPath(

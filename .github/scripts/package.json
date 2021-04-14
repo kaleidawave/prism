@@ -1,0 +1,17 @@
+{
+  "name": "scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "npm-release.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node npm-release.js"
+  },
+  "keywords": [],
+  "author": "kaleidawave",
+  "dependencies": {
+    "@actions/core": "^1.2.6",
+    "semver": "^7.3.5"
+  }
+}

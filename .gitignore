@@ -12,4 +12,5 @@ esm
 lib
 mjs
 cjs
+dts
 src/bundled-files.ts

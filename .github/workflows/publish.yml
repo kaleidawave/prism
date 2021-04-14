@@ -1,0 +1,44 @@
+name: NPM Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'major/minor/patch or semver'
+        required: true
+        default: 'patch'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+      - name: Run update script
+        id: script
+        run: |
+          npm ci
+          npm run start -- ${{ github.event.inputs.version }}
+        working-directory: ./.github/scripts
+      - uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Build & publish on npm
+        run: |
+            npm ci
+            npm run build
+            npm config set //registry.npmjs.org/:_authToken ${NPM_REGISTRY_TOKEN}
+            npm publish --ignore-scripts
+        env:
+          NPM_REGISTRY_TOKEN: ${{ secrets.NPM_REGISTRY_TOKEN }}
+      - name: Push updated package.json
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "Release: ${{ steps.script.outputs.newVersion }}"
+          git tag "v${{ steps.script.outputs.newVersion }}"
+          git push --tags
