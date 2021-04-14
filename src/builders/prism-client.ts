@@ -86,9 +86,8 @@ export function treeShakeBundle(runtimeFeatures: IRuntimeFeatures, bundle: Modul
     if (!runtimeFeatures.observableDates) {
         // Remove createObservableDate function
         bundle.statements = bundle.statements.filter(statement => !(
-            statement instanceof ExportStatement && 
-            statement.exported instanceof FunctionDeclaration && 
-            statement.exported.actualName === "cOD"
+            statement instanceof FunctionDeclaration && 
+            statement.actualName === "cOD"
         ));
     }
     if (!runtimeFeatures.svg) {

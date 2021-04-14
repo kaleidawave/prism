@@ -34,7 +34,7 @@ registerFSPathInfoCallback(lstatSync);
 export { registerFSCopyCallback, registerFSExistsCallback, registerFSPathInfoCallback, registerFSReadCallback, registerFSReadDirectoryCallback, registerFSWriteCallback };
 
 export { compileApplication } from "./builders/compile-app";
-export { compileComponent, compileComponentFromFSMap, compileSingleComponentFromString } from "./builders/compile-component";
+export { compileComponent, compileComponentFromFSMap, compileSingleComponentFromString, compileComponentFromFSObject } from "./builders/compile-component";
 export { makePrismSettings } from "./settings";
 export { prismVersion } from "./bundled-files";
 

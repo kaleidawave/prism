@@ -13,6 +13,7 @@ try {
         case "minor":
         case "patch":
             version = semver.inc(packageJSON.version, versionInput);
+            break;
         default:
             const parsedVersion = semver.parse(versionInput);
             if (parsedVersion === null) {
@@ -20,6 +21,7 @@ try {
             } else {
                 version = parsedVersion.version;
             }
+            break;
     }
     packageJSON.version = version;
     fs.writeFileSync(packageJSONFile, JSON.stringify(packageJSON, 0, 4));

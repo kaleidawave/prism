@@ -77,6 +77,37 @@ export function compileComponentFromFSMap(
     return outputMap;
 }
 
+export function compileComponentFromFSObject(
+    componentSourceMap: Record<string, string>, 
+    partialSettings: Partial<IPrismSettings> = {}
+): Map<string, string> {
+    if (typeof partialSettings.outputPath === "undefined") {
+        partialSettings.outputPath = "";
+    }
+    if (typeof partialSettings.projectPath === "undefined") {
+        partialSettings.projectPath = ".";
+    }
+    // swap callbacks
+    const fileSystemReadCallback = __fileSystemReadCallback;
+    const fileSystemWriteCallback = __fileSystemWriteCallback;
+    registerFSReadCallback(filename => {
+        if (filename in componentSourceMap) {
+            return componentSourceMap[filename];
+        } else {
+            throw Error(`Cannot read path '${filename}'`);
+        }
+    });
+    const outputMap = new Map();
+    registerFSWriteCallback((filename, content) => {
+        outputMap.set(filename, content);
+    });
+    compileComponent("", partialSettings);
+    // replace callbacks
+    registerFSReadCallback(fileSystemReadCallback);
+    registerFSWriteCallback(fileSystemWriteCallback);
+    return outputMap;
+}
+
 /**
  * Generate a script for a component. Will also generate imported components down the tree. Unlike 
  * compileApplication does not do all components in src folder and does not generate router
