@@ -30,6 +30,8 @@ export function compileApplication(
     partialSettings: Partial<IPrismSettings> = {}, 
     runFunction?: typeof runApplication
 ) {
+    // Clear any previously build components
+    Component.registeredComponents.clear();
     const settings: IFinalPrismSettings = makePrismSettings(cwd, partialSettings);
     const features: IRuntimeFeatures = { ...defaultRuntimeFeatures, isomorphic: settings.context === "isomorphic" };
 

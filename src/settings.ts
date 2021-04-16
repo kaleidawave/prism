@@ -24,6 +24,8 @@ export interface IPrismSettings {
     deno: boolean, // Includes file extensions in imports on server output
     bundleOutput: boolean // Concatenate output to single bundle
     outputTypeScript: boolean // Whether to output components in typescript so that checking can be done
+    // Use the input name of the component as the name of the bundles produced by compile-component
+    useComponentNameAsComponentOutput: boolean 
 }
 
 const defaultSettings: IPrismSettings = {
@@ -50,6 +52,7 @@ const defaultSettings: IPrismSettings = {
     deno: false,
     bundleOutput: true,
     outputTypeScript: false,
+    useComponentNameAsComponentOutput: false
 };
 
 /**

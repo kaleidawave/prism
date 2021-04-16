@@ -6,7 +6,7 @@ import { IRenderSettings, ModuleFormat, ScriptLanguages } from "../chef/helpers"
 import { IFinalPrismSettings, IPrismSettings, makePrismSettings } from "../settings";
 import { fileBundle } from "../bundled-files";
 import { registerFSWriteCallback, registerFSReadCallback, __fileSystemReadCallback, __fileSystemWriteCallback } from "../filesystem";
-import { join } from "path";
+import { join, basename } from "path";
 import { ExportStatement, ImportStatement } from "../chef/javascript/components/statements/import-export";
 import { UseStatement } from "../chef/rust/statements/use";
 
@@ -57,8 +57,8 @@ export function compileComponentFromFSMap(
         partialSettings.projectPath = ".";
     }
     // swap callbacks
-    const fileSystemReadCallback = __fileSystemReadCallback;
-    const fileSystemWriteCallback = __fileSystemWriteCallback;
+    const oldFileSystemReadCallback = __fileSystemReadCallback;
+    const oldFileSystemWriteCallback = __fileSystemWriteCallback;
     registerFSReadCallback(filename => {
         if (componentSourceMap.has(filename)) {
             return componentSourceMap.get(filename)!;
@@ -72,13 +72,13 @@ export function compileComponentFromFSMap(
     });
     compileComponent("", partialSettings);
     // replace callbacks
-    registerFSReadCallback(fileSystemReadCallback);
-    registerFSWriteCallback(fileSystemWriteCallback);
+    registerFSReadCallback(oldFileSystemReadCallback);
+    registerFSWriteCallback(oldFileSystemWriteCallback);
     return outputMap;
 }
 
 export function compileComponentFromFSObject(
-    componentSourceMap: Record<string, string>, 
+    componentSourceObject: Record<string, string>, 
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
     if (typeof partialSettings.outputPath === "undefined") {
@@ -88,11 +88,11 @@ export function compileComponentFromFSObject(
         partialSettings.projectPath = ".";
     }
     // swap callbacks
-    const fileSystemReadCallback = __fileSystemReadCallback;
-    const fileSystemWriteCallback = __fileSystemWriteCallback;
+    const oldFileSystemReadCallback = __fileSystemReadCallback;
+    const oldFileSystemWriteCallback = __fileSystemWriteCallback;
     registerFSReadCallback(filename => {
-        if (filename in componentSourceMap) {
-            return componentSourceMap[filename];
+        if (filename in componentSourceObject) {
+            return componentSourceObject[filename];
         } else {
             throw Error(`Cannot read path '${filename}'`);
         }
@@ -103,8 +103,8 @@ export function compileComponentFromFSObject(
     });
     compileComponent("", partialSettings);
     // replace callbacks
-    registerFSReadCallback(fileSystemReadCallback);
-    registerFSWriteCallback(fileSystemWriteCallback);
+    registerFSReadCallback(oldFileSystemReadCallback);
+    registerFSWriteCallback(oldFileSystemWriteCallback);
     return outputMap;
 }
 
@@ -118,6 +118,8 @@ export function compileComponent(
     projectPath: string,
     partialSettings: Partial<IPrismSettings> = {}
 ): string {
+    // Clear any previously build components
+    Component.registeredComponents.clear();
     // In general components are built for client. Override isomorphic default
     if (typeof partialSettings.context === "undefined") {
         partialSettings.context = "client";
@@ -143,20 +145,27 @@ export function compileComponent(
         registeredComponent.generateCode(settings);
     }
 
+    let outputName: string;
+    if (settings.useComponentNameAsComponentOutput) {
+        outputName = basename(settings.absoluteComponentPath, "prism");
+    } else {
+        outputName = "component";
+    }
+
     let bundledClientModule: Module;
     if (settings.bundleOutput) {
         bundledClientModule = getPrismClient(false);
         if (settings.minify) {
             treeShakeBundle(features, bundledClientModule);
         }
-        bundledClientModule.filename = join(settings.absoluteOutputPath, "component.js");
+        bundledClientModule.filename = join(settings.absoluteOutputPath, outputName + ".js");
     } else {
         const prismClient = getPrismClient(false);
         prismClient.filename = join(settings.absoluteOutputPath, "prism");
         prismClient.writeToFile(clientRenderSettings);
     }
     
-    const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, "component.css"));
+    const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, outputName + ".css"));
 
     let scriptLanguage: ScriptLanguages;
     switch (settings.backendLanguage) {

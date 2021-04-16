@@ -26,14 +26,14 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-      - name: Build & publish on npm
+      - name: Build package
         run: |
             npm ci
             npm run build
-            npm config set //registry.npmjs.org/:_authToken ${NPM_REGISTRY_TOKEN}
-            npm publish --ignore-scripts
-        env:
-          NPM_REGISTRY_TOKEN: ${{ secrets.NPM_REGISTRY_TOKEN }}
+      - name: Publish on npm
+      - uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ secrets.NPM_REGISTRY_TOKEN }}
       - name: Push updated package.json
         run: |
           git config user.name github-actions
