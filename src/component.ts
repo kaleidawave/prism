@@ -607,13 +607,6 @@ export class Component {
         });
 
         this.clientModule.statements.push(this.customElementDefineStatement);
-        
-        // For bundlers to include css files
-        if (this.stylesheet && !settings.bundleOutput && !this.useShadowDOM) {
-            this.clientModule.statements.unshift(
-                new ImportStatement(null, getImportPath(this.filename, this.stylesheet.filename))
-            );
-        }
 
         // Construct bindings
         if (templateData.bindings.length > 0 && !this.passive) {
@@ -941,6 +934,14 @@ export class Component {
             this.clientModule.filename,
             join(settings.absoluteOutputPath, "prism")
         );
+
+        // For bundlers to include css files
+        if (this.stylesheet && !settings.bundleOutput && !this.useShadowDOM) {
+            this.clientModule.statements.unshift(
+                new ImportStatement(null, getImportPath(this.clientModule.filename, this.stylesheet.filename))
+            );
+        }
+
         const prismPreludeImport = new ImportStatement(prismPreludeImports, pathToPrismJS);
 
         // TODO bad method but prevents this being in the server module

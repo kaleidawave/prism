@@ -41,4 +41,4 @@ jobs:
           git add .
           git commit -m "Release: ${{ steps.script.outputs.newVersion }}"
           git tag "v${{ steps.script.outputs.newVersion }}"
-          git push --tags
+          git push --tags origin main

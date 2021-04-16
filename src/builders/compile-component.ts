@@ -147,7 +147,7 @@ export function compileComponent(
 
     let outputName: string;
     if (settings.useComponentNameAsComponentOutput) {
-        outputName = basename(settings.absoluteComponentPath, "prism");
+        outputName = basename(settings.absoluteComponentPath);
     } else {
         outputName = "component";
     }
