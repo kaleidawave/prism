@@ -97,6 +97,7 @@ export function makeTsComponentServerModule(
         } else if (statement instanceof ExportStatement) {
             if (statement.exported !== comp.componentClass) comp.serverModule!.statements.push(statement);
         } else if (statement instanceof ImportStatement) {
+            // If component
             if (statement.from.endsWith(".prism.js") || statement.from.endsWith(".prism.ts")) {
                 const newImports: Array<string> = [];
                 let importedComponent: Component | null = null;

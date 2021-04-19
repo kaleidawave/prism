@@ -17,7 +17,7 @@ import { UseStatement } from "../chef/rust/statements/use";
  * @param partialSettings 
  */
 export function compileSingleComponentFromString(
-    componentSource: string, 
+    componentSource: string,
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
     if (typeof componentSource !== "string") throw Error("compileSingleComponentFromString requires string");
@@ -46,7 +46,7 @@ export function compileSingleComponentFromString(
 }
 
 export function compileComponentFromFSMap(
-    componentSourceMap: Map<string, string>, 
+    componentSourceMap: Map<string, string>,
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
     if (!(componentSourceMap instanceof Map)) throw Error("compileComponentFromFSMap requires Map");
@@ -78,7 +78,7 @@ export function compileComponentFromFSMap(
 }
 
 export function compileComponentFromFSObject(
-    componentSourceObject: Record<string, string>, 
+    componentSourceObject: Record<string, string>,
     partialSettings: Partial<IPrismSettings> = {}
 ): Map<string, string> {
     if (typeof partialSettings.outputPath === "undefined") {
@@ -133,7 +133,7 @@ export function compileComponent(
     if (settings.buildTimings) console.time("Parse component file and its imports");
     const component = Component.registerComponent(settings.absoluteComponentPath, settings, features);
     if (settings.buildTimings) console.timeEnd("Parse component file and its imports");
-    
+
     const clientRenderSettings: Partial<IRenderSettings> = {
         minify: settings.minify,
         moduleFormat: ModuleFormat.ESM,
@@ -145,12 +145,7 @@ export function compileComponent(
         registeredComponent.generateCode(settings);
     }
 
-    let outputName: string;
-    if (settings.useComponentNameAsComponentOutput) {
-        outputName = basename(settings.absoluteComponentPath);
-    } else {
-        outputName = "component";
-    }
+    const outputName: string = basename(settings.absoluteComponentPath);
 
     let bundledClientModule: Module;
     if (settings.bundleOutput) {
@@ -164,7 +159,7 @@ export function compileComponent(
         prismClient.filename = join(settings.absoluteOutputPath, "prism");
         prismClient.writeToFile(clientRenderSettings);
     }
-    
+
     const bundledStylesheet = new Stylesheet(join(settings.absoluteOutputPath, outputName + ".css"));
 
     let scriptLanguage: ScriptLanguages;
@@ -180,7 +175,7 @@ export function compileComponent(
     if (settings.bundleOutput) {
         addComponentToBundle(component, bundledClientModule!, bundledStylesheet);
     } else {
-        for (const [,registeredComponent] of Component.registeredComponents) {
+        for (const [, registeredComponent] of Component.registeredComponents) {
             registeredComponent.clientModule.writeToFile(clientRenderSettings);
             if (registeredComponent.stylesheet && !registeredComponent.useShadowDOM) {
                 registeredComponent.stylesheet.writeToFile({ minify: settings.minify });
@@ -192,16 +187,16 @@ export function compileComponent(
     }
 
     if (settings.buildTimings) console.time("Render and write script & style bundle");
-    
+
     if (settings.bundleOutput) {
         // TODO temporary removing of all imports as it is bundled
         bundledClientModule!.statements = bundledClientModule!.statements
-            .filter(statement => 
-                !(statement instanceof ImportStatement)
-            ).map(statement => 
+            .filter(statement =>
+                !(statement instanceof ImportStatement && (settings.includeCSSImports ? !statement.from.endsWith(".css") : true))
+            ).map(statement =>
                 statement instanceof ExportStatement ?
                     statement.exported :
-                    statement 
+                    statement
             );
 
         bundledClientModule!.writeToFile(clientRenderSettings);
@@ -220,20 +215,20 @@ export function compileComponent(
 
         // TODO temporary removing of all imports as it is bundled
         if (settings.backendLanguage === "rust") {
-            bundledServerModule!.statements = 
-                bundledServerModule!.statements.filter(statement => 
+            bundledServerModule!.statements =
+                bundledServerModule!.statements.filter(statement =>
                     !(statement instanceof UseStatement)
                 );
         } else {
-            bundledServerModule!.statements = 
-                bundledServerModule!.statements.filter(statement => 
+            bundledServerModule!.statements =
+                bundledServerModule!.statements.filter(statement =>
                     !(statement instanceof ImportStatement)
                 );
         }
-                
+
         bundledServerModule.writeToFile(serverRenderSettings);
     }
-    
+
     if (settings.buildTimings) console.timeEnd("Render and write script & style bundle");
 
     return component.tagName;

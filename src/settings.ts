@@ -1,9 +1,7 @@
-import { join, isAbsolute, sep } from "path";
+import { join, isAbsolute, sep as separator } from "path";
 
 export interface IPrismSettings {
-    filesystem: Map<string, string> | null,
     minify: boolean, // Removes whitespace for space saving in output
-    backendLanguage: "js" | "ts" | "rust", // The languages to output server templates in
     comments: boolean, // Leave comments in TODO comment levels
     componentPath: string | null, // The path to the entry component
     projectPath: string, // The path to the components folder
@@ -12,47 +10,43 @@ export interface IPrismSettings {
     serverOutputPath: string | null, // The path to the output folder
     templatePath: string | null, // The path to the output folder, null if default
     context: "client" | "isomorphic", // If client will not build server paths or add hydration logic to client bundle
+    backendLanguage: "js" | "ts" | "rust", // The languages to output server templates in
+    buildTimings: boolean, // Whether to print timings of the static build
     relativeBasePath: string, // Prefix all routes, used if index is not under "/" 
     clientSideRouting: boolean, // Add router and do client side routing
-    // Add disable attribute to the SSR markup of all events which is then removed once event has been added
-    disableEventElements: boolean,
-    versioning: boolean, // Whether to version bundles (Insert a unique id into path)
-    buildTimings: boolean, // Whether to print timings of the static build
     run: boolean | "open", // Whether to run output after build
+    disableEventElements: boolean, // Add disable attribute to the SSR markup of all events which is then removed once event has been added
+    versioning: boolean, // Whether to version bundles (Insert a unique id into path)
     // Whether to SSR the content of components with shadow dom https://web.dev/declarative-shadow-dom/
     declarativeShadowDOM: boolean,
     deno: boolean, // Includes file extensions in imports on server output
-    bundleOutput: boolean // Concatenate output to single bundle
-    outputTypeScript: boolean // Whether to output components in typescript so that checking can be done
-    // Use the input name of the component as the name of the bundles produced by compile-component
-    useComponentNameAsComponentOutput: boolean 
+    bundleOutput: boolean, // Concatenate output to single bundle
+    outputTypeScript: boolean, // Whether to output components in typescript so that checking can be done
+    includeCSSImports: boolean, // Include CSS imports in components
 }
 
 const defaultSettings: IPrismSettings = {
     minify: false,
-    filesystem: null,
     comments: false,
     declarativeShadowDOM: false,
-    outputPath: "./out",
-    projectPath: "./views",
     componentPath: null,
-    /* These two are both null because they relate to project path and output path. 
-    There "defaults" are encoded in the respective actual getters in exported setters: */
+    projectPath: "./views",
     assetPath: null,
+    outputPath: "./out",
     serverOutputPath: null,
     templatePath: null,
+    context: "isomorphic",
+    backendLanguage: "js",
+    buildTimings: false,
+    clientSideRouting: true,
     versioning: true,
     relativeBasePath: "/",
-    backendLanguage: "js",
-    context: "isomorphic",
-    clientSideRouting: true,
     disableEventElements: true,
     run: false,
-    buildTimings: false,
     deno: false,
     bundleOutput: true,
+    includeCSSImports: false,
     outputTypeScript: false,
-    useComponentNameAsComponentOutput: false
 };
 
 /**
@@ -84,7 +78,7 @@ export function makePrismSettings(
     return {
         ...defaultSettings,
         ...partialSettings,
-        pathSplitter: sep,
+        pathSplitter: separator,
         componentPath,
         absoluteComponentPath: isAbsolute(componentPath) ? componentPath : join(cwd, componentPath),
         absoluteProjectPath: isAbsolute(projectPath) ? projectPath : join(cwd, projectPath),

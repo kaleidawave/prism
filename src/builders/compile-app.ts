@@ -26,8 +26,8 @@ import { ExportStatement, ImportStatement } from "../chef/javascript/components/
  * - Write out scripts, stylesheets and shell.html
  */
 export function compileApplication(
-    cwd: string, 
-    partialSettings: Partial<IPrismSettings> = {}, 
+    cwd: string,
+    partialSettings: Partial<IPrismSettings> = {},
     runFunction?: typeof runApplication
 ) {
     // Clear any previously build components
@@ -85,7 +85,7 @@ export function compileApplication(
             settings.absoluteOutputPath,
             clientRenderSettings
         );
-        
+
         if (settings.bundleOutput) {
             for (const moduleOrStylesheet of modulesAndStylesheets) {
                 if (moduleOrStylesheet instanceof Module) {
@@ -102,7 +102,7 @@ export function compileApplication(
 
         if (settings.buildTimings) console.timeEnd("Move static assets");
     }
-    
+
     // Used for doing rust imports TODO kinda temp
     const serverModulePaths: Array<string> = [];
 
@@ -125,7 +125,7 @@ export function compileApplication(
             // Add `import "*clientModule"` so bundlers can bundle registered components
             clientScriptBundle.statements.push(
                 new ImportStatement(
-                    null, 
+                    null,
                     getImportPath(clientScriptBundle.filename, registeredComponent.clientModule.filename)
                 )
             );
@@ -138,19 +138,19 @@ export function compileApplication(
                 registeredComponent.serverModule.writeToFile(serverRenderSettings);
             }
         }
-        
+
     }
     if (settings.buildTimings) console.timeEnd("Combine all component scripts and styles, write out server modules");
 
     // TODO temp remove all imports and exports as it is a bundle
     if (settings.bundleOutput) {
         clientScriptBundle!.statements = clientScriptBundle!.statements
-            .filter(statement => 
-                !(statement instanceof ImportStatement)
-            ) .map(statement => 
+            .filter(statement =>
+                !(statement instanceof ImportStatement && (settings.includeCSSImports ? !statement.from.endsWith(".css") : true))
+            ).map(statement =>
                 statement instanceof ExportStatement ?
                     statement.exported :
-                    statement 
+                    statement
             );
     }
 

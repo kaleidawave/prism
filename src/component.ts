@@ -932,11 +932,11 @@ export class Component {
 
         const pathToPrismJS = getImportPath(
             this.clientModule.filename,
-            join(settings.absoluteOutputPath, "prism")
+            join(settings.absoluteOutputPath, "prism.js")
         );
 
         // For bundlers to include css files
-        if (this.stylesheet && !settings.bundleOutput && !this.useShadowDOM) {
+        if (settings.includeCSSImports && this.stylesheet && !this.useShadowDOM) {
             this.clientModule.statements.unshift(
                 new ImportStatement(null, getImportPath(this.clientModule.filename, this.stylesheet.filename))
             );

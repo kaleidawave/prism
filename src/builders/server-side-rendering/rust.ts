@@ -348,6 +348,7 @@ export function makeRustComponentServerModule(
             statement === comp.customElementDefineStatement) {
             continue;
         } else if (statement instanceof JSImportStatement) {
+            // If component
             if (statement.from.endsWith(".prism.js") || statement.from.endsWith(".prism.ts")) {
                 const newImports: Array<string> = [];
                 let importedComponent: Component | null = null;

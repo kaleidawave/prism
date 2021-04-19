@@ -275,25 +275,27 @@ As of 1.3.0 prism supports compiling server render functions to native rust func
 | -------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | minify               | false                                                        | Whether to minify the output. This includes HTML, CSS and JS |
 | comments             | false                                                        | Whether to include comments in bundle output                 |
-| projectPath          | ./views                                                      | The folder for `.prism` components                           |
+| componentPath        | ./index.prism                                                | (for `compile-component`) Path to the component              |
+| projectPath          | ./views                                                      | (for `compile-app`) The folder of `.prism` components        |
 | assetPath            | projectPath + /assets                                        | The folder with assets to include                            |
-| outputPath           | ./out                                                        | The folder to place a public folder for hosting public assets |
-| serverOutputPath     | outputPath + /server                                         | The folder to write functions for rendering pages            |
-| templatePath         | [template.html](https://github.com/kaleidawave/prism/blob/main/src/bundle/template.html) | The HTML to inject application into                          |
+| outputPath           | ./out                                                        | The folder to build scripts, stylesheets and other assets to |
+| serverOutputPath     | outputPath + /server                                         | The folder to write functions for rendering pages & components |
+| templatePath         | [template.html](https://github.com/kaleidawave/prism/blob/main/src/bundle/template.html) | The HTML shell to inject the application into |
 | context              | isomorphic                                                   | Either `client` or `isomorphic`. Client applications will not have server functions and lack isomorphic functionality |
-| buildTimings         | false                                                        | Whether to log the time it takes to build Prism sites        |
-| run                  | false                                                        | If true will run dev server on client side output |
 | backendLanguage      | js                                                           | Either "js", "ts" or "rust"                                  |
-| disableEventElements | true                                                         | Adds disable to ssr elements with event handlers             |
-| declarativeShadowDOM | false                                                        | Enables [DSD](https://web.dev/declarative-shadow-dom/) for SSR the content of web components with shadow dom |
-| versioning           | true                                                         | Adds a unique id onto the end of output resources for versioning reasons |
-| clientSideRouting    | true                                                         | Whether to do client side routing |
-| deno                 | false                                                        | Whether to add file extensions to the end of imports. For doing SSR  |
+| buildTimings         | false                                                        | Whether to log the compilation duration                      |
 | relativeBasePath     | "/"                                                          | The index path the site is hosted under. Useful for GH pages etc |
-| bundleOutput         | true                                                         | Whether to concatenate all modules together. (not recommended for prod)  |
+| clientSideRouting    | true                                                         | Whether to do client side routing |
+| run                  | false                                                        | If true will run dev server on client side output |
+| disableEventElements | true                                                         | Adds disable to ssr elements with event handlers             |
+| versioning           | true                                                         | Adds a unique id onto the end of output resources for versioning reasons |
+| declarativeShadowDOM | false                                                        | Enables [DSD](https://web.dev/declarative-shadow-dom/) for SSR the content of web components with shadow dom |
+| deno                 | false                                                        | Whether to add file extensions to the end of imports. For doing SSR  |
+| bundleOutput         | true                                                         | Whether to concatenate all modules together instead of later with a bundler  |
 | outputTypeScript     | false                                                        | Output client modules with TypeScript syntax (for doing client ts checking) |
+| includeCSSImports    | false                                                        | Whether to include `import "*.css"` for components |
 
-Assigning these settings is first done through reading in `prism.config.json` in the current working directory. Then by looking at arguments behind any of the commands. e.g.
+Assigning these settings is first done through reading in `prism.config.json` in the current working directory. Then by looking at arguments after any commands. e.g.
 
 ```
 prism compile-app --projectPath "./examples/pages" --run open
